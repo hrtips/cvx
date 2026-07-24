@@ -7,3 +7,4 @@ dist/
 # AI assistant session data — never commit (may contain full transcripts)
 .claude/
 research/
+lib/
