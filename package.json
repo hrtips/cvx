@@ -1,6 +1,6 @@
 {
   "name": "makecv",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Config-driven CV generator: YAML content, swappable themes and layouts, pixel-perfect PDFs — no headless browser.",
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20, 22, 24]
+        include:
+          - os: windows-latest
+            node: 22
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      - name: Packaged E2E — init, build, ATS
+        shell: bash
+        run: |
+          npm pack
+          TARBALL="$PWD/$(ls makecv-*.tgz)"
+          DIR="$(mktemp -d)"
+          cd "$DIR"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$TARBALL"
+          npx makecv init
+          npx makecv build
+          npx makecv build --ats
+          test -f bruce-wayne.pdf && test -f bruce-wayne-ats.pdf
+
+      - name: Reproducibility — two pinned builds must be byte-identical
+        shell: bash
+        run: |
+          DIR="$(mktemp -d)"
+          cd "$DIR"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$(ls "$GITHUB_WORKSPACE"/makecv-*.tgz)"
+          npx makecv init
+          SOURCE_DATE_EPOCH=1700000000 npx makecv build
+          H1="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
+          SOURCE_DATE_EPOCH=1700000000 npx makecv build
+          H2="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
+          echo "run1: $H1"
+          echo "run2: $H2"
+          test "$H1" = "$H2"
