@@ -12,8 +12,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
 </p>
 
-Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine. <sub>(Formerly published as <code>makecv</code>.)</sub>
-
+Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
 <p align="center">
   <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by CVX — teal theme, photo sidebar, achievements" width="720">
 </p>
