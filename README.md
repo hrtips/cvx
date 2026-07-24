@@ -286,6 +286,20 @@ atsKeywords:
 
 ---
 
+## Reproducible builds
+
+Set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/docs/source-date-epoch/) (seconds since the Unix epoch) to make PDF output byte-identical run after run — useful for CI checks and for verifying that a content change is the *only* thing that changed:
+
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) npm run pdf
+```
+
+This pins the PDF's `CreationDate` (and with it the PDF trailer file ID) and the embedded font-subset names, the two things that otherwise vary per run. Unset, exports behave normally and stamp the current time.
+
+Byte-identical output is guaranteed for the same platform and Node version. Builds from different OSes or Node majors are visually identical but not byte-identical (font subsets embed in a platform-dependent order, and zlib output varies across Node versions).
+
+---
+
 ## Profile photo
 
 Drop your photo into `cv-content/images/` as `profile.<ext>` — `jpg`, `jpeg`, `png`, or `webp` are auto-detected (highest-precedence match wins, in that order). Square crop, at least 400x400px. Both the browser preview and the PDF export resolve the photo the same way, so any supported extension just works.

@@ -17,6 +17,7 @@ import { load } from 'js-yaml'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createElement } from 'react'
 import { registerFonts } from '../src/pdf/fonts.js'
+import { setupReproducibility } from '../src/pdf/reproducible.js'
 import CVDocument from '../src/pdf/CVDocument.jsx'
 import { discoverThemes } from '../src/pdf/themes/index.js'
 import { normalizeLayout } from '../src/pdf/loadLayout.js'
@@ -28,6 +29,8 @@ const fonts      = join(__dir, '../src/fonts')
 const layoutsDir = join(contentDir, 'layouts')
 
 registerFonts(fonts)
+
+const { creationDate } = setupReproducibility(process.env)
 
 // ── Auto-discover everything ────────────────────────────────────────────────
 
@@ -79,6 +82,7 @@ const buf = await renderToBuffer(
     config,
     theme,
     layout,
+    creationDate,
   })
 )
 

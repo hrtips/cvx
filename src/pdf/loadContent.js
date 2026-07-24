@@ -13,7 +13,7 @@
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join, basename } from 'path'
 import { load } from 'js-yaml'
-import { PHOTO_EXTENSIONS } from './profilePhoto.js'
+import { pickProfilePhoto } from './profilePhoto.js'
 
 /**
  * Load all YAML content from a directory.
@@ -41,18 +41,15 @@ export function loadContent(contentDir) {
     }
   }
 
-  // Profile photo — auto-detect the extension (shared precedence with the
-  // browser path via PHOTO_EXTENSIONS in profilePhoto.js).
+  // Profile photo — list the directory and let the shared picker choose, so
+  // uppercase extensions (profile.JPG) work on case-sensitive filesystems and
+  // precedence stays identical to the browser path (cv-content/index.js).
   let profilePhoto = null
   const imgDir = join(contentDir, 'images')
   if (existsSync(imgDir)) {
-    for (const ext of PHOTO_EXTENSIONS) {
-      const path = join(imgDir, `profile.${ext}`)
-      if (existsSync(path)) {
-        profilePhoto = path
-        break
-      }
-    }
+    const candidates = readdirSync(imgDir).filter(f => f.startsWith('profile.'))
+    const hit = pickProfilePhoto(candidates)
+    if (hit) profilePhoto = join(imgDir, hit)
   }
 
   return { config, content, profilePhoto }

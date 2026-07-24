@@ -6,7 +6,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { readdirSync } from 'fs'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { dirname, join, basename } from 'path'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
@@ -43,7 +43,9 @@ export async function discoverThemes() {
       if (themes[name]) continue  // already loaded statically
 
       try {
-        const mod = await import(join(__dir, file))
+        // file:// URL, not a bare path — Windows absolute paths (C:\…) are
+        // rejected by dynamic import().
+        const mod = await import(pathToFileURL(join(__dir, file)).href)
         // Find the exported theme object (named export with `name` property)
         const themeObj = Object.values(mod).find(v => v && typeof v === 'object' && v.name)
         if (themeObj) {

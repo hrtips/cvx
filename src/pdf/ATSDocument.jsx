@@ -192,7 +192,7 @@ function ATSContent({ personal, summary, experience, achievements, education, co
 export default function ATSDocument({
   personal, summary, experience, achievements,
   education, competencies, referees, keywords, profilePhoto,
-  theme, config,
+  theme, config, creationDate,
 }) {
   const activeTheme = theme ?? monoTheme
 
@@ -209,6 +209,7 @@ export default function ATSDocument({
         creator="makecv"
         producer="makecv"
         language="en"
+        creationDate={creationDate}
       >
         <ATSContent
           personal={personal} summary={summary} experience={experience}

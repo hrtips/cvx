@@ -9,6 +9,10 @@ import { Font } from '@react-pdf/renderer'
  * Lato only has 300 / 400 / 700 weights — 500 maps to Regular, 600 maps to Bold.
  */
 export function registerFonts(base) {
+  // Shared with the browser bundle, so node:path is off-limits. Windows
+  // callers hand us backslash paths; Node's fs accepts forward slashes on
+  // every platform, so normalising is enough.
+  base = base.replace(/\\/g, '/')
   Font.register({
     family: 'Lato',
     fonts: [

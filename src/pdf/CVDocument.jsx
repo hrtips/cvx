@@ -145,7 +145,7 @@ function SingleColumnDocument({ data, activeLayout }) {
 export default function CVDocument({
   personal, summary, experience, achievements,
   education, competencies, referees, keywords, profilePhoto, config,
-  theme, layout,
+  theme, layout, creationDate,
 }) {
   const layoutName   = config?.layout ?? 'two-column'
   const activeLayout = layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
@@ -173,6 +173,7 @@ export default function CVDocument({
         creator="makecv"
         producer="makecv"
         language="en"
+        creationDate={creationDate}
       >
         {isSingleColumn
           ? <SingleColumnDocument data={data} activeLayout={activeLayout} />

@@ -11,6 +11,7 @@ import { dirname, join } from 'path'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createElement } from 'react'
 import { registerFonts } from '../src/pdf/fonts.js'
+import { setupReproducibility } from '../src/pdf/reproducible.js'
 import ATSDocument from '../src/pdf/ATSDocument.jsx'
 import { loadContent } from '../src/pdf/loadContent.js'
 
@@ -19,6 +20,8 @@ const contentDir = join(__dir, '../cv-content')
 const fonts      = join(__dir, '../src/fonts')
 
 registerFonts(fonts)
+
+const { creationDate } = setupReproducibility(process.env)
 
 const { config, content, profilePhoto } = loadContent(contentDir)
 
@@ -36,6 +39,7 @@ const buf = await renderToBuffer(
     ...content,
     profilePhoto,
     config,
+    creationDate,
   })
 )
 
