@@ -9,6 +9,11 @@
 
 Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
 
+<p align="center">
+  <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by makecv — teal theme, photo sidebar, achievements" width="720">
+</p>
+<p align="center"><sub>The scaffolded example CV, exactly as <code>npx makecv build</code> renders it — plus an <a href="assets/hero-ats.png">ATS-safe single-column variant</a> via <code>--ats</code>.</sub></p>
+
 ---
 
 ## Create your CV in two minutes

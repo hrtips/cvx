@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createRequire } from 'node:module'
-import { resolveCreationDate, seedMathRandom, setupReproducibility, makeDeflateSynchronous } from './reproducible.js'
+import { resolveCreationDate, seedMathRandom, setupReproducibility, makeDeflateSynchronous, verifyPatchPoints } from './reproducible.js'
 
 // Same mutable module object the implementation patches (ESM namespace
 // imports of builtins are frozen under Vitest).
@@ -80,6 +80,16 @@ describe('makeDeflateSynchronous', () => {
 
     expect(ended).toBe(true) // no event-loop turn — write order stays deterministic
     expect(Buffer.concat(out).equals(expected)).toBe(true)
+  })
+})
+
+describe('verifyPatchPoints', () => {
+  // Tripwire: fails when a @react-pdf/pdfkit bump rewrites the internals our
+  // reproducibility patches target (Math.random subset tags, createDeflate
+  // streams). If this test goes red, byte-identical mode needs re-verifying
+  // against the new internals before the dependency update lands.
+  it('finds both patch points in the installed pdfkit', () => {
+    expect(verifyPatchPoints()).toBe(true)
   })
 })
 

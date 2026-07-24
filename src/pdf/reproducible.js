@@ -19,11 +19,14 @@
 // ────────────────────────────────────────────────────────────────────────────
 import { createRequire } from 'node:module'
 import { EventEmitter } from 'node:events'
+import { readFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 // The real mutable module object — ESM namespace imports of builtins are
 // frozen under some loaders (e.g. Vitest), and pdfkit's own `import zlib`
 // resolves to this same object in Node, so patching here is visible there.
-const zlib = createRequire(import.meta.url)('zlib')
+const require_ = createRequire(import.meta.url)
+const zlib = require_('zlib')
 
 /**
  * Resolve the PDF creation date from the environment.
@@ -96,8 +99,41 @@ export function makeDeflateSynchronous() {
 export function setupReproducibility(env = {}) {
   const creationDate = resolveCreationDate(env)
   if (creationDate) {
+    if (verifyPatchPoints() === false) {
+      console.warn(
+        '⚠ SOURCE_DATE_EPOCH is set, but @react-pdf/pdfkit internals have changed since this\n' +
+        '  version of makecv was tested — output may NOT be byte-identical across runs.\n' +
+        '  Please report this: https://github.com/ramith/makecv/issues'
+      )
+    }
     seedMathRandom(creationDate.getTime() / 1000)
     makeDeflateSynchronous()
   }
   return { creationDate }
+}
+
+/**
+ * Verify the pdfkit internals our patches target still exist. The whole
+ * byte-identical guarantee rests on two upstream implementation details:
+ * subset tags drawn from Math.random() and per-object zlib.createDeflate()
+ * streams. If a dependency bump rewrites either, reproducible mode would
+ * silently stop pinning — so we check the bundled source once and warn loudly.
+ *
+ * @returns {boolean|null}  true = patch points present, false = internals
+ *   changed, null = could not inspect (e.g. isolated module layouts)
+ */
+export function verifyPatchPoints() {
+  try {
+    let pdfkitPath
+    try {
+      const rendererDir = dirname(require_.resolve('@react-pdf/renderer'))
+      pdfkitPath = require_.resolve('@react-pdf/pdfkit', { paths: [rendererDir] })
+    } catch {
+      pdfkitPath = require_.resolve('@react-pdf/pdfkit')
+    }
+    const src = readFileSync(pdfkitPath, 'utf8')
+    return src.includes('Math.random() * 26 + 65') && src.includes('zlib.createDeflate()')
+  } catch {
+    return null
+  }
 }

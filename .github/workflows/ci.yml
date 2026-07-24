@@ -55,3 +55,30 @@ jobs:
           echo "run1: $H1"
           echo "run2: $H2"
           test "$H1" = "$H2"
+
+  # Alert-only: does the upcoming @react-pdf/renderer break rendering or
+  # byte-identical reproducibility? Never fails the workflow — it exists to
+  # surface upstream drift before a dependency bump lands.
+  upstream-canary:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install upstream head of @react-pdf/renderer
+        run: npm install --no-save @react-pdf/renderer@next 2>/dev/null || npm install --no-save @react-pdf/renderer@latest
+      - run: npm test
+      - name: Reproducibility against upstream head
+        shell: bash
+        run: |
+          SOURCE_DATE_EPOCH=1700000000 npm run pdf
+          H1="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
+          SOURCE_DATE_EPOCH=1700000000 npm run pdf
+          H2="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
+          echo "run1: $H1"
+          echo "run2: $H2"
+          test "$H1" = "$H2"
