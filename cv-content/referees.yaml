@@ -1,0 +1,17 @@
+- name: Diana Prince
+  title: Founding Member, Justice League
+  company: Themysciran Embassy
+  email: d.prince@justiceleague.org
+  phone: "+1 (202) 555-0177"
+
+- name: Clark Kent
+  title: Founding Member, Justice League
+  company: Daily Planet
+  email: c.kent@justiceleague.org
+  phone: "+1 (816) 555-0142"
+
+- name: Oliver Queen
+  title: Chairman & CEO / Fellow Vigilante
+  company: Queen Industries
+  email: o.queen@queen-industries.com
+  phone: "+1 (206) 555-0168"
