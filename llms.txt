@@ -13,11 +13,11 @@ Key facts:
 
 ## Docs
 
-- [CV content schema](https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
-- [AI guide](https://raw.githubusercontent.com/ramith/makecv/main/docs/ai-guide.md): workflows and prompts for generating a CV with an assistant or coding agent
-- [README](https://raw.githubusercontent.com/ramith/makecv/main/README.md): full user and developer guide
-- [Scaffold guide](https://raw.githubusercontent.com/ramith/makecv/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `makecv init`
+- [CV content schema](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
+- [AI guide](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md): workflows and prompts for generating a CV with an assistant or coding agent
+- [README](https://raw.githubusercontent.com/hrtips/cvx/main/README.md): full user and developer guide
+- [Scaffold guide](https://raw.githubusercontent.com/hrtips/cvx/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `makecv init`
 
 ## Optional
 
-- [Example content](https://github.com/ramith/makecv/tree/main/template/cv-content): the Bruce Wayne starter YAML files, a complete worked example of the schema
+- [Example content](https://github.com/hrtips/cvx/tree/main/template/cv-content): the Bruce Wayne starter YAML files, a complete worked example of the schema

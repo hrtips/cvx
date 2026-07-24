@@ -103,7 +103,7 @@ export function setupReproducibility(env = {}) {
       console.warn(
         '⚠ SOURCE_DATE_EPOCH is set, but @react-pdf/pdfkit internals have changed since this\n' +
         '  version of makecv was tested — output may NOT be byte-identical across runs.\n' +
-        '  Please report this: https://github.com/ramith/makecv/issues'
+        '  Please report this: https://github.com/hrtips/cvx/issues'
       )
     }
     seedMathRandom(creationDate.getTime() / 1000)

@@ -1,10 +1,10 @@
 # makecv
 
-[![CI](https://github.com/ramith/makecv/actions/workflows/ci.yml/badge.svg)](https://github.com/ramith/makecv/actions/workflows/ci.yml)
+[![CI](https://github.com/hrtips/cvx/actions/workflows/ci.yml/badge.svg)](https://github.com/hrtips/cvx/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/makecv)](https://www.npmjs.com/package/makecv)
 [![npm downloads](https://img.shields.io/npm/dm/makecv)](https://www.npmjs.com/package/makecv)
 [![install size](https://packagephobia.com/badge?p=makecv)](https://packagephobia.com/result?p=makecv)
-[![node](https://img.shields.io/node/v/makecv)](https://github.com/ramith/makecv/blob/main/package.json)
+[![node](https://img.shields.io/node/v/makecv)](https://github.com/hrtips/cvx/blob/main/package.json)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
@@ -146,7 +146,7 @@ The formats are deliberately LLM-friendly, and the schema is published for machi
 
 **Chat assistant** (Claude, ChatGPT, …) — paste your existing CV or LinkedIn profile text along with this prompt:
 
-> Read the makecv content schema at https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md then convert my CV below into makecv cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
+> Read the makecv content schema at https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md then convert my CV below into makecv cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
 
 Save the generated files into `cv-content/`, drop in your photo, run `npx makecv build`. No web access in your assistant? Use the [self-contained prompt](docs/ai-guide.md#route-c--chat-assistant-self-contained-prompt).
 
@@ -281,7 +281,7 @@ Everything below is about hacking on makecv itself — custom themes, the render
 ## Working from a clone
 
 ```bash
-git clone git@github.com:ramith/makecv.git
+git clone git@github.com:hrtips/cvx.git
 cd makecv
 npm install
 npm run dev        # live browser preview at http://localhost:5173

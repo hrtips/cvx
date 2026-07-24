@@ -47,6 +47,6 @@ If you are an AI assistant replacing this example content with the user's real C
 - **layouts/*.yaml** (optional): `template` + `pages: {first, continuation, last}`, each with `sidebar`/`main` lists of section keys (`identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `competencies`, `referees`, `summary`, `experience`, `experience:continued`, `header-ats`, `spacer: N`).
 - **images/profile.<ext>**: square photo ≥400×400px; `jpg`/`jpeg`/`png`/`webp` (that precedence). Ask the user to supply it — don't fabricate.
 
-Full schema with examples: https://github.com/ramith/makecv/blob/main/docs/cv-schema.md
+Full schema with examples: https://github.com/hrtips/cvx/blob/main/docs/cv-schema.md
 
-Full docs: https://github.com/ramith/makecv#readme
+Full docs: https://github.com/hrtips/cvx#readme

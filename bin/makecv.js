@@ -28,7 +28,7 @@ Options:
   -v, --version         Show version
 
 Edit the YAML files in cv-content/ and re-run "makecv build".
-Docs: https://github.com/ramith/makecv#readme`
+Docs: https://github.com/hrtips/cvx#readme`
 
 async function init() {
   const dest = join(process.cwd(), 'cv-content')

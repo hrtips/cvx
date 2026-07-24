@@ -50,7 +50,7 @@ For Claude, ChatGPT, or any assistant that can fetch a URL. Paste this, then you
 
 ```text
 Read the makecv content schema at
-https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md
+https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md
 then convert my CV below into makecv cv-content/ YAML files.
 
 Rules:

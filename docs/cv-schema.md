@@ -1,6 +1,6 @@
 # makecv content schema — complete reference
 
-This document is self-contained: with only this file and a person's CV facts, you can generate a complete, valid `cv-content/` folder for [makecv](https://github.com/ramith/makecv). It is written for both humans and AI assistants.
+This document is self-contained: with only this file and a person's CV facts, you can generate a complete, valid `cv-content/` folder for [makecv](https://github.com/hrtips/cvx). It is written for both humans and AI assistants.
 
 ## How makecv works
 
