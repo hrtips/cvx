@@ -9,6 +9,7 @@ Pick the route that matches the tool you have:
 | A coding agent (Claude Code, Cursor, Copilot, Codex…) | [Route A](#route-a--coding-agent-lowest-friction) | Lowest — the agent edits files and builds the PDF itself |
 | A chat assistant with web access | [Route B](#route-b--chat-assistant-with-web-access) | One paste in, files out |
 | A chat assistant without web access | [Route C](#route-c--chat-assistant-self-contained-prompt) | Same, using a self-contained prompt |
+| An agent-mode assistant that can run commands (ChatGPT agent mode, …) | [Route D](#route-d--agent-mode-assistant-zero-local-setup) | Zero local setup — the assistant runs makecv in its own workspace |
 
 Whichever route you take, the same two rules apply:
 
@@ -110,6 +111,28 @@ My CV:
 ```
 
 Save the output files into `cv-content/` (after `npx makecv init` for the folder structure and photo placeholder), then `npx makecv build`.
+
+## Route D — agent-mode assistant, zero local setup
+
+If your assistant can execute commands in a workspace (e.g. ChatGPT's agent mode), you don't need anything installed locally — not even Node. Paste:
+
+```text
+In your workspace, install Node if needed, then run:
+  npx makecv init
+Replace the example content in cv-content/ with my CV below, following
+the schema in cv-content/README.md. Keep every fact truthful to my
+input — don't invent anything. Then run:
+  npx makecv build
+and give me BOTH the finished PDF AND a zip of the cv-content folder
+as downloads. I need the zip to keep my content for future updates.
+
+My CV:
+<paste your old CV / LinkedIn profile text here>
+```
+
+The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder is the durable asset. Next time, upload the zip back (or switch to any other route) and ask for the changes you need.
+
+**Privacy note:** makecv itself runs entirely locally and makes zero network calls — but in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 
 ---
 
