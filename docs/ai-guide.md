@@ -1,0 +1,128 @@
+# Generating your CV with an AI assistant
+
+makecv is designed to pair with LLMs: the content format is plain YAML with a small, documented schema, so any capable assistant — Claude, ChatGPT, Gemini, or a coding agent — can turn your existing CV, LinkedIn profile, or a rough brain-dump into polished `cv-content/` files. You review the facts, run one command, and get the PDF.
+
+Pick the route that matches the tool you have:
+
+| You have | Route | Friction |
+|---|---|---|
+| A coding agent (Claude Code, Cursor, Copilot, Codex…) | [Route A](#route-a--coding-agent-lowest-friction) | Lowest — the agent edits files and builds the PDF itself |
+| A chat assistant with web access | [Route B](#route-b--chat-assistant-with-web-access) | One paste in, files out |
+| A chat assistant without web access | [Route C](#route-c--chat-assistant-self-contained-prompt) | Same, using a self-contained prompt |
+
+Whichever route you take, the same two rules apply:
+
+> **Truthfulness** — tell the assistant to keep every fact from your input and invent nothing. AI-embellished CVs fail interviews and background checks; makecv's ATS keywords are also cross-checked by parsers against the CV body.
+>
+> **Review** — read every generated file before you send the PDF anywhere. You own what it says.
+
+---
+
+## Route A — coding agent (lowest friction)
+
+Works with Claude Code, Cursor, Windsurf, Copilot Workspace, Codex CLI — anything that can edit files and run commands.
+
+```bash
+mkdir my-cv && cd my-cv
+npx makecv init
+```
+
+Then give your agent a prompt like:
+
+```text
+Replace the example content in cv-content/ with my real CV.
+The schema is documented in cv-content/README.md — follow it exactly,
+keep every fact truthful to my input, and don't invent anything.
+When done, run `npx makecv build` and fix any YAML errors until it renders.
+
+My details:
+<paste your old CV / LinkedIn text / notes here — or point the agent at a file, e.g. "read ~/Downloads/old-cv.pdf">
+```
+
+The scaffolded `cv-content/README.md` ships the full schema, so the agent needs no internet access and no further instructions. It will edit the YAML, build, and hand you `<your-name>.pdf`. Iterate in plain language: *"tighten the bullets for the 2019 role"*, *"make it fit two pages"* (the agent can tune `page1ExperienceCount` in `config.yaml`), *"switch to the coral theme"*.
+
+Finish by dropping your photo at `cv-content/images/profile.jpg` (square, 400×400px+) and rebuilding.
+
+## Route B — chat assistant with web access
+
+For Claude, ChatGPT, or any assistant that can fetch a URL. Paste this, then your CV text:
+
+```text
+Read the makecv content schema at
+https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md
+then convert my CV below into makecv cv-content/ YAML files.
+
+Rules:
+- Output each file as its own fenced code block, titled with its filename.
+- Keep every fact truthful to my input — don't invent numbers, dates, or achievements.
+- Quote YAML strings that contain colons.
+- Skip files I have no content for (they're optional).
+
+My CV:
+<paste your old CV / LinkedIn profile text here>
+```
+
+Then on your machine:
+
+```bash
+mkdir my-cv && cd my-cv
+npx makecv init                      # scaffolds the folder structure
+# overwrite the example files with the assistant's output
+npx makecv build
+```
+
+Tip: instead of retyping, export your LinkedIn profile (Profile → More → Save to PDF) and paste its text, or paste the text of your old CV.
+
+## Route C — chat assistant, self-contained prompt
+
+No web access needed — the schema is embedded. Paste this whole block, then your CV text:
+
+```text
+Convert my CV below into YAML files for makecv (a tool that renders
+cv-content/*.yaml into a PDF). Output each file as its own fenced code
+block titled with its filename. Keep every fact truthful to my input —
+don't invent numbers, dates, or achievements. Quote YAML strings that
+contain colons. Skip optional files I have no content for.
+
+The files and their exact fields:
+
+- personal.yaml (object): name (required), title, company,
+  phone + phoneHref (e.g. "tel:+123..."), email, linkedin + linkedinHref,
+  location. Only these keys render.
+- summary.yaml: list of 3-6 single-sentence bullet strings.
+- experience.yaml: list of roles, most recent first. Per entry:
+  role (required), company, period (free text like "2019 – Present"),
+  location (optional), description (optional one-line italic),
+  progression (optional list of {title, period} for promotions within
+  the role), bullets (list of verb-first, quantified impact statements).
+- education.yaml: list of {degree, institution, period}.
+- competencies.yaml: list of 6-12 short skill strings (1-3 words each).
+- achievements.yaml: list of {year, text} where year is the award name
+  (bold headline) and text is the attribution like "— 2024, Organisation".
+- referees.yaml: list of {name, title, company, email, phone},
+  or [] for "available upon request".
+- keywords.yaml (optional): flat list of extra ATS keywords that are
+  truthful but not already in my competencies or job titles.
+- config.yaml: theme: teal | coral | mono, layout: two-column | single-column.
+
+My CV:
+<paste your old CV / LinkedIn profile text here>
+```
+
+Save the output files into `cv-content/` (after `npx makecv init` for the folder structure and photo placeholder), then `npx makecv build`.
+
+---
+
+## Iterating with the assistant
+
+Useful follow-up prompts once the first PDF renders:
+
+- *"Rewrite the experience bullets to emphasise leadership / data engineering / customer impact."* (retargeting for a specific job ad — paste the ad)
+- *"It overflows page 2 — trim the two oldest roles to 2 bullets each."*
+- *"Set page1ExperienceCount: 2 and page1SplitBullets: 3 in config.yaml"* (page-1 layout control)
+- *"Generate keywords.yaml for this job description, using only skills I actually list."*
+- *"Produce the ATS variant too"* → `npx makecv build --ats` for job portals.
+
+## For AI assistants reading this
+
+If you are the assistant: fetch the full schema at [docs/cv-schema.md](cv-schema.md) when you can (it includes render behaviour, defaults, and a worked example per file); otherwise the compact schema in Route C is sufficient and accurate. Machine index: [llms.txt](../llms.txt). Never fabricate facts; ask the user for anything missing (dates, metrics, photo).

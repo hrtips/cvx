@@ -135,15 +135,15 @@ The complete field-by-field schema for every file lives in [docs/cv-schema.md](d
 
 ### Let an AI write the YAML for you
 
-The formats are deliberately LLM-friendly, and the schema is published for machines ([llms.txt](llms.txt), [docs/cv-schema.md](docs/cv-schema.md)). Two easy routes:
+The formats are deliberately LLM-friendly, and the schema is published for machines ([llms.txt](llms.txt), [docs/cv-schema.md](docs/cv-schema.md)). **[The AI guide](docs/ai-guide.md)** has copy-paste prompts for every route; the short version:
+
+**Coding agent** (Claude Code, Cursor, …) — lowest friction: run `npx makecv init`, then ask the agent to replace the example content with your details and build. The scaffolded `cv-content/README.md` documents the schema, so the agent edits, runs `npx makecv build`, and fixes errors itself.
 
 **Chat assistant** (Claude, ChatGPT, …) — paste your existing CV or LinkedIn profile text along with this prompt:
 
 > Read the makecv content schema at https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md then convert my CV below into makecv cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
 
-Save the generated files into `cv-content/`, drop in your photo, run `npx makecv build`.
-
-**Coding agent** (Claude Code, Cursor, …) — run `npx makecv init`, then ask the agent to replace the example content with your details. The scaffolded `cv-content/README.md` documents the schema, so the agent knows exactly what to do.
+Save the generated files into `cv-content/`, drop in your photo, run `npx makecv build`. No web access in your assistant? Use the [self-contained prompt](docs/ai-guide.md#route-c--chat-assistant-self-contained-prompt).
 
 ### Your photo
 

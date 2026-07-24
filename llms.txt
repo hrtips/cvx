@@ -14,6 +14,7 @@ Key facts:
 ## Docs
 
 - [CV content schema](https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
+- [AI guide](https://raw.githubusercontent.com/ramith/makecv/main/docs/ai-guide.md): workflows and prompts for generating a CV with an assistant or coding agent
 - [README](https://raw.githubusercontent.com/ramith/makecv/main/README.md): full user and developer guide
 - [Scaffold guide](https://raw.githubusercontent.com/ramith/makecv/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `makecv init`
 
