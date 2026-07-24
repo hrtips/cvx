@@ -9,9 +9,21 @@
 //   2. Font subset tags — @react-pdf/pdfkit names embedded font subsets with
 //      six Math.random() letters (e.g. "EEPPPK+Lato"), which also scramble
 //      the compressed font streams. Seeding Math.random pins them.
+//   3. Object write order — pdfkit compresses each PDF object through an
+//      async zlib.createDeflate() stream and writes it whenever that stream
+//      happens to finish, so large and small objects race for file position.
+//      Swapping in a synchronous deflate (identical bytes — same zlib, same
+//      defaults) makes objects land in finalize-call order every time.
 //
 // See https://reproducible-builds.org/docs/source-date-epoch/
 // ────────────────────────────────────────────────────────────────────────────
+import { createRequire } from 'node:module'
+import { EventEmitter } from 'node:events'
+
+// The real mutable module object — ESM namespace imports of builtins are
+// frozen under some loaders (e.g. Vitest), and pdfkit's own `import zlib`
+// resolves to this same object in Node, so patching here is visible there.
+const zlib = createRequire(import.meta.url)('zlib')
 
 /**
  * Resolve the PDF creation date from the environment.
@@ -49,14 +61,43 @@ export function seedMathRandom(seed) {
 }
 
 /**
+ * Replace zlib.createDeflate with a synchronous drop-in. pdfkit only uses the
+ * subset of the stream API shimmed here (write/end/on), and deflateSync over
+ * the concatenated chunks yields byte-identical output to the streaming form.
+ * Process-global — intended for one-shot export scripts.
+ */
+export function makeDeflateSynchronous() {
+  // Node ≥25 marks builtin exports writable:false (configurable:true), so
+  // plain assignment is rejected — defineProperty is the supported override.
+  Object.defineProperty(zlib, 'createDeflate', {
+    configurable: true,
+    value: function createDeflateSync() {
+      const chunks = []
+      const shim = new EventEmitter()
+      shim.write = (chunk) => { chunks.push(Buffer.from(chunk)); return true }
+      shim.end = (chunk) => {
+        if (chunk) chunks.push(Buffer.from(chunk))
+        shim.emit('data', zlib.deflateSync(Buffer.concat(chunks)))
+        shim.emit('end')
+      }
+      return shim
+    },
+  })
+}
+
+/**
  * One-stop setup for export scripts: resolve the pinned date and, when
- * reproducible mode is active, seed the global RNG from it.
+ * reproducible mode is active, seed the global RNG from it and serialise
+ * PDF object writes.
  *
  * @param {Record<string, string|undefined>} env  typically process.env
  * @returns {{ creationDate: Date|undefined }}
  */
 export function setupReproducibility(env = {}) {
   const creationDate = resolveCreationDate(env)
-  if (creationDate) seedMathRandom(creationDate.getTime() / 1000)
+  if (creationDate) {
+    seedMathRandom(creationDate.getTime() / 1000)
+    makeDeflateSynchronous()
+  }
   return { creationDate }
 }

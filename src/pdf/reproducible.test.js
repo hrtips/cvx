@@ -1,10 +1,18 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { resolveCreationDate, seedMathRandom, setupReproducibility } from './reproducible.js'
+import { createRequire } from 'node:module'
+import { resolveCreationDate, seedMathRandom, setupReproducibility, makeDeflateSynchronous } from './reproducible.js'
+
+// Same mutable module object the implementation patches (ESM namespace
+// imports of builtins are frozen under Vitest).
+const zlib = createRequire(import.meta.url)('zlib')
 
 const realRandom = Math.random
+const realCreateDeflate = zlib.createDeflate
 
 afterEach(() => {
   Math.random = realRandom
+  // Builtin exports are writable:false on Node ≥25 — restore via defineProperty.
+  Object.defineProperty(zlib, 'createDeflate', { configurable: true, value: realCreateDeflate })
 })
 
 describe('resolveCreationDate (SOURCE_DATE_EPOCH)', () => {
@@ -56,13 +64,36 @@ describe('seedMathRandom', () => {
   })
 })
 
+describe('makeDeflateSynchronous', () => {
+  it('emits bytes identical to streaming deflate, synchronously', () => {
+    const input = Buffer.from('makecv reproducible '.repeat(200))
+    const expected = zlib.deflateSync(input)
+
+    makeDeflateSynchronous()
+    const shim = zlib.createDeflate()
+    const out = []
+    let ended = false
+    shim.on('data', c => out.push(c))
+    shim.on('end', () => { ended = true })
+    shim.write(input.subarray(0, 100))
+    shim.end(input.subarray(100))
+
+    expect(ended).toBe(true) // no event-loop turn — write order stays deterministic
+    expect(Buffer.concat(out).equals(expected)).toBe(true)
+  })
+})
+
 describe('setupReproducibility', () => {
-  it('seeds the RNG only when SOURCE_DATE_EPOCH is set', () => {
+  it('pins nothing when SOURCE_DATE_EPOCH is unset', () => {
     setupReproducibility({})
     expect(Math.random).toBe(realRandom)
+    expect(zlib.createDeflate).toBe(realCreateDeflate)
+  })
 
+  it('seeds the RNG and swaps deflate when SOURCE_DATE_EPOCH is set', () => {
     const { creationDate } = setupReproducibility({ SOURCE_DATE_EPOCH: '1700000000' })
     expect(creationDate.getTime()).toBe(1700000000 * 1000)
     expect(Math.random).not.toBe(realRandom)
+    expect(zlib.createDeflate).not.toBe(realCreateDeflate)
   })
 })
