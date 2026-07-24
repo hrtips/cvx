@@ -13,6 +13,12 @@
     "test": "vitest run"
   },
   "type": "module",
+  "bin": {
+    "makecv": "bin/makecv.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "lib",
     "bin",

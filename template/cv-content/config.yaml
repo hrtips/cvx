@@ -1,0 +1,38 @@
+# ── CV Configuration ─────────────────────────────────────────────────────────
+#
+# theme      Colour scheme: teal | coral | mono
+# layout     Page structure: two-column | single-column
+#
+# page1ExperienceCount   How many experience entries appear on page 1.
+#                        The last entry may be split (see page1SplitBullets).
+#
+# page1SplitBullets      If set, the last entry on page 1 shows only this many
+#                        bullets; the rest continue on the next page.
+#                        Omit (or set to null) to show the full entry.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+theme: teal
+layout: two-column
+
+page1ExperienceCount: 2
+page1SplitBullets: 2
+
+# ── ATS & AI-parser optimisation ──────────────────────────────────────────────
+#
+# Embeds keywords into the PDF's standard "Keywords" metadata field, which some
+# applicant tracking systems (ATS) and AI CV parsers read. Support is
+# inconsistent, so treat this as a best-effort supplement to a keyword-rich CV
+# body — not a substitute. Keywords live in metadata, not as hidden page text.
+#
+# enabled     Master switch for keyword embedding.               (default: true)
+# autoDerive  Also derive keywords from your competencies,       (default: true)
+#             job titles, and companies (in addition to keywords.yaml).
+# max         Optional cap on how many keywords are embedded.    (default: all)
+#
+# Add role-specific skills/tools in cv-content/keywords.yaml.
+# ──────────────────────────────────────────────────────────────────────────────
+
+atsKeywords:
+  enabled: true
+  autoDerive: true

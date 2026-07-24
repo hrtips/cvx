@@ -9,6 +9,16 @@ Built with [React](https://react.dev/) and [@react-pdf/renderer](https://react-p
 ## Quick start
 
 ```bash
+npx makecv init         # scaffold cv-content/ with starter content
+npx makecv build        # render <your-name>.pdf
+npx makecv build --ats  # render the ATS-safe variant (single-column, no colour)
+```
+
+Edit the YAML files in `cv-content/`, drop in your photo, re-run `npx makecv build`. That's the whole workflow — no accounts, no cloud, your data never leaves your machine.
+
+### Working from a clone (live preview + development)
+
+```bash
 git clone git@github.com:ramith/makecv.git
 cd makecv
 npm install
@@ -17,8 +27,6 @@ npm run pdf        # generate PDF
 npm run pdf:ats    # generate ATS-safe PDF (single-column, no colour)
 npm test           # run the unit tests
 ```
-
-> **Note:** this is a clone-and-run project (or use GitHub's **"Use this template"**), not a published npm package — there is no global CLI to install. Everything runs through the `npm run` scripts above.
 
 ---
 
@@ -137,6 +145,8 @@ Themes control colours, typography, and visual styling. Three built-in themes ar
 | `mono` | `#000000` | Black and white, ATS-optimised |
 
 ### Creating a custom theme
+
+> Custom themes currently require [working from a clone](#working-from-a-clone-live-preview--development) — the `npx` CLI ships the three built-ins.
 
 Drop a `.js` file in `src/pdf/themes/` — it's auto-discovered, no registration needed.
 
@@ -363,7 +373,12 @@ src/pdf/                         ← framework (don't edit unless extending)
 scripts/
   export-pdf.js                  ← PDF generation (npm run pdf)
   export-pdf-ats.js              ← ATS PDF generation (npm run pdf:ats)
+  build-lib.js                   ← builds lib/ for publishing (npm run build:lib)
   crop-profile.py                ← photo crop helper
+
+bin/makecv.js                    ← npx CLI (init / build)
+template/cv-content/             ← starter content scaffolded by `makecv init`
+lib/                             ← generated: published transform of src/pdf (gitignored)
 ```
 
 ---

@@ -1,0 +1,31 @@
+# ── ATS & AI-parser keywords ─────────────────────────────────────────────────
+# These terms are embedded in the PDF's standard "Keywords" metadata field,
+# which some applicant tracking systems (ATS) and AI CV parsers read. Support is
+# inconsistent, so this supplements — never replaces — a keyword-rich CV body.
+# They are NOT printed on the page.
+#
+# Add the skills, tools, and role titles used in the jobs you're targeting.
+# Keep every entry TRUTHFUL: modern parsers cross-check keywords against the CV
+# body, so stuffing false or irrelevant terms gets a CV auto-rejected — the
+# opposite of what you want. Your competencies and job titles are auto-derived
+# (see config.yaml → atsKeywords), so list here only what those don't cover.
+#
+# Flat list, or group under headings — both work:
+#   - Operations Management
+#   Or:
+#   Leadership: [Executive Leadership, Team Building]
+- Operations Management
+- Executive Leadership
+- Organisational Leadership
+- Strategic Planning
+- Risk Management
+- Crisis Management
+- Security Operations
+- Criminal Investigation
+- Threat Assessment
+- Incident Response
+- Forensic Analysis
+- Stakeholder Management
+- Program Management
+- Public Safety
+- Team Building

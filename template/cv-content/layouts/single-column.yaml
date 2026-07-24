@@ -1,0 +1,21 @@
+# ── Single-Column Layout (ATS) ────────────────────────────────────────────────
+# Plain single-column layout optimised for Applicant Tracking Systems.
+# No sidebar, no decorative elements. Maximum parsability.
+# ─────────────────────────────────────────────────────────────────────────────
+
+template: single-column
+
+geometry:
+  size: A4
+  margin: 42
+
+pages:
+  first:
+    main:
+      - header-ats
+      - summary
+      - experience
+      - education
+      - competencies
+      - achievements
+      - referees

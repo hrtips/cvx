@@ -1,0 +1,40 @@
+# ── Two-Column Layout ────────────────────────────────────────────────────────
+# Professional two-column CV with sidebar identity block and main content area.
+# This is the default designed layout.
+# ─────────────────────────────────────────────────────────────────────────────
+
+template: two-column
+
+geometry:
+  size: A4
+  topBar: 30
+  sidebarFraction: 0.37
+  mainPadding:     [27, 33, 54, 30]     # top, right, bottom, left
+  contPadding:     [24, 33, 54, 30]
+  sidebarPadding:  [13.5, 16.5, 21, 24] # top, right, bottom, left
+
+pages:
+  first:
+    sidebar:
+      - identity-photo
+      - contact
+      - achievements
+    main:
+      - summary
+      - spacer: 27
+      - experience
+
+  continuation:
+    sidebar:
+      - identity-compact
+      - education
+      - competencies
+    main:
+      - experience:continued
+
+  last:
+    sidebar:
+      - identity-compact
+      - referees
+    main:
+      - experience:continued

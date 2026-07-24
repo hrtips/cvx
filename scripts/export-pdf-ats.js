@@ -8,40 +8,20 @@
 import { writeFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { renderToBuffer } from '@react-pdf/renderer'
-import { createElement } from 'react'
-import { registerFonts } from '../src/pdf/fonts.js'
-import { setupReproducibility } from '../src/pdf/reproducible.js'
-import ATSDocument from '../src/pdf/ATSDocument.jsx'
-import { loadContent } from '../src/pdf/loadContent.js'
+import { renderCV } from '../src/pdf/render.js'
 
-const __dir      = dirname(fileURLToPath(import.meta.url))
-const contentDir = join(__dir, '../cv-content')
-const fonts      = join(__dir, '../src/fonts')
+const __dir = dirname(fileURLToPath(import.meta.url))
 
-registerFonts(fonts)
-
-const { creationDate } = setupReproducibility(process.env)
-
-const { config, content, profilePhoto } = loadContent(contentDir)
-
-function deriveFilename(name) {
-  if (name) return `${name.toLowerCase().replace(/\s+/g, '-')}-ats.pdf`
-  return 'cv-ats.pdf'
-}
-
-const OUTPUT = deriveFilename(content.personal?.name)
-
-console.log('Rendering ATS CV…')
-
-const buf = await renderToBuffer(
-  createElement(ATSDocument, {
-    ...content,
-    profilePhoto,
-    config,
-    creationDate,
+try {
+  console.log('Rendering ATS CV…')
+  const { buffer, filename } = await renderCV({
+    contentDir: join(__dir, '../cv-content'),
+    fontsDir:   join(__dir, '../src/fonts'),
+    ats: true,
   })
-)
-
-writeFileSync(OUTPUT, buf)
-console.log(`✅ ATS PDF saved: ${OUTPUT}  (${(buf.byteLength / 1024).toFixed(0)} KB)`)
+  writeFileSync(filename, buffer)
+  console.log(`✅ ATS PDF saved: ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB)`)
+} catch (err) {
+  console.error(err.message)
+  process.exit(1)
+}
