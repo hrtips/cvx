@@ -7,73 +7,55 @@
 [![node](https://img.shields.io/node/v/makecv)](https://github.com/ramith/makecv/blob/main/package.json)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-A config-driven CV generator with swappable themes and layouts. Write your content in YAML, pick a theme and layout in one config file, and generate pixel-perfect PDFs — no Word, no Google Docs, no headless browser.
+Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
 
 ---
 
-## Quick start
+## Create your CV in two minutes
 
 ```bash
-npx makecv init         # scaffold cv-content/ with starter content
-npx makecv build        # render <your-name>.pdf
-npx makecv build --ats  # render the ATS-safe variant (single-column, no colour)
+npx makecv init     # scaffold cv-content/ with a complete example CV
+npx makecv build    # render it to a PDF
 ```
 
-`init` scaffolds a complete working CV — Bruce Wayne's, and yes, really — so your first `build` produces a finished two-page PDF before you've written a word. Then open `cv-content/`, replace his details with yours file by file, and re-run `npx makecv build` after each change to see exactly what each file controls. No accounts, no cloud — your data never leaves your machine.
+`init` gives you a finished, working CV — **Bruce Wayne's**, and yes, really. Open `bruce-wayne.pdf` and you're looking at a designed two-page CV: photo, sidebar, achievements, the lot.
 
-### Working from a clone (live preview + development)
+Now make it yours. Open the `cv-content/` folder, and replace Bruce's details with your own, one file at a time:
+
+```
+cv-content/
+  personal.yaml       ← start here: your name, title, contact details
+  summary.yaml        ← the bullet points at the top of page 1
+  experience.yaml     ← your work history (the bulk of the CV)
+  education.yaml      ← degrees, institutions, years
+  competencies.yaml   ← skill pills in the sidebar
+  achievements.yaml   ← awards and recognitions
+  referees.yaml       ← referees, or [] for "available upon request"
+  images/profile.jpg  ← your photo (square, 400×400px or larger)
+```
+
+Re-run `npx makecv build` after each file and watch the PDF update — seeing Bruce's entry next to yours makes the format self-explanatory. The output file is named after you automatically (`jane-doe.pdf`).
+
+Applying through a job portal? Generate the ATS-safe variant too — single column, no colours, machine-friendly:
 
 ```bash
-git clone git@github.com:ramith/makecv.git
-cd makecv
-npm install
-npm run dev        # live preview at http://localhost:5173
-npm run pdf        # generate PDF
-npm run pdf:ats    # generate ATS-safe PDF (single-column, no colour)
-npm test           # run the unit tests
+npx makecv build --ats
 ```
 
----
+### CLI reference
 
-## How it works
-
-Everything is driven by `cv-content/config.yaml`:
-
-```yaml
-theme: teal              # teal | coral | mono  (or any custom theme)
-layout: two-column        # two-column | single-column  (or any custom layout)
-page1ExperienceCount: 2   # entries on page 1
-page1SplitBullets: 2      # truncate last entry's bullets, continue on next page
-
-atsKeywords:              # keywords embedded in PDF metadata (see below)
-  enabled: true
-  autoDerive: true
-```
-
-Change `theme` or `layout` and run `npm run pdf` — the output changes instantly.
-
----
-
-## Content
-
-All content lives in `cv-content/`. Drop a YAML file and it's auto-discovered.
-
-| File | What it contains |
+| Command | Does |
 |---|---|
-| `personal.yaml` | Name, title, company, phone, email, LinkedIn, location, or any other contact details |
-| `summary.yaml` | Professional summary bullet points |
-| `experience.yaml` | Work history — roles, companies, periods, bullet points |
-| `education.yaml` | Degrees, institutions, years |
-| `competencies.yaml` | Skill tags shown as pills in the sidebar |
-| `achievements.yaml` | Awards and recognitions |
-| `referees.yaml` | Referee details (use `[]` to show "available upon request") |
-| `keywords.yaml` | ATS/AI-parser keywords embedded in PDF metadata (optional) |
-| `config.yaml` | Theme, layout, and pagination settings |
-| `images/profile.<ext>` | Your photo — `jpg`, `jpeg`, `png`, or `webp` (square, 400x400px+) |
+| `npx makecv init` | Scaffold `cv-content/` with the example CV (won't overwrite an existing one) |
+| `npx makecv build` | Render `cv-content/` to `<your-name>.pdf` |
+| `npx makecv build --ats` | Render the ATS-safe single-column variant |
+| `npx makecv --help` / `--version` | Help / version |
 
-### Content file examples
+---
 
-These are excerpts from the starter content `makecv init` scaffolds — build it once and you can see exactly where each snippet lands on the page.
+## What goes in each file
+
+These are excerpts from the scaffolded example — build it once and you can see exactly where each snippet lands on the page.
 
 **personal.yaml** — the header and contact block:
 ```yaml
@@ -147,11 +129,28 @@ linkedinHref: "https://www.linkedin.com/in/brucewayne"
   phone: "+1 (202) 555-0177"
 ```
 
+Delete what you don't need — an empty file (or `[]`) simply drops that section from the CV. Any new `.yaml` file you drop into `cv-content/` is auto-discovered as a content key.
+
+### Your photo
+
+Drop it into `cv-content/images/` as `profile.<ext>` — `jpg`, `jpeg`, `png`, or `webp` are auto-detected (that order wins if several exist). Square crop, at least 400×400px.
+
 ---
 
-## Themes
+## Themes, layouts, and page flow
 
-Themes control colours, typography, and visual styling. Three built-in themes are included:
+Everything visual is controlled by `cv-content/config.yaml`:
+
+```yaml
+theme: teal               # teal | coral | mono
+layout: two-column        # two-column | single-column
+page1ExperienceCount: 2   # experience entries on page 1
+page1SplitBullets: 2      # split the last entry: N bullets on page 1, rest continue
+```
+
+Change a value, re-run `npx makecv build`, done.
+
+**Themes** control colour and styling:
 
 | Theme | Accent | Description |
 |---|---|---|
@@ -159,56 +158,21 @@ Themes control colours, typography, and visual styling. Three built-in themes ar
 | `coral` | `#c0534a` | Warm coral red |
 | `mono` | `#000000` | Black and white, ATS-optimised |
 
-### Creating a custom theme
+**Layouts** control page structure:
 
-> Custom themes currently require [working from a clone](#working-from-a-clone-live-preview--development) — the `npx` CLI ships the three built-ins.
-
-Drop a `.js` file in `src/pdf/themes/` — it's auto-discovered, no registration needed.
-
-```js
-// src/pdf/themes/navy.js
-import { tealTheme } from './teal.js'
-
-export const navyTheme = {
-  ...tealTheme,
-  name: 'navy',
-  palette: {
-    ...tealTheme.palette,
-    accent:    '#1e3a5f',
-    sidebarBg: '#eef1f5',
-    tagBg:     '#d0d8e8',
-    tagText:   '#1e3a5f',
-    divider:   '#b8c4d4',
-  },
-}
-```
-
-Then set `theme: navy` in `config.yaml`. That's it.
-
-The theme object has four namespaces you can override:
-
-| Namespace | Controls |
-|---|---|
-| `palette` | All colours — accent, backgrounds, text, tags, dividers, semantic opacity colours |
-| `typography` | Font sizes, weights, letter spacing, line heights per element |
-| `spacing` | Gaps, margins, padding values used by all components |
-| `chrome` | Decorative dimensions — border radii, divider widths, photo size, corner badge |
-| `geometry` | Page dimensions, column fractions, padding objects |
-
----
-
-## Layouts
-
-Layouts control page structure — where sections appear on each page. Two built-in layouts:
-
-| Layout | Template | Description |
+| Layout | Structure | Description |
 |---|---|---|
 | `two-column` | Sidebar + main column | Designed CV with photo, identity block, achievements |
 | `single-column` | Full width | ATS-safe, no sidebar, no decorative elements |
 
-### Creating a custom layout
+**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing). Set `page1ExperienceCount` / `page1SplitBullets` to control page 1 explicitly. Example with 6 entries and the config above:
 
-Drop a `.yaml` file in `cv-content/layouts/` — auto-discovered.
+- **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
+- **Page 2** — Entry 2 (cont'd) + Entries 3–6
+
+### Custom layouts
+
+You can define your own page structure — drop a `.yaml` file into `cv-content/layouts/` and reference it by filename:
 
 ```yaml
 # cv-content/layouts/compact.yaml
@@ -241,11 +205,7 @@ pages:
       - experience:continued
 ```
 
-Then set `layout: compact` in `config.yaml`.
-
-### Available sections
-
-These keys can be placed in any sidebar or main slot:
+Then set `layout: compact` in `config.yaml`. Available section keys:
 
 | Key | Renders |
 |---|---|
@@ -260,24 +220,7 @@ These keys can be placed in any sidebar or main slot:
 | `experience` | Experience entries for page 1 (main column) |
 | `experience:continued` | Continuation experience entries (main column) |
 | `header-ats` | Full-width name/title/contact header (single-column) |
-| `spacer:N` | Vertical spacer of N points |
-
----
-
-## Pagination
-
-The page-packing algorithm automatically distributes experience entries across pages. You can control this in `config.yaml`:
-
-```yaml
-page1ExperienceCount: 2       # how many entries fit on page 1
-page1SplitBullets: 2           # truncate the last entry, continue on next page
-```
-
-**Example** with 6 experience entries and the above config:
-- **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
-- **Page 2** — Entry 2 (cont'd) + Entries 3–6
-
-If omitted, the algorithm uses greedy bin-packing to fill pages automatically.
+| `spacer: N` | Vertical spacer of N points |
 
 ---
 
@@ -310,97 +253,77 @@ atsKeywords:
 ```
 
 ---
+---
 
-## Reproducible builds
+# For developers
 
-Set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/docs/source-date-epoch/) (seconds since the Unix epoch) to make PDF output byte-identical run after run — useful for CI checks and for verifying that a content change is the *only* thing that changed:
+Everything below is about hacking on makecv itself — custom themes, the rendering pipeline, and contributing. You don't need any of it to create a CV.
+
+## Working from a clone
 
 ```bash
-SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) npm run pdf
+git clone git@github.com:ramith/makecv.git
+cd makecv
+npm install
+npm run dev        # live browser preview at http://localhost:5173
+npm run pdf        # generate PDF (same pipeline as `makecv build`)
+npm run pdf:ats    # generate the ATS variant
+npm test           # unit tests
+npm run build:lib  # build the publishable lib/ (what the CLI runs)
 ```
 
-This pins the PDF's `CreationDate` (and with it the PDF trailer file ID) and the embedded font-subset names, the two things that otherwise vary per run. Unset, exports behave normally and stamp the current time.
+The repo's `cv-content/` carries the same Bruce Wayne example, so a clone builds out of the box. A photo crop helper is included: `python3 scripts/crop-profile.py path/to/photo.jpg`.
 
-Byte-identical output is guaranteed for the same platform and Node version. Builds from different OSes or Node majors are visually identical but not byte-identical (font subsets embed in a platform-dependent order, and zlib output varies across Node versions).
+## Custom themes
 
----
+> Themes ship inside the package, so custom themes currently require working from a clone — the `npx` CLI offers the three built-ins.
 
-## Profile photo
+Drop a `.js` file in `src/pdf/themes/` — it's auto-discovered, no registration needed:
 
-Drop your photo into `cv-content/images/` as `profile.<ext>` — `jpg`, `jpeg`, `png`, or `webp` are auto-detected (highest-precedence match wins, in that order). Square crop, at least 400x400px. Both the browser preview and the PDF export resolve the photo the same way, so any supported extension just works.
+```js
+// src/pdf/themes/navy.js
+import { tealTheme } from './teal.js'
 
-A crop helper is included:
-
-```bash
-python3 scripts/crop-profile.py path/to/your-photo.jpg
+export const navyTheme = {
+  ...tealTheme,
+  name: 'navy',
+  palette: {
+    ...tealTheme.palette,
+    accent:    '#1e3a5f',
+    sidebarBg: '#eef1f5',
+    tagBg:     '#d0d8e8',
+    tagText:   '#1e3a5f',
+    divider:   '#b8c4d4',
+  },
+}
 ```
 
----
+Set `theme: navy` in `config.yaml`. The theme object has five namespaces you can override:
 
-## Project structure
+| Namespace | Controls |
+|---|---|
+| `palette` | All colours — accent, backgrounds, text, tags, dividers, semantic opacity colours |
+| `typography` | Font sizes, weights, letter spacing, line heights per element |
+| `spacing` | Gaps, margins, padding values used by all components |
+| `chrome` | Decorative dimensions — border radii, divider widths, photo size, corner badge |
+| `geometry` | Page dimensions, column fractions, padding objects |
 
-```
-cv-content/                      ← your content (edit this)
-  *.yaml                         ← auto-discovered content files
-  config.yaml                    ← theme, layout, pagination
-  keywords.yaml                  ← ATS/AI-parser keywords (optional)
-  images/profile.<ext>           ← your photo (jpg/jpeg/png/webp)
-  layouts/                       ← auto-discovered layout definitions
-    two-column.yaml
-    single-column.yaml
+## Auto-discovery
 
-src/pdf/                         ← framework (don't edit unless extending)
-  CVDocument.jsx                 ← unified config-driven document
-  ATSDocument.jsx                ← standalone ATS document
-  ThemeContext.jsx                ← React context + useStyles hook
-  layout.js                      ← theme-aware page-packing + sidebar resolution
-  keywords.js                    ← builds the ATS/AI-parser keyword metadata
-  profilePhoto.js                ← shared profile-image extension precedence
-  loadContent.js                 ← auto-discovers cv-content/*.yaml
-  loadLayout.js                  ← normalizes layout YAML → slot config
-  fonts.js                       ← Lato font registration
-  *.test.js                      ← Vitest unit tests (co-located)
-  themes/                        ← auto-discovered theme files
-    teal.js                      ← default theme (single source of truth)
-    coral.js                     ← coral variant (overrides palette)
-    mono.js                      ← monochrome variant
-    index.js                     ← theme discovery + registry
-  templates/                     ← page shells (slot-based)
-    TwoColumnTemplate.jsx        ← sidebar + main + corner badge
-    SingleColumnTemplate.jsx     ← full-width page
-  sections/                      ← content sections (registry-driven)
-    registry.js                  ← maps string keys → React components
-    IdentityPhoto.jsx            ← name/title/photo block
-    IdentityCompact.jsx          ← name/title without photo
-    ContactSection.jsx           ← phone/email/LinkedIn with icons
-    SummarySection.jsx           ← bullet point summary
-    ExperienceSection.jsx        ← work history entries
-    EducationSection.jsx         ← degrees
-    CompetenciesSection.jsx      ← skill tag pills
-    AchievementsSection.jsx      ← awards list
-    RefereesSection.jsx          ← referee contacts
-    HeaderATS.jsx                ← full-width ATS header
-  components/                    ← shared leaf components
-    SectionTitle.jsx             ← styled section heading
-    BulletList.jsx               ← dash-prefixed bullet list
-    ExpItem.jsx                  ← single experience entry
+Convention over registration — drop a file in the right folder and it's picked up:
 
-scripts/
-  export-pdf.js                  ← PDF generation (npm run pdf)
-  export-pdf-ats.js              ← ATS PDF generation (npm run pdf:ats)
-  build-lib.js                   ← builds lib/ for publishing (npm run build:lib)
-  crop-profile.py                ← photo crop helper
+| What | Where to drop it | How it's found |
+|---|---|---|
+| **Content** | `cv-content/*.yaml` | Any `.yaml` file (except `config.yaml`) becomes a content key matching its filename |
+| **Themes** | `src/pdf/themes/*.js` | Any `.js` file exporting an object with a `name` property |
+| **Layouts** | `cv-content/layouts/*.yaml` | Any `.yaml` file with a `template` and `pages` structure |
+| **Profile photo** | `cv-content/images/profile.*` | First match of `.jpg`, `.jpeg`, `.png`, `.webp` |
 
-bin/makecv.js                    ← npx CLI (init / build)
-template/cv-content/             ← starter content scaffolded by `makecv init`
-lib/                             ← generated: published transform of src/pdf (gitignored)
-```
-
----
+To add a whole new content section (e.g. publications): create `cv-content/publications.yaml` (auto-available as `content.publications`), build a section component in `src/pdf/sections/`, register it in `registry.js`, then reference it from a layout.
 
 ## Architecture
 
-The system separates three concerns that can be changed independently:
+Three concerns, independently swappable:
 
 ```
 Content (YAML)  ×  Theme (JS)  ×  Layout (YAML)
@@ -408,16 +331,12 @@ Content (YAML)  ×  Theme (JS)  ×  Layout (YAML)
   what to say    how it looks    where it goes
 ```
 
-- **Content** is pure data — YAML files with no styling
-- **Themes** control visual tokens — colours, typography, spacing, geometry
-- **Layouts** control page structure — which sections go in which slots on which pages
-
 The rendering pipeline:
 
 ```
 config.yaml → resolves theme + layout
     ↓
-content/*.yaml → auto-loaded into data bag
+cv-content/*.yaml → auto-loaded into data bag
     ↓
 layout.js → packs experience entries across pages (using theme metrics)
     ↓
@@ -430,93 +349,73 @@ sections → read theme from React context, render content
 @react-pdf/renderer → PDF buffer → file
 ```
 
-All discovery is automatic — drop files in the right folders and they're picked up.
+## Project structure
 
----
+```
+cv-content/                      ← content (the repo carries the example CV)
+  *.yaml                         ← auto-discovered content files
+  config.yaml                    ← theme, layout, pagination
+  layouts/                       ← auto-discovered layout definitions
+  images/profile.<ext>           ← photo (jpg/jpeg/png/webp)
+
+src/pdf/                         ← framework
+  CVDocument.jsx                 ← unified config-driven document
+  ATSDocument.jsx                ← standalone ATS document
+  ThemeContext.jsx               ← React context + useStyles hook
+  render.js                      ← shared render pipeline (CLI + scripts)
+  layout.js                      ← theme-aware page-packing + sidebar resolution
+  keywords.js                    ← ATS/AI-parser keyword metadata
+  reproducible.js                ← SOURCE_DATE_EPOCH support (see below)
+  profilePhoto.js                ← shared profile-image extension precedence
+  loadContent.js                 ← auto-discovers cv-content/*.yaml
+  loadLayout.js                  ← normalizes layout YAML → slot config
+  fonts.js                       ← Lato font registration
+  *.test.js                      ← Vitest unit tests (co-located)
+  themes/                        ← auto-discovered themes (teal, coral, mono)
+  templates/                     ← page shells (TwoColumn, SingleColumn)
+  sections/                      ← content sections + registry
+  components/                    ← shared leaf components
+
+scripts/
+  export-pdf.js                  ← npm run pdf
+  export-pdf-ats.js              ← npm run pdf:ats
+  build-lib.js                   ← npm run build:lib (publishing build)
+  crop-profile.py                ← photo crop helper
+
+bin/makecv.js                    ← npx CLI (init / build)
+template/cv-content/             ← starter content scaffolded by `makecv init`
+lib/                             ← generated: published transform of src/pdf (gitignored)
+```
 
 ## Testing
-
-Unit tests cover the pure logic modules — keyword building, page packing, sidebar resolution, and the profile-photo picker.
 
 ```bash
 npm test
 ```
 
-Tests live next to the code they cover (`src/pdf/*.test.js`) plus a `test/` directory for cross-cutting checks (e.g. asserting both content-loading paths resolve the same `js-yaml` major).
+Unit tests cover the pure logic modules — keyword building, page packing, sidebar resolution, reproducibility helpers, and the profile-photo picker. Tests live next to the code they cover (`src/pdf/*.test.js`) plus `test/` for cross-cutting checks. CI runs the suite on Linux and macOS across Node 20/22/24 (plus Windows on Node 22), then packs the tarball and exercises the installed CLI end-to-end, including a byte-identical reproducibility gate.
 
----
+## Reproducible builds
 
-## Advanced: auto-discovery
+Set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/docs/source-date-epoch/) (seconds since the Unix epoch) to make PDF output byte-identical run after run — useful for CI checks and for verifying that a content change is the *only* thing that changed:
 
-The system uses convention-based auto-discovery — no index files or import lists to maintain. Drop a file in the right folder and it's picked up automatically.
+```bash
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) npx makecv build   # or npm run pdf
+```
 
-| What | Where to drop it | Format | How it's found |
-|---|---|---|---|
-| **Content** | `cv-content/*.yaml` | YAML | Any `.yaml` file (except `config.yaml`) becomes a content key matching its filename |
-| **Themes** | `src/pdf/themes/*.js` | ES module | Any `.js` file exporting an object with a `name` property is registered as a theme |
-| **Layouts** | `cv-content/layouts/*.yaml` | YAML | Any `.yaml` file with a `template` and `pages` structure becomes a selectable layout |
-| **Profile photo** | `cv-content/images/profile.*` | Image | First match of `.jpg`, `.jpeg`, `.png`, or `.webp` is used |
+This pins the PDF's `CreationDate` (and with it the trailer file ID), the font-subset names, and the object write order — the things that otherwise vary per run. Unset, builds behave normally and stamp the current time.
 
-### Adding a new content section
-
-1. Create `cv-content/publications.yaml` with your data
-2. The data is automatically available as `content.publications` in the rendering pipeline
-3. To display it, create a section component in `src/pdf/sections/`, register it in `registry.js`, and reference it in your layout YAML
-
-### Adding a new theme
-
-1. Create `src/pdf/themes/forest.js`:
-   ```js
-   import { tealTheme } from './teal.js'
-   export const forestTheme = {
-     ...tealTheme,
-     name: 'forest',
-     palette: { ...tealTheme.palette, accent: '#2d5f2d', sidebarBg: '#eef5ee' },
-   }
-   ```
-2. Set `theme: forest` in `config.yaml`
-3. Run `npm run pdf` — no other files need editing
-
-### Adding a new layout
-
-1. Create `cv-content/layouts/academic.yaml`:
-   ```yaml
-   template: two-column
-   pages:
-     first:
-       sidebar: [identity-photo, contact, education]
-       main: [summary, spacer: 27, experience]
-     continuation:
-       sidebar: [identity-compact, competencies, achievements]
-       main: [experience:continued]
-     last:
-       sidebar: [identity-compact, referees]
-       main: [experience:continued]
-   ```
-2. Set `layout: academic` in `config.yaml`
-3. Run `npm run pdf` — no other files need editing
-
----
+Byte-identical output is guaranteed for the same platform and Node version. Builds from different OSes or Node majors are visually identical but not byte-identical (font subsets embed in a platform-dependent order, and zlib output varies across Node versions).
 
 ## Tech stack
 
 - **[@react-pdf/renderer](https://react-pdf.org/)** — renders React to PDF (no headless browser)
 - **[Vite](https://vitejs.dev/) + React** — live browser preview
 - **[js-yaml](https://github.com/nodeca/js-yaml)** — YAML parsing (pinned to 4.x to match `@rollup/plugin-yaml`)
-- **[tsx](https://github.com/privatenumber/tsx)** — runs export scripts in Node
-- **[Vitest](https://vitest.dev/)** — unit tests (`npm test`)
+- **[esbuild](https://esbuild.github.io/)** — transform-only build of `lib/` for publishing
+- **[tsx](https://github.com/privatenumber/tsx)** — runs the repo export scripts
+- **[Vitest](https://vitest.dev/)** — unit tests
 - **[Lato](https://fonts.google.com/specimen/Lato)** — embedded font (Light 300, Regular 400, Bold 700)
-
----
-
-## Using this as a template
-
-1. Fork or clone this repo
-2. `npm install`
-3. Replace all YAML files in `cv-content/` with your own content
-4. Replace `cv-content/images/profile.jpg` with your photo
-5. Pick a theme in `config.yaml` (or create your own)
-6. `npm run dev` to preview, `npm run pdf` to export
 
 ---
 
