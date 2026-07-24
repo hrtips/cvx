@@ -3,7 +3,7 @@ name: Publish
 # Stable release:  push a version tag (v1.2.0) → npm publish (latest)
 # Canary release:  run manually from the Actions tab → npm publish --tag next
 #                  versioned <version>-next.<short-sha>, safe to test via
-#                  `npx makecv@next` without touching latest.
+#                  `npx @hrtips/cvx@next` without touching latest.
 #
 # Requires the NPM_TOKEN_MAKECV secret (npm granular token, read/write packages).
 

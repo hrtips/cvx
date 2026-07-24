@@ -1,6 +1,6 @@
 # Generating your CV with an AI assistant
 
-makecv is designed to pair with LLMs: the content format is plain YAML with a small, documented schema, so any capable assistant — Claude, ChatGPT, Gemini, or a coding agent — can turn your existing CV, LinkedIn profile, or a rough brain-dump into polished `cv-content/` files. You review the facts, run one command, and get the PDF.
+CVX is designed to pair with LLMs: the content format is plain YAML with a small, documented schema, so any capable assistant — Claude, ChatGPT, Gemini, or a coding agent — can turn your existing CV, LinkedIn profile, or a rough brain-dump into polished `cv-content/` files. You review the facts, run one command, and get the PDF.
 
 Pick the route that matches the tool you have:
 
@@ -9,11 +9,11 @@ Pick the route that matches the tool you have:
 | A coding agent (Claude Code, Cursor, Copilot, Codex…) | [Route A](#route-a--coding-agent-lowest-friction) | Lowest — the agent edits files and builds the PDF itself |
 | A chat assistant with web access | [Route B](#route-b--chat-assistant-with-web-access) | One paste in, files out |
 | A chat assistant without web access | [Route C](#route-c--chat-assistant-self-contained-prompt) | Same, using a self-contained prompt |
-| An agent-mode assistant that can run commands (ChatGPT agent mode, …) | [Route D](#route-d--agent-mode-assistant-zero-local-setup) | Zero local setup — the assistant runs makecv in its own workspace |
+| An agent-mode assistant that can run commands (ChatGPT agent mode, …) | [Route D](#route-d--agent-mode-assistant-zero-local-setup) | Zero local setup — the assistant runs CVX in its own workspace |
 
 Whichever route you take, the same two rules apply:
 
-> **Truthfulness** — tell the assistant to keep every fact from your input and invent nothing. AI-embellished CVs fail interviews and background checks; makecv's ATS keywords are also cross-checked by parsers against the CV body.
+> **Truthfulness** — tell the assistant to keep every fact from your input and invent nothing. AI-embellished CVs fail interviews and background checks; CVX's ATS keywords are also cross-checked by parsers against the CV body.
 >
 > **Review** — read every generated file before you send the PDF anywhere. You own what it says.
 
@@ -25,7 +25,7 @@ Works with Claude Code, Cursor, Windsurf, Copilot Workspace, Codex CLI — anyth
 
 ```bash
 mkdir my-cv && cd my-cv
-npx makecv init
+npx @hrtips/cvx init
 ```
 
 Then give your agent a prompt like:
@@ -34,7 +34,7 @@ Then give your agent a prompt like:
 Replace the example content in cv-content/ with my real CV.
 The schema is documented in cv-content/README.md — follow it exactly,
 keep every fact truthful to my input, and don't invent anything.
-When done, run `npx makecv build` and fix any YAML errors until it renders.
+When done, run `npx @hrtips/cvx build` and fix any YAML errors until it renders.
 
 My details:
 <paste your old CV / LinkedIn text / notes here — or point the agent at a file, e.g. "read ~/Downloads/old-cv.pdf">
@@ -49,9 +49,9 @@ Finish by dropping your photo at `cv-content/images/profile.jpg` (square, 400×4
 For Claude, ChatGPT, or any assistant that can fetch a URL. Paste this, then your CV text:
 
 ```text
-Read the makecv content schema at
+Read the CVX content schema at
 https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md
-then convert my CV below into makecv cv-content/ YAML files.
+then convert my CV below into CVX cv-content/ YAML files.
 
 Rules:
 - Output each file as its own fenced code block, titled with its filename.
@@ -67,9 +67,9 @@ Then on your machine:
 
 ```bash
 mkdir my-cv && cd my-cv
-npx makecv init                      # scaffolds the folder structure
+npx @hrtips/cvx init                      # scaffolds the folder structure
 # overwrite the example files with the assistant's output
-npx makecv build
+npx @hrtips/cvx build
 ```
 
 Tip: instead of retyping, export your LinkedIn profile (Profile → More → Save to PDF) and paste its text, or paste the text of your old CV.
@@ -79,7 +79,7 @@ Tip: instead of retyping, export your LinkedIn profile (Profile → More → Sav
 No web access needed — the schema is embedded. Paste this whole block, then your CV text:
 
 ```text
-Convert my CV below into YAML files for makecv (a tool that renders
+Convert my CV below into YAML files for CVX (a tool that renders
 cv-content/*.yaml into a PDF). Output each file as its own fenced code
 block titled with its filename. Keep every fact truthful to my input —
 don't invent numbers, dates, or achievements. Quote YAML strings that
@@ -110,7 +110,7 @@ My CV:
 <paste your old CV / LinkedIn profile text here>
 ```
 
-Save the output files into `cv-content/` (after `npx makecv init` for the folder structure and photo placeholder), then `npx makecv build`.
+Save the output files into `cv-content/` (after `npx @hrtips/cvx init` for the folder structure and photo placeholder), then `npx @hrtips/cvx build`.
 
 ## Route D — agent-mode assistant, zero local setup
 
@@ -118,11 +118,11 @@ If your assistant can execute commands in a workspace (e.g. ChatGPT's agent mode
 
 ```text
 In your workspace, install Node if needed, then run:
-  npx makecv init
+  npx @hrtips/cvx init
 Replace the example content in cv-content/ with my CV below, following
 the schema in cv-content/README.md. Keep every fact truthful to my
 input — don't invent anything. Then run:
-  npx makecv build
+  npx @hrtips/cvx build
 and give me BOTH the finished PDF AND a zip of the cv-content folder
 as downloads. I need the zip to keep my content for future updates.
 
@@ -132,7 +132,7 @@ My CV:
 
 The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder is the durable asset. Next time, upload the zip back (or switch to any other route) and ask for the changes you need.
 
-**Privacy note:** makecv itself runs entirely locally and makes zero network calls — but in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
+**Privacy note:** CVX itself runs entirely locally and makes zero network calls — but in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 
 ---
 
@@ -144,7 +144,7 @@ Useful follow-up prompts once the first PDF renders:
 - *"It overflows page 2 — trim the two oldest roles to 2 bullets each."*
 - *"Set page1ExperienceCount: 2 and page1SplitBullets: 3 in config.yaml"* (page-1 layout control)
 - *"Generate keywords.yaml for this job description, using only skills I actually list."*
-- *"Produce the ATS variant too"* → `npx makecv build --ats` for job portals.
+- *"Produce the ATS variant too"* → `npx @hrtips/cvx build --ats` for job portals.
 
 ## For AI assistants reading this
 

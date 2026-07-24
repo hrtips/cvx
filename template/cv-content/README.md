@@ -1,6 +1,6 @@
 # Your CV content
 
-Everything in this folder is Bruce Wayne's CV — working starter content for you to replace. Run `npx makecv build` right now to see the finished PDF, then swap his details for yours one file at a time and rebuild to see each change land.
+Everything in this folder is Bruce Wayne's CV — working starter content for you to replace. Run `npx @hrtips/cvx build` right now to see the finished PDF, then swap his details for yours one file at a time and rebuild to see each change land.
 
 | File | What it controls |
 |---|---|
@@ -19,8 +19,8 @@ Everything in this folder is Bruce Wayne's CV — working starter content for yo
 
 ```bash
 # edit any file above, then:
-npx makecv build          # designed two-column PDF
-npx makecv build --ats    # plain single-column PDF for job portals
+npx @hrtips/cvx build          # designed two-column PDF
+npx @hrtips/cvx build --ats    # plain single-column PDF for job portals
 ```
 
 The output PDF is named after `personal.yaml`'s `name` (e.g. `bruce-wayne.pdf` — it'll switch to your name automatically).

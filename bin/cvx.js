@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * makecv — config-driven CV generator.
+ * cvx — config-driven CV generator.
  *
- *   makecv init           scaffold a starter cv-content/ in the current directory
- *   makecv build [--ats]  render cv-content/ to a PDF in the current directory
+ *   cvx init           scaffold a starter cv-content/ in the current directory
+ *   cvx build [--ats]  render cv-content/ to a PDF in the current directory
  *
  * Imports from ../lib (the published transform of src/pdf). In a repo checkout
  * run `npm run build:lib` first, or use the `npm run pdf` scripts instead.
@@ -16,18 +16,18 @@ import { parseArgs } from 'node:util'
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
 
-const HELP = `makecv ${version} — config-driven CV generator
+const HELP = `cvx ${version} — config-driven CV generator
 
 Usage:
-  makecv init           Scaffold a starter cv-content/ here (Bruce Wayne demo)
-  makecv build          Render cv-content/ to <your-name>.pdf
-  makecv build --ats    Render the ATS-safe single-column variant
+  cvx init           Scaffold a starter cv-content/ here (Bruce Wayne demo)
+  cvx build          Render cv-content/ to <your-name>.pdf
+  cvx build --ats    Render the ATS-safe single-column variant
 
 Options:
   -h, --help            Show this help
   -v, --version         Show version
 
-Edit the YAML files in cv-content/ and re-run "makecv build".
+Edit the YAML files in cv-content/ and re-run "cvx build".
 Docs: https://github.com/hrtips/cvx#readme`
 
 async function init() {
@@ -42,7 +42,7 @@ async function init() {
 Next steps:
   1. Edit cv-content/*.yaml with your details
   2. Drop your photo at cv-content/images/profile.jpg
-  3. Run: npx makecv build`)
+  3. Run: npx @hrtips/cvx build   (or just "cvx build" if installed globally)`)
 }
 
 async function build(ats) {

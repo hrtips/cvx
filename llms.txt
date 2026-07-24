@@ -1,10 +1,10 @@
-# makecv
+# CVX
 
-> npm CLI that renders a CV from plain YAML files to a pixel-perfect PDF, locally (no accounts, no cloud, no headless browser). `npx makecv init` scaffolds a complete example CV (Bruce Wayne's) in `cv-content/`; the user replaces his details with theirs and runs `npx makecv build`.
+> npm CLI that renders a CV from plain YAML files to a pixel-perfect PDF, locally (no accounts, no cloud, no headless browser). `npx @hrtips/cvx init` scaffolds a complete example CV (Bruce Wayne's) in `cv-content/`; the user replaces his details with theirs and runs `npx @hrtips/cvx build`.
 
 Key facts:
 
-- Commands: `npx makecv init` (scaffold), `npx makecv build` (render PDF), `npx makecv build --ats` (ATS-safe single-column variant).
+- Commands: `npx @hrtips/cvx init` (scaffold), `npx @hrtips/cvx build` (render PDF), `npx @hrtips/cvx build --ats` (ATS-safe single-column variant).
 - Content lives in `cv-content/*.yaml`: `personal`, `summary`, `experience`, `education`, `competencies`, `achievements`, `referees`, `keywords`, `config`, plus `images/profile.<ext>` and optional `layouts/*.yaml`.
 - Output PDF is named from `personal.yaml`'s `name` (lowercased, hyphenated).
 - Missing/empty content files simply drop that section — no error.
@@ -16,7 +16,7 @@ Key facts:
 - [CV content schema](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
 - [AI guide](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md): workflows and prompts for generating a CV with an assistant or coding agent
 - [README](https://raw.githubusercontent.com/hrtips/cvx/main/README.md): full user and developer guide
-- [Scaffold guide](https://raw.githubusercontent.com/hrtips/cvx/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `makecv init`
+- [Scaffold guide](https://raw.githubusercontent.com/hrtips/cvx/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `cvx init`
 
 ## Optional
 

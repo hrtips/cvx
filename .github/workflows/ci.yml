@@ -30,14 +30,14 @@ jobs:
         shell: bash
         run: |
           npm pack
-          TARBALL="$PWD/$(ls makecv-*.tgz)"
+          TARBALL="$PWD/$(ls hrtips-cvx-*.tgz)"
           DIR="$(mktemp -d)"
           cd "$DIR"
           npm init -y > /dev/null
           npm install --no-audit --no-fund "$TARBALL"
-          npx makecv init
-          npx makecv build
-          npx makecv build --ats
+          npx cvx init
+          npx cvx build
+          npx cvx build --ats
           test -f bruce-wayne.pdf && test -f bruce-wayne-ats.pdf
 
       - name: Reproducibility — two pinned builds must be byte-identical
@@ -46,11 +46,11 @@ jobs:
           DIR="$(mktemp -d)"
           cd "$DIR"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund "$(ls "$GITHUB_WORKSPACE"/makecv-*.tgz)"
-          npx makecv init
-          SOURCE_DATE_EPOCH=1700000000 npx makecv build
+          npm install --no-audit --no-fund "$(ls "$GITHUB_WORKSPACE"/hrtips-cvx-*.tgz)"
+          npx cvx init
+          SOURCE_DATE_EPOCH=1700000000 npx cvx build
           H1="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
-          SOURCE_DATE_EPOCH=1700000000 npx makecv build
+          SOURCE_DATE_EPOCH=1700000000 npx cvx build
           H2="$(node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('bruce-wayne.pdf')).digest('hex'))")"
           echo "run1: $H1"
           echo "run2: $H2"

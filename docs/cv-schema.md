@@ -1,12 +1,12 @@
-# makecv content schema — complete reference
+# CVX content schema — complete reference
 
-This document is self-contained: with only this file and a person's CV facts, you can generate a complete, valid `cv-content/` folder for [makecv](https://github.com/hrtips/cvx). It is written for both humans and AI assistants.
+This document is self-contained: with only this file and a person's CV facts, you can generate a complete, valid `cv-content/` folder for [CVX](https://github.com/hrtips/cvx). It is written for both humans and AI assistants.
 
-## How makecv works
+## How CVX works
 
-- `npx makecv init` scaffolds `cv-content/` with a complete example CV (Bruce Wayne's).
-- `npx makecv build` renders `cv-content/` to a PDF in the current directory.
-- `npx makecv build --ats` renders an ATS-safe single-column variant instead.
+- `npx @hrtips/cvx init` scaffolds `cv-content/` with a complete example CV (Bruce Wayne's).
+- `npx @hrtips/cvx build` renders `cv-content/` to a PDF in the current directory.
+- `npx @hrtips/cvx build --ats` renders an ATS-safe single-column variant instead.
 - The output PDF is named from `personal.yaml`'s `name`: lowercased, spaces → hyphens (`Bruce Wayne` → `bruce-wayne.pdf`; the ATS variant appends `-ats`).
 - Every `.yaml` file in `cv-content/` is auto-discovered by filename. A missing file, an empty file, or `[]` simply drops that section from the CV — no error.
 - All rendering is local; no network calls, no accounts.
@@ -186,4 +186,4 @@ Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievemen
 4. `education.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
 5. `keywords.yaml` — only truthful terms not already covered by competencies/titles.
 6. `config.yaml` — usually just `theme` + `layout`; add pagination keys only if page 1 overflows.
-7. Tell the user to add `images/profile.jpg` (a photo can't be generated from text) and run `npx makecv build`.
+7. Tell the user to add `images/profile.jpg` (a photo can't be generated from text) and run `npx @hrtips/cvx build`.

@@ -66,7 +66,7 @@ describe('seedMathRandom', () => {
 
 describe('makeDeflateSynchronous', () => {
   it('emits bytes identical to streaming deflate, synchronously', () => {
-    const input = Buffer.from('makecv reproducible '.repeat(200))
+    const input = Buffer.from('cvx reproducible '.repeat(200))
     const expected = zlib.deflateSync(input)
 
     makeDeflateSynchronous()

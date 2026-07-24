@@ -1,7 +1,7 @@
 // ── Render pipeline ─────────────────────────────────────────────────────────
 // Single entry point for turning a cv-content directory into a PDF buffer.
 // Shared by the repo export scripts (scripts/export-pdf*.js, run with tsx)
-// and the published CLI (bin/makecv.js, run against lib/), so both always
+// and the published CLI (bin/cvx.js, run against lib/), so both always
 // produce identical output.
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ function deriveFilename(name, suffix) {
  */
 export async function renderCV({ contentDir, fontsDir, ats = false, env = process.env, warn = console.warn }) {
   if (!existsSync(contentDir)) {
-    throw new Error(`Content directory not found: ${contentDir}\nRun "makecv init" to scaffold one.`)
+    throw new Error(`Content directory not found: ${contentDir}\nRun "cvx init" to scaffold one.`)
   }
 
   registerFonts(fontsDir)

@@ -11,7 +11,7 @@ import { loadContent } from '../src/pdf/loadContent.js'
 const dirs = []
 
 function contentDirWith(imageNames) {
-  const dir = mkdtempSync(join(tmpdir(), 'makecv-photo-'))
+  const dir = mkdtempSync(join(tmpdir(), 'cvx-photo-'))
   dirs.push(dir)
   mkdirSync(join(dir, 'images'))
   for (const name of imageNames) {
@@ -41,7 +41,7 @@ describe('loadContent profile-photo probe', () => {
   })
 
   it('returns null when images/ is absent', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'makecv-photo-'))
+    const dir = mkdtempSync(join(tmpdir(), 'cvx-photo-'))
     dirs.push(dir)
     expect(loadContent(dir).profilePhoto).toBeNull()
   })

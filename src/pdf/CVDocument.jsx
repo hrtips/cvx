@@ -170,8 +170,8 @@ export default function CVDocument({
         author={personal.name}
         subject={personal.title ?? 'Curriculum Vitae'}
         keywords={keywordString}
-        creator="makecv"
-        producer="makecv"
+        creator="cvx"
+        producer="cvx"
         language="en"
         creationDate={creationDate}
       >

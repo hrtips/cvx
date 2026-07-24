@@ -1,26 +1,31 @@
-# makecv
+<p align="center">
+  <img src="assets/brand/logos/cvx-horizontal-lockup-transparent.png" alt="CVX" width="420">
+</p>
 
-[![CI](https://github.com/hrtips/cvx/actions/workflows/ci.yml/badge.svg)](https://github.com/hrtips/cvx/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/makecv)](https://www.npmjs.com/package/makecv)
-[![npm downloads](https://img.shields.io/npm/dm/makecv)](https://www.npmjs.com/package/makecv)
-[![install size](https://packagephobia.com/badge?p=makecv)](https://packagephobia.com/result?p=makecv)
-[![node](https://img.shields.io/node/v/makecv)](https://github.com/hrtips/cvx/blob/main/package.json)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-
-Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
+<p align="center"><b>Structured input. Professional output. To the power of X.</b></p>
 
 <p align="center">
-  <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by makecv — teal theme, photo sidebar, achievements" width="720">
+  <a href="https://github.com/hrtips/cvx/actions/workflows/ci.yml"><img src="https://github.com/hrtips/cvx/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/@hrtips/cvx"><img src="https://img.shields.io/npm/v/%40hrtips%2Fcvx" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@hrtips/cvx"><img src="https://img.shields.io/npm/dm/%40hrtips%2Fcvx" alt="npm downloads"></a>
+  <a href="https://packagephobia.com/result?p=%40hrtips%2Fcvx"><img src="https://packagephobia.com/badge?p=%40hrtips%2Fcvx" alt="install size"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
 </p>
-<p align="center"><sub>The scaffolded example CV, exactly as <code>npx makecv build</code> renders it — plus an <a href="assets/hero-ats.png">ATS-safe single-column variant</a> via <code>--ats</code>.</sub></p>
+
+Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine. <sub>(Formerly published as <code>makecv</code>.)</sub>
+
+<p align="center">
+  <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by CVX — teal theme, photo sidebar, achievements" width="720">
+</p>
+<p align="center"><sub>The scaffolded example CV, exactly as <code>npx @hrtips/cvx build</code> renders it — plus an <a href="assets/hero-ats.png">ATS-safe single-column variant</a> via <code>--ats</code>.</sub></p>
 
 ---
 
 ## Create your CV in two minutes
 
 ```bash
-npx makecv init     # scaffold cv-content/ with a complete example CV
-npx makecv build    # render it to a PDF
+npx @hrtips/cvx init     # scaffold cv-content/ with a complete example CV
+npx @hrtips/cvx build    # render it to a PDF
 ```
 
 `init` gives you a finished, working CV — **Bruce Wayne's**, and yes, really. Open `bruce-wayne.pdf` and you're looking at a designed two-page CV: photo, sidebar, achievements, the lot.
@@ -39,22 +44,22 @@ cv-content/
   images/profile.jpg  ← your photo (square, 400×400px or larger)
 ```
 
-Re-run `npx makecv build` after each file and watch the PDF update — seeing Bruce's entry next to yours makes the format self-explanatory. The output file is named after you automatically (`jane-doe.pdf`).
+Re-run `npx @hrtips/cvx build` after each file and watch the PDF update — seeing Bruce's entry next to yours makes the format self-explanatory. The output file is named after you automatically (`jane-doe.pdf`).
 
 Applying through a job portal? Generate the ATS-safe variant too — single column, no colours, machine-friendly:
 
 ```bash
-npx makecv build --ats
+npx @hrtips/cvx build --ats
 ```
 
 ### CLI reference
 
 | Command | Does |
 |---|---|
-| `npx makecv init` | Scaffold `cv-content/` with the example CV (won't overwrite an existing one) |
-| `npx makecv build` | Render `cv-content/` to `<your-name>.pdf` |
-| `npx makecv build --ats` | Render the ATS-safe single-column variant |
-| `npx makecv --help` / `--version` | Help / version |
+| `npx @hrtips/cvx init` | Scaffold `cv-content/` with the example CV (won't overwrite an existing one) |
+| `npx @hrtips/cvx build` | Render `cv-content/` to `<your-name>.pdf` |
+| `npx @hrtips/cvx build --ats` | Render the ATS-safe single-column variant |
+| `npx @hrtips/cvx --help` / `--version` | Help / version |
 
 ---
 
@@ -142,13 +147,13 @@ The complete field-by-field schema for every file lives in [docs/cv-schema.md](d
 
 The formats are deliberately LLM-friendly, and the schema is published for machines ([llms.txt](llms.txt), [docs/cv-schema.md](docs/cv-schema.md)). **[The AI guide](docs/ai-guide.md)** has copy-paste prompts for every route; the short version:
 
-**Coding agent** (Claude Code, Cursor, …) — lowest friction: run `npx makecv init`, then ask the agent to replace the example content with your details and build. The scaffolded `cv-content/README.md` documents the schema, so the agent edits, runs `npx makecv build`, and fixes errors itself.
+**Coding agent** (Claude Code, Cursor, …) — lowest friction: run `npx @hrtips/cvx init`, then ask the agent to replace the example content with your details and build. The scaffolded `cv-content/README.md` documents the schema, so the agent edits, runs `npx @hrtips/cvx build`, and fixes errors itself.
 
 **Chat assistant** (Claude, ChatGPT, …) — paste your existing CV or LinkedIn profile text along with this prompt:
 
-> Read the makecv content schema at https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md then convert my CV below into makecv cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
+> Read the CVX content schema at https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md then convert my CV below into CVX cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
 
-Save the generated files into `cv-content/`, drop in your photo, run `npx makecv build`. No web access in your assistant? Use the [self-contained prompt](docs/ai-guide.md#route-c--chat-assistant-self-contained-prompt).
+Save the generated files into `cv-content/`, drop in your photo, run `npx @hrtips/cvx build`. No web access in your assistant? Use the [self-contained prompt](docs/ai-guide.md#route-c--chat-assistant-self-contained-prompt).
 
 ### Your photo
 
@@ -167,7 +172,7 @@ page1ExperienceCount: 2   # experience entries on page 1
 page1SplitBullets: 2      # split the last entry: N bullets on page 1, rest continue
 ```
 
-Change a value, re-run `npx makecv build`, done.
+Change a value, re-run `npx @hrtips/cvx build`, done.
 
 **Themes** control colour and styling:
 
@@ -276,16 +281,16 @@ atsKeywords:
 
 # For developers
 
-Everything below is about hacking on makecv itself — custom themes, the rendering pipeline, and contributing. You don't need any of it to create a CV.
+Everything below is about hacking on CVX itself — custom themes, the rendering pipeline, and contributing. You don't need any of it to create a CV.
 
 ## Working from a clone
 
 ```bash
 git clone git@github.com:hrtips/cvx.git
-cd makecv
+cd cvx
 npm install
 npm run dev        # live browser preview at http://localhost:5173
-npm run pdf        # generate PDF (same pipeline as `makecv build`)
+npm run pdf        # generate PDF (same pipeline as `cvx build`)
 npm run pdf:ats    # generate the ATS variant
 npm test           # unit tests
 npm run build:lib  # build the publishable lib/ (what the CLI runs)
@@ -401,8 +406,8 @@ scripts/
   build-lib.js                   ← npm run build:lib (publishing build)
   crop-profile.py                ← photo crop helper
 
-bin/makecv.js                    ← npx CLI (init / build)
-template/cv-content/             ← starter content scaffolded by `makecv init`
+bin/cvx.js                    ← npx CLI (init / build)
+template/cv-content/             ← starter content scaffolded by `cvx init`
 lib/                             ← generated: published transform of src/pdf (gitignored)
 ```
 
@@ -419,7 +424,7 @@ Unit tests cover the pure logic modules — keyword building, page packing, side
 Set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/docs/source-date-epoch/) (seconds since the Unix epoch) to make PDF output byte-identical run after run — useful for CI checks and for verifying that a content change is the *only* thing that changed:
 
 ```bash
-SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) npx makecv build   # or npm run pdf
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) npx @hrtips/cvx build   # or npm run pdf
 ```
 
 This pins the PDF's `CreationDate` (and with it the trailer file ID), the font-subset names, and the object write order — the things that otherwise vary per run. Unset, builds behave normally and stamp the current time.

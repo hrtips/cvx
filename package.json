@@ -1,7 +1,10 @@
 {
-  "name": "makecv",
-  "version": "1.2.0",
-  "description": "Config-driven CV generator: YAML content, swappable themes and layouts, pixel-perfect PDFs — no headless browser.",
+  "name": "@hrtips/cvx",
+  "version": "1.2.1",
+  "description": "CVX — structured input, professional output. YAML content in, pixel-perfect CV PDFs out; swappable themes and layouts, no headless browser. Formerly makecv.",
+  "bin": {
+    "cvx": "bin/cvx.js"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -27,9 +30,6 @@
     "test": "vitest run"
   },
   "type": "module",
-  "bin": {
-    "makecv": "bin/makecv.js"
-  },
   "engines": {
     "node": ">=20"
   },

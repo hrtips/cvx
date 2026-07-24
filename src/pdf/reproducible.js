@@ -102,7 +102,7 @@ export function setupReproducibility(env = {}) {
     if (verifyPatchPoints() === false) {
       console.warn(
         '⚠ SOURCE_DATE_EPOCH is set, but @react-pdf/pdfkit internals have changed since this\n' +
-        '  version of makecv was tested — output may NOT be byte-identical across runs.\n' +
+        '  version of cvx was tested — output may NOT be byte-identical across runs.\n' +
         '  Please report this: https://github.com/hrtips/cvx/issues'
       )
     }
