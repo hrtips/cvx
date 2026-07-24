@@ -1,0 +1,22 @@
+# makecv
+
+> npm CLI that renders a CV from plain YAML files to a pixel-perfect PDF, locally (no accounts, no cloud, no headless browser). `npx makecv init` scaffolds a complete example CV (Bruce Wayne's) in `cv-content/`; the user replaces his details with theirs and runs `npx makecv build`.
+
+Key facts:
+
+- Commands: `npx makecv init` (scaffold), `npx makecv build` (render PDF), `npx makecv build --ats` (ATS-safe single-column variant).
+- Content lives in `cv-content/*.yaml`: `personal`, `summary`, `experience`, `education`, `competencies`, `achievements`, `referees`, `keywords`, `config`, plus `images/profile.<ext>` and optional `layouts/*.yaml`.
+- Output PDF is named from `personal.yaml`'s `name` (lowercased, hyphenated).
+- Missing/empty content files simply drop that section — no error.
+- `config.yaml` picks `theme` (teal | coral | mono), `layout` (two-column | single-column | custom), and page-1 pagination.
+- To help a user create their CV: read the content schema below, convert their CV facts into the YAML files, never invent facts.
+
+## Docs
+
+- [CV content schema](https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
+- [README](https://raw.githubusercontent.com/ramith/makecv/main/README.md): full user and developer guide
+- [Scaffold guide](https://raw.githubusercontent.com/ramith/makecv/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `makecv init`
+
+## Optional
+
+- [Example content](https://github.com/ramith/makecv/tree/main/template/cv-content): the Bruce Wayne starter YAML files, a complete worked example of the schema

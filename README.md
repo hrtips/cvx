@@ -131,6 +131,20 @@ linkedinHref: "https://www.linkedin.com/in/brucewayne"
 
 Delete what you don't need — an empty file (or `[]`) simply drops that section from the CV. Any new `.yaml` file you drop into `cv-content/` is auto-discovered as a content key.
 
+The complete field-by-field schema for every file lives in [docs/cv-schema.md](docs/cv-schema.md).
+
+### Let an AI write the YAML for you
+
+The formats are deliberately LLM-friendly, and the schema is published for machines ([llms.txt](llms.txt), [docs/cv-schema.md](docs/cv-schema.md)). Two easy routes:
+
+**Chat assistant** (Claude, ChatGPT, …) — paste your existing CV or LinkedIn profile text along with this prompt:
+
+> Read the makecv content schema at https://raw.githubusercontent.com/ramith/makecv/main/docs/cv-schema.md then convert my CV below into makecv cv-content/ YAML files. Output each file in its own fenced code block titled with the filename. Keep every fact truthful to my input — don't invent anything.
+
+Save the generated files into `cv-content/`, drop in your photo, run `npx makecv build`.
+
+**Coding agent** (Claude Code, Cursor, …) — run `npx makecv init`, then ask the agent to replace the example content with your details. The scaffolded `cv-content/README.md` documents the schema, so the agent knows exactly what to do.
+
 ### Your photo
 
 Drop it into `cv-content/images/` as `profile.<ext>` — `jpg`, `jpeg`, `png`, or `webp` are auto-detected (that order wins if several exist). Square crop, at least 400×400px.

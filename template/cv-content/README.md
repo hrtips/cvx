@@ -31,4 +31,22 @@ The output PDF is named after `personal.yaml`'s `name` (e.g. `bruce-wayne.pdf` �
 - Start with `experience.yaml` — it's the bulk of the CV and the structure is self-explanatory once you see Bruce's entries next to the built PDF.
 - `config.yaml` controls how many experience entries fit on page 1 (`page1ExperienceCount` / `page1SplitBullets`); tune those last, after your content is in.
 
+## Schema reference (for tools & AI assistants)
+
+If you are an AI assistant replacing this example content with the user's real CV: keep every fact truthful to their input, write valid YAML (quote strings containing colons), and use these exact fields — unknown keys are ignored.
+
+- **personal.yaml** (object): `name` (required — also names the output PDF), `title`, `company`, `phone` + `phoneHref`, `email` (auto-`mailto:`), `linkedin` + `linkedinHref`, `facebook` + `facebookHref`, `location`. Contact rows render only for keys present.
+- **summary.yaml**: list of strings (3–6 single-sentence bullets).
+- **experience.yaml**: list of entries, most recent first — `role` (required), `company`, `period` (free text, e.g. `2005 – Present`), `location` (optional), `description` (optional italic one-liner), `progression` (optional list of `{title, period}` for promotions), `bullets` (list of strings; verb-first, quantified, truthful).
+- **education.yaml**: list of `{degree, institution, period}`.
+- **competencies.yaml**: list of short strings (1–3 words; rendered as pills).
+- **achievements.yaml**: list of `{year, text}` — `year` is the bold headline (usually the award name), `text` the attribution, e.g. `"— 2024, Gotham Gazette"`.
+- **referees.yaml**: list of `{name, title, company, email, phone}`, or `[]` for "available upon request".
+- **keywords.yaml** (optional): flat list, or map of group → list (groups are flattened). PDF-metadata only; competencies and job titles are auto-derived, so list only what those miss — truthful terms only.
+- **config.yaml**: `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom layout filename), `page1ExperienceCount` (int, optional), `page1SplitBullets` (int, optional), `atsKeywords: {enabled, autoDerive, max}`.
+- **layouts/*.yaml** (optional): `template` + `pages: {first, continuation, last}`, each with `sidebar`/`main` lists of section keys (`identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `competencies`, `referees`, `summary`, `experience`, `experience:continued`, `header-ats`, `spacer: N`).
+- **images/profile.<ext>**: square photo ≥400×400px; `jpg`/`jpeg`/`png`/`webp` (that precedence). Ask the user to supply it — don't fabricate.
+
+Full schema with examples: https://github.com/ramith/makecv/blob/main/docs/cv-schema.md
+
 Full docs: https://github.com/ramith/makecv#readme
