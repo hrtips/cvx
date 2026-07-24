@@ -9,8 +9,6 @@
 
 A config-driven CV generator with swappable themes and layouts. Write your content in YAML, pick a theme and layout in one config file, and generate pixel-perfect PDFs — no Word, no Google Docs, no headless browser.
 
-Built with [React](https://react.dev/) and [@react-pdf/renderer](https://react-pdf.org/).
-
 ---
 
 ## Quick start
