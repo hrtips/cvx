@@ -2,6 +2,20 @@
   "name": "makecv",
   "version": "1.2.0",
   "description": "Config-driven CV generator: YAML content, swappable themes and layouts, pixel-perfect PDFs — no headless browser.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ramith/makecv.git"
+  },
+  "keywords": [
+    "cv",
+    "resume",
+    "pdf",
+    "yaml",
+    "cli",
+    "ats",
+    "react-pdf"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",

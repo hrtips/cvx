@@ -1,5 +1,12 @@
 # makecv
 
+[![CI](https://github.com/ramith/makecv/actions/workflows/ci.yml/badge.svg)](https://github.com/ramith/makecv/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/makecv)](https://www.npmjs.com/package/makecv)
+[![npm downloads](https://img.shields.io/npm/dm/makecv)](https://www.npmjs.com/package/makecv)
+[![install size](https://packagephobia.com/badge?p=makecv)](https://packagephobia.com/result?p=makecv)
+[![node](https://img.shields.io/node/v/makecv)](https://github.com/ramith/makecv/blob/main/package.json)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 A config-driven CV generator with swappable themes and layouts. Write your content in YAML, pick a theme and layout in one config file, and generate pixel-perfect PDFs — no Word, no Google Docs, no headless browser.
 
 Built with [React](https://react.dev/) and [@react-pdf/renderer](https://react-pdf.org/).
@@ -512,3 +519,11 @@ The system uses convention-based auto-discovery — no index files or import lis
 4. Replace `cv-content/images/profile.jpg` with your photo
 5. Pick a theme in `config.yaml` (or create your own)
 6. `npm run dev` to preview, `npm run pdf` to export
+
+---
+
+## License
+
+[Apache-2.0](LICENSE) © ramith.
+
+The bundled [Lato](https://fonts.google.com/specimen/Lato) fonts are licensed separately under the [SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/).
