@@ -14,7 +14,7 @@ npx makecv build        # render <your-name>.pdf
 npx makecv build --ats  # render the ATS-safe variant (single-column, no colour)
 ```
 
-Edit the YAML files in `cv-content/`, drop in your photo, re-run `npx makecv build`. That's the whole workflow — no accounts, no cloud, your data never leaves your machine.
+`init` scaffolds a complete working CV — Bruce Wayne's, and yes, really — so your first `build` produces a finished two-page PDF before you've written a word. Then open `cv-content/`, replace his details with yours file by file, and re-run `npx makecv build` after each change to see exactly what each file controls. No accounts, no cloud — your data never leaves your machine.
 
 ### Working from a clone (live preview + development)
 
@@ -68,68 +68,78 @@ All content lives in `cv-content/`. Drop a YAML file and it's auto-discovered.
 
 ### Content file examples
 
-**personal.yaml**
+These are excerpts from the starter content `makecv init` scaffolds — build it once and you can see exactly where each snippet lands on the page.
+
+**personal.yaml** — the header and contact block:
 ```yaml
-name: Your Full Name
-title: Your Job Title
-company: Your Company
-phone: "+00 00 0000000"
-phoneHref: "tel:+00000000000"
-email: you@example.com
-linkedin: linkedin.com/in/yourprofile
-linkedinHref: "https://www.linkedin.com/in/yourprofile"
-location: "City, Country"
+name: Bruce Wayne
+title: Founder & Field Commander – Gotham Operations
+company: Wayne Enterprises
+phone: "+1 (201) 555-2283"
+phoneHref: "tel:+12015552283"
+email: bruce.wayne@wayne-enterprises.com
+linkedin: linkedin.com/in/brucewayne
+linkedinHref: "https://www.linkedin.com/in/brucewayne"
 ```
 
-**experience.yaml**
+**experience.yaml** — one entry per role; `progression` (optional) renders a title history inside the entry:
 ```yaml
-- role: Head of People
-  company: Acme Corp
-  period: Jan 2022 – Present
-  description: Optional one-line italic company description.
-  progression:                    # optional title history
-    - title: Head of People
-      period: Jan 2024 – Present
-    - title: HR Manager
-      period: Jan 2022 – Dec 2023
+- role: Founder & Field Commander – Gotham Operations
+  company: The Batman
+  period: 2005 – Present
+  description: Self-directed vigilante operation safeguarding Gotham City through deterrence, investigation, and crisis response.
+  progression:
+    - title: Commander, Batman Incorporated
+      period: 2011 – Present
+    - title: Solo Operative, The Dark Knight
+      period: 2005 – 2008
   bullets:
-    - Led workforce planning and hiring strategy across all functions.
-    - Defined HR policies and compliance frameworks.
+    - Established and scaled a citywide security operation from a solo initiative to a franchised network (Batman Incorporated).
+    - Recruited, trained, and led a high-performing field team including Robin, Nightwing, and Batgirl.
+    - Reduced organised-crime activity in Gotham by an estimated 60% through data-driven surveillance and rapid incident response.
 ```
 
-**summary.yaml**
+**summary.yaml** — the bullet list at the top of page 1:
 ```yaml
-- "Strategic leader with 10+ years' experience in..."
-- "Specialised in talent acquisition for engineering roles."
+- "Strategic operations leader with 20+ years' experience, progressing from solo field operative to Field Commander of a citywide security network."
+- "Co-founded the Justice League as a global response coalition, serving as chief strategist and contingency planner for existential-scale threats."
 ```
 
 **education.yaml**
 ```yaml
-- degree: MBA
-  institution: University Name, Country
-  period: 2015 – 2017
+- degree: "Applied Sciences & Criminology (self-directed)"
+  institution: League of Shadows
+  period: 1998 – 2004
+
+- degree: BSc, Criminology & Chemistry
+  institution: Gotham University
+  period: 1994 – 1998
 ```
 
-**competencies.yaml**
+**competencies.yaml** — rendered as skill pills in the sidebar:
 ```yaml
 - Strategic Planning
-- Talent Management
-- Labour Law
+- Criminal Investigation
+- Crisis Response
+- Surveillance & Intelligence
 ```
 
 **achievements.yaml**
 ```yaml
-- year: Award Name
-  text: "— Year, Awarding Organisation"
+- year: Gotham's Most Influential Citizen
+  text: "— 2024, Gotham Gazette"
+
+- year: Key to the City
+  text: "— Office of the Mayor, Gotham City"
 ```
 
-**referees.yaml**
+**referees.yaml** (use `[]` to print "available upon request"):
 ```yaml
-- name: Dr. Jane Smith
-  title: Chief Executive Officer
-  company: Example Company Ltd.
-  email: jane@example.com
-  phone: "+00 00 0000000"
+- name: Diana Prince
+  title: Founding Member, Justice League
+  company: Themysciran Embassy
+  email: d.prince@justiceleague.org
+  phone: "+1 (202) 555-0177"
 ```
 
 ---
