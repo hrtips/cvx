@@ -15,9 +15,10 @@
  *     logs and warnings go to stderr. Errors become { ok: false, error: {...} }.
  *   - every command is non-interactive.
  */
-import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync } from 'fs'
+import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync, mkdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { homedir } from 'os'
 import { parseArgs } from 'node:util'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -33,6 +34,9 @@ Usage:
   cvx build            Render cv-content/ to <your-name>.pdf
   cvx build --ats      Render the ATS-safe single-column variant
   cvx list [themes|layouts]   Show available themes and layouts
+  cvx mcp              Run the MCP stdio server (4 tools, fully offline)
+  cvx mcp init --client claude|claude-desktop|cursor|vscode
+                       Write the MCP config for your client
 
 Options:
   --strict             validate: treat warnings (e.g. unknown keys) as errors
@@ -123,6 +127,50 @@ async function list({ kind, json }) {
   }
 }
 
+const MCP_ENTRY = { command: 'npx', args: ['-y', '@hrtips/cvx', 'mcp'] }
+const MCP_CLIENTS = {
+  claude:           { file: () => join(process.cwd(), '.mcp.json'),            root: 'mcpServers', entry: { type: 'stdio', ...MCP_ENTRY } },
+  cursor:           { file: () => join(process.cwd(), '.cursor', 'mcp.json'),  root: 'mcpServers', entry: MCP_ENTRY },
+  vscode:           { file: () => join(process.cwd(), '.vscode', 'mcp.json'),  root: 'servers',    entry: { type: 'stdio', ...MCP_ENTRY } },
+  'claude-desktop': {
+    file: () => {
+      if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+      if (process.platform === 'win32') return join(process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json')
+      return join(homedir(), '.config', 'claude-desktop', 'claude_desktop_config.json')
+    },
+    root: 'mcpServers',
+    entry: MCP_ENTRY,
+  },
+}
+
+async function mcpInit({ client, json }) {
+  const target = MCP_CLIENTS[client]
+  if (!target) {
+    const msg = `unknown client: ${client ?? '(none)'} (expected ${Object.keys(MCP_CLIENTS).join(', ')})`
+    if (json) emit({ command: 'mcp-init', ok: false, error: { code: 'unknown-client', message: msg } })
+    else console.error(`Unknown client: ${client ?? '(none)'} — use --client ${Object.keys(MCP_CLIENTS).join('|')}`)
+    process.exit(EXIT.usage)
+  }
+  const file = target.file()
+  // Merge into an existing config rather than clobbering other servers.
+  let config = {}
+  if (existsSync(file)) {
+    try {
+      config = JSON.parse(readFileSync(file, 'utf8'))
+    } catch {
+      const msg = `${file} exists but is not valid JSON — fix it manually, then re-run`
+      if (json) emit({ command: 'mcp-init', ok: false, error: { code: 'invalid-config', message: msg } })
+      else console.error(msg)
+      process.exit(EXIT.usage)
+    }
+  }
+  config[target.root] = { ...config[target.root], cvx: target.entry }
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(config, null, 2) + '\n')
+  if (json) emit({ command: 'mcp-init', ok: true, client, file })
+  else console.log(`✅ Added the cvx MCP server to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up.`)
+}
+
 async function build({ ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const { buffer, filename, themeName, layoutName } = await renderCV({
@@ -148,6 +196,7 @@ try {
       ats:     { type: 'boolean', default: false },
       strict:  { type: 'boolean', default: false },
       json:    { type: 'boolean', default: false },
+      client:  { type: 'string' },
       help:    { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
@@ -172,6 +221,17 @@ try {
       process.exit(EXIT.usage)
     }
     await list({ kind, json: values.json })
+  } else if (command === 'mcp') {
+    if (positionals[1] === 'init') {
+      await mcpInit({ client: values.client, json: values.json })
+    } else if (positionals[1] === undefined) {
+      const { runMcpServer } = await import('../lib/mcp/server.js')
+      await runMcpServer()
+    } else {
+      if (jsonMode) emit({ command: 'mcp', ok: false, error: { code: 'unknown-subcommand', message: `unknown mcp subcommand: ${positionals[1]}` } })
+      else console.error(`Unknown mcp subcommand: ${positionals[1]} (expected "init" or nothing)`)
+      process.exit(EXIT.usage)
+    }
   } else if (command === 'build') {
     await build(values)
   } else {

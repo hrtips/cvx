@@ -15,8 +15,12 @@ import { join, dirname, relative, extname } from 'path'
 import { fileURLToPath } from 'url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SRC = join(root, 'src', 'pdf')
 const LIB = join(root, 'lib')
+// Each [src, lib] pair is transformed file-for-file: src/pdf → lib/pdf, src/mcp → lib/mcp
+const TREES = [
+  [join(root, 'src', 'pdf'), join(LIB, 'pdf')],
+  [join(root, 'src', 'mcp'), join(LIB, 'mcp')],
+]
 
 rmSync(LIB, { recursive: true, force: true })
 
@@ -29,23 +33,25 @@ function* walk(dir) {
 }
 
 let count = 0
-for (const file of walk(SRC)) {
-  const ext = extname(file)
-  if (!['.js', '.jsx'].includes(ext)) continue
-  if (file.endsWith('.test.js')) continue
+for (const [srcDir, libDir] of TREES) {
+  for (const file of walk(srcDir)) {
+    const ext = extname(file)
+    if (!['.js', '.jsx'].includes(ext)) continue
+    if (file.endsWith('.test.js')) continue
 
-  const { code } = await transform(readFileSync(file, 'utf8'), {
-    loader: ext === '.jsx' ? 'jsx' : 'js',
-    jsx: 'automatic',
-    format: 'esm',
-    target: 'node18',
-  })
-  const rewritten = code.replace(/(from\s*["'][^"']+)\.jsx(["'])/g, '$1.js$2')
+    const { code } = await transform(readFileSync(file, 'utf8'), {
+      loader: ext === '.jsx' ? 'jsx' : 'js',
+      jsx: 'automatic',
+      format: 'esm',
+      target: 'node18',
+    })
+    const rewritten = code.replace(/(from\s*["'][^"']+)\.jsx(["'])/g, '$1.js$2')
 
-  const out = join(LIB, 'pdf', relative(SRC, file)).replace(/\.jsx$/, '.js')
-  mkdirSync(dirname(out), { recursive: true })
-  writeFileSync(out, rewritten)
-  count++
+    const out = join(libDir, relative(srcDir, file)).replace(/\.jsx$/, '.js')
+    mkdirSync(dirname(out), { recursive: true })
+    writeFileSync(out, rewritten)
+    count++
+  }
 }
 
 const fontsOut = join(LIB, 'fonts')

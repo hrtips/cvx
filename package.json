@@ -27,6 +27,7 @@
     "preview": "vite preview",
     "pdf": "npx tsx scripts/export-pdf.js",
     "pdf:ats": "npx tsx scripts/export-pdf-ats.js",
+    "pretest": "npm run build:lib",
     "test": "vitest run"
   },
   "type": "module",
@@ -48,6 +49,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@react-pdf/renderer": "^4.5.1",
     "ajv": "^8.20.0",
     "js-yaml": "^4.3.0",
