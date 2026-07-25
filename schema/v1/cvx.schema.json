@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/cvx.schema.json",
+  "title": "CVX content schema (v1)",
+  "description": "Canonical definitions for every file CVX reads from cv-content/. Per-file schemas (personal.schema.json, config.schema.json, ...) reference the $defs here. Content files never break within a schema major version.",
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bulletItem": {
+      "description": "A bullet line. Either a plain string, or an object when part of the line should be a hyperlink: { text, link: { href, label }, suffix }. Rendered as: text + link.label (clickable) + suffix.",
+      "oneOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Text before the link."
+            },
+            "link": {
+              "type": "object",
+              "properties": {
+                "href": {
+                  "type": "string",
+                  "description": "Destination URL."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Visible, clickable link text."
+                }
+              },
+              "required": ["href", "label"],
+              "additionalProperties": false
+            },
+            "suffix": {
+              "type": "string",
+              "description": "Text after the link."
+            }
+          },
+          "required": ["text"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "personal": {
+      "title": "personal.yaml",
+      "description": "Identity and contact details. Required in practice: 'name' drives the output filename and PDF metadata. (The default two-column layout also needs summary.yaml and experience.yaml present.)",
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Full name. Required — also derives the PDF filename (lowercased, spaces to hyphens)."
+        },
+        "title": {
+          "type": "string",
+          "description": "Professional headline, e.g. \"Senior Engineer\". Also used for PDF metadata and ATS keyword derivation."
+        },
+        "company": {
+          "type": "string",
+          "description": "Current employer, shown under the title."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number as displayed."
+        },
+        "phoneHref": {
+          "type": "string",
+          "description": "Optional link target for the phone row, e.g. \"tel:+15550100\"."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address; rendered as a mailto: link automatically."
+        },
+        "linkedin": {
+          "type": "string",
+          "description": "LinkedIn display text, e.g. \"linkedin.com/in/janedoe\"."
+        },
+        "linkedinHref": {
+          "type": "string",
+          "description": "Full LinkedIn URL used as the link target."
+        },
+        "facebook": {
+          "type": "string",
+          "description": "Facebook display text. Shown only in the two-column sidebar, not in the ATS header."
+        },
+        "facebookHref": {
+          "type": "string",
+          "description": "Full Facebook URL used as the link target."
+        },
+        "location": {
+          "type": "string",
+          "description": "City / country line. Plain text, no link."
+        }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "summary": {
+      "title": "summary.yaml",
+      "description": "Professional summary as a list of bullet lines. Items may be plain strings or the object form with an inline hyperlink.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/bulletItem" }
+    },
+    "progressionStep": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Role title held during this step. Also feeds ATS keyword derivation."
+        },
+        "period": {
+          "type": "string",
+          "description": "Free-text date range for this step, e.g. \"2019 – 2021\"."
+        }
+      },
+      "required": ["title"],
+      "additionalProperties": false
+    },
+    "experienceEntry": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Job title. Required. Also feeds ATS keyword derivation."
+        },
+        "company": {
+          "type": "string",
+          "description": "Employer name."
+        },
+        "period": {
+          "type": "string",
+          "description": "Free-text date range, e.g. \"Mar 2021 – Present\"."
+        },
+        "location": {
+          "type": "string",
+          "description": "Where the role was based. Shown in the designed layout only, not in the ATS variant."
+        },
+        "description": {
+          "type": "string",
+          "description": "One-paragraph summary of the role."
+        },
+        "progression": {
+          "type": "array",
+          "description": "Promotions / role changes within the same company, most recent first.",
+          "items": { "$ref": "#/$defs/progressionStep" }
+        },
+        "bullets": {
+          "type": "array",
+          "description": "Achievement bullet points. Items may be plain strings or the object form with an inline hyperlink.",
+          "items": { "$ref": "#/$defs/bulletItem" }
+        }
+      },
+      "required": ["role"],
+      "additionalProperties": false
+    },
+    "experience": {
+      "title": "experience.yaml",
+      "description": "Work history as a list of entries, most recent first.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/experienceEntry" }
+    },
+    "educationEntry": {
+      "type": "object",
+      "properties": {
+        "degree": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Qualification name, e.g. \"BSc Computer Science\". Required."
+        },
+        "institution": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Awarding institution. Required."
+        },
+        "period": {
+          "type": "string",
+          "description": "Free-text date range or year. Omit to hide the date line."
+        }
+      },
+      "required": ["degree", "institution"],
+      "additionalProperties": false
+    },
+    "education": {
+      "title": "education.yaml",
+      "description": "Education as a list of entries, most recent first.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/educationEntry" }
+    },
+    "competencies": {
+      "title": "competencies.yaml",
+      "description": "Core skills as a flat list of short strings. Rendered as pills in the designed layout; also feeds ATS keyword derivation.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "achievementEntry": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Bold headline of the achievement — often a year or award name, but any short string works."
+        },
+        "text": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Attribution / detail line rendered under the headline."
+        }
+      },
+      "required": ["year", "text"],
+      "additionalProperties": false
+    },
+    "achievements": {
+      "title": "achievements.yaml",
+      "description": "Awards and recognitions as a list of entries.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/achievementEntry" }
+    },
+    "refereeEntry": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Referee's full name. Required."
+        },
+        "title": {
+          "type": "string",
+          "description": "Referee's role/title."
+        },
+        "company": {
+          "type": "string",
+          "description": "Referee's organisation."
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone."
+        }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "referees": {
+      "title": "referees.yaml",
+      "description": "References as a list of entries. An empty list ([]) prints \"References available upon request.\" in the two-column layout and omits the section in the ATS variant.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/refereeEntry" }
+    },
+    "keywordGroup": {
+      "type": "object",
+      "description": "Named group of keywords. Group names are for your organisation only — they are flattened and discarded in the PDF metadata.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "array", "items": { "type": "string" } }
+        ]
+      }
+    },
+    "keywords": {
+      "title": "keywords.yaml",
+      "description": "Optional ATS keywords embedded in PDF metadata (never printed). Accepts a flat list of strings, a map of named groups, a mixed list of strings and group maps, or a single string. Merged with auto-derived keywords (competencies, titles) unless disabled in config.",
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/keywordGroup" },
+        {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/$defs/keywordGroup" }
+            ]
+          }
+        }
+      ]
+    },
+    "config": {
+      "title": "config.yaml",
+      "description": "Build configuration: theme, layout, first-page pagination, and ATS keyword behaviour.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1,
+          "description": "Content schema major version. Content files never break within a major."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["teal", "coral", "mono"],
+          "default": "teal",
+          "description": "Colour theme. One of the built-in themes; an unknown value fails the build."
+        },
+        "layout": {
+          "type": "string",
+          "default": "two-column",
+          "description": "Layout name, matching a file in cv-content/layouts/ (built-ins: \"two-column\", \"single-column\"). An unknown value warns and falls back to the built-in default."
+        },
+        "page1ExperienceCount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact number of experience entries on page 1. Omit for automatic page packing."
+        },
+        "page1SplitBullets": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Split the last page-1 experience entry after this many bullets, continuing overleaf. Omit to keep entries whole."
+        },
+        "atsKeywords": {
+          "type": "object",
+          "description": "ATS keyword metadata behaviour.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Write the Keywords field into PDF metadata."
+            },
+            "autoDerive": {
+              "type": "boolean",
+              "default": true,
+              "description": "Merge keywords derived from competencies and role titles."
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Cap the number of keywords written. Omit for no cap."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "layoutSlot": {
+      "description": "One slot in a page region: a section key string (identity-photo, identity-compact, contact, summary, experience, education, competencies, achievements, referees, header-ats, experience:continued, spacer:N), or an object form — { spacer: N } or { <section>: { continued: true } }.",
+      "oneOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "properties": {
+            "spacer": {
+              "type": "number",
+              "description": "Vertical spacer height in points."
+            }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "continued": {
+                "type": "boolean",
+                "description": "Render this section's continuation slice."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    "layoutPage": {
+      "type": "object",
+      "description": "Section placement for one page kind.",
+      "properties": {
+        "sidebar": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layoutSlot" },
+          "description": "Slots in the sidebar column (two-column template only)."
+        },
+        "main": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layoutSlot" },
+          "description": "Slots in the main column."
+        }
+      },
+      "additionalProperties": false
+    },
+    "layout": {
+      "title": "layouts/*.yaml",
+      "description": "A layout file: which template to use and which sections appear where on each page kind.",
+      "type": "object",
+      "properties": {
+        "template": {
+          "type": "string",
+          "enum": ["two-column", "single-column"],
+          "default": "two-column",
+          "description": "Page template the layout builds on."
+        },
+        "pages": {
+          "type": "object",
+          "properties": {
+            "first": { "$ref": "#/$defs/layoutPage" },
+            "continuation": { "$ref": "#/$defs/layoutPage" },
+            "last": { "$ref": "#/$defs/layoutPage" }
+          },
+          "additionalProperties": false
+        },
+        "geometry": {
+          "type": "object",
+          "description": "Reserved. Currently ignored — page geometry comes from the theme. Kept so existing files with a geometry block stay valid.",
+          "additionalProperties": true
+        },
+        "first": {
+          "$ref": "#/$defs/layoutPage",
+          "description": "Flat form: equivalent to pages.first when the pages: wrapper is omitted."
+        },
+        "continuation": {
+          "$ref": "#/$defs/layoutPage",
+          "description": "Flat form: equivalent to pages.continuation when the pages: wrapper is omitted."
+        },
+        "last": {
+          "$ref": "#/$defs/layoutPage",
+          "description": "Flat form: equivalent to pages.last when the pages: wrapper is omitted."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

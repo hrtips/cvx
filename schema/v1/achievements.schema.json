@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/achievements.schema.json",
+  "$ref": "cvx.schema.json#/$defs/achievements"
+}
