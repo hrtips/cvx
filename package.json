@@ -36,12 +36,12 @@
   "files": [
     "lib",
     "bin",
-    "template"
+    "template",
+    "schema"
   ],
   "devDependencies": {
     "@rollup/plugin-yaml": "^5.0.0",
     "@vitejs/plugin-react": "^6.0.4",
-    "ajv": "^8.20.0",
     "esbuild": "^0.28.1",
     "tsx": "^4.23.1",
     "vite": "^8.1.5",
@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
+    "ajv": "^8.20.0",
     "js-yaml": "^4.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
