@@ -9,7 +9,11 @@
  * Imports from ../lib (the published transform of src/pdf). In a repo checkout
  * run `npm run build:lib` first, or use the `npm run pdf` scripts instead.
  *
- * Exit codes: 0 success · 2 validation failed · 3 render failed · 64 usage error
+ * Contract for agents and scripts:
+ *   - exit codes: 0 success · 2 validation failed · 3 render failed · 64 usage error
+ *   - with --json, stdout carries exactly one JSON object (the result);
+ *     logs and warnings go to stderr. Errors become { ok: false, error: {...} }.
+ *   - every command is non-interactive.
  */
 import { existsSync, cpSync, writeFileSync, readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
@@ -31,7 +35,7 @@ Usage:
 
 Options:
   --strict             validate: treat warnings (e.g. unknown keys) as errors
-  --json               Machine-readable result on stdout (validate)
+  --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
 
@@ -39,19 +43,26 @@ Exit codes: 0 ok · 2 validation failed · 3 render failed · 64 usage error
 Edit the YAML files in cv-content/ and re-run "cvx build".
 Docs: https://github.com/hrtips/cvx#readme`
 
-async function init() {
+const emit = (obj) => console.log(JSON.stringify(obj, null, 2))
+
+async function init({ json }) {
   const dest = join(process.cwd(), 'cv-content')
   if (existsSync(dest)) {
-    console.error(`cv-content/ already exists here — refusing to overwrite.`)
+    if (json) emit({ command: 'init', ok: false, error: { code: 'already-exists', message: 'cv-content/ already exists here — refusing to overwrite' } })
+    else console.error(`cv-content/ already exists here — refusing to overwrite.`)
     process.exit(EXIT.usage)
   }
   cpSync(join(pkgRoot, 'template', 'cv-content'), dest, { recursive: true })
-  console.log(`✅ Created cv-content/ with starter content.
+  if (json) {
+    emit({ command: 'init', ok: true, dest: 'cv-content' })
+  } else {
+    console.log(`✅ Created cv-content/ with starter content.
 
 Next steps:
   1. Edit cv-content/*.yaml with your details
   2. Drop your photo at cv-content/images/profile.jpg
   3. Run: npx @hrtips/cvx build   (or just "cvx build" if installed globally)`)
+  }
 }
 
 async function validate({ strict, json }) {
@@ -59,7 +70,7 @@ async function validate({ strict, json }) {
   const result = validateContent({ contentDir: join(process.cwd(), 'cv-content'), strict })
 
   if (json) {
-    console.log(JSON.stringify({ command: 'validate', schemaVersion: 1, strict, ...result }, null, 2))
+    emit({ command: 'validate', ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked })
   } else {
     const byFile = new Map()
     for (const [sev, list] of [['error', result.errors], ['warning', result.warnings]])
@@ -82,19 +93,25 @@ async function validate({ strict, json }) {
   process.exit(result.ok ? EXIT.ok : EXIT.validation)
 }
 
-async function build(ats) {
+async function build({ ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir:   join(pkgRoot, 'lib', 'fonts'),
     ats,
+    warn: (msg) => console.error(`⚠ ${msg}`),
   })
   writeFileSync(join(process.cwd(), filename), buffer)
-  const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
-  console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)
+  if (json) {
+    emit({ command: 'build', ok: true, filename, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName })
+  } else {
+    const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
+    console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)
+  }
 }
 
 let command = null
+let jsonMode = false
 try {
   const { values, positionals } = parseArgs({
     options: {
@@ -107,22 +124,26 @@ try {
     allowPositionals: true,
   })
   command = positionals[0] ?? null
+  jsonMode = values.json
 
   if (values.version) {
     console.log(version)
   } else if (values.help || positionals.length === 0) {
     console.log(HELP)
   } else if (command === 'init') {
-    await init()
+    await init(values)
   } else if (command === 'validate') {
     await validate(values)
   } else if (command === 'build') {
-    await build(values.ats)
+    await build(values)
   } else {
-    console.error(`Unknown command: ${command}\n\n${HELP}`)
+    if (jsonMode) emit({ command, ok: false, error: { code: 'unknown-command', message: `unknown command: ${command}` } })
+    else console.error(`Unknown command: ${command}\n\n${HELP}`)
     process.exit(EXIT.usage)
   }
 } catch (err) {
-  console.error(err.message)
-  process.exit(command === 'build' ? EXIT.render : EXIT.usage)
+  const code = command === 'build' ? EXIT.render : EXIT.usage
+  if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: err.message } })
+  else console.error(err.message)
+  process.exit(code)
 }
