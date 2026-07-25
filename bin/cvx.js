@@ -15,7 +15,7 @@
  *     logs and warnings go to stderr. Errors become { ok: false, error: {...} }.
  *   - every command is non-interactive.
  */
-import { existsSync, cpSync, writeFileSync, readFileSync } from 'fs'
+import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { parseArgs } from 'node:util'
@@ -32,6 +32,7 @@ Usage:
   cvx validate         Check cv-content/ — all errors at once, with fixes
   cvx build            Render cv-content/ to <your-name>.pdf
   cvx build --ats      Render the ATS-safe single-column variant
+  cvx list [themes|layouts]   Show available themes and layouts
 
 Options:
   --strict             validate: treat warnings (e.g. unknown keys) as errors
@@ -93,6 +94,34 @@ async function validate({ strict, json }) {
   process.exit(result.ok ? EXIT.ok : EXIT.validation)
 }
 
+async function list({ kind, json }) {
+  const { discoverThemes } = await import('../lib/pdf/themes/index.js')
+  const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
+
+  const layoutsDir = join(process.cwd(), 'cv-content', 'layouts')
+  const builtIn = ['two-column', 'single-column']
+  const names = new Set(builtIn)
+  const layouts = builtIn.map((name) => ({ name, default: name === 'two-column', source: 'built-in' }))
+  if (existsSync(layoutsDir)) {
+    for (const f of readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml'))) {
+      const name = f.replace(/\.yaml$/, '')
+      if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
+      names.add(name)
+    }
+  }
+
+  const result = { command: 'list', ...((!kind || kind === 'themes') && { themes }), ...((!kind || kind === 'layouts') && { layouts }) }
+  if (json) return emit(result)
+  if (result.themes) {
+    console.log('Themes (config.yaml → theme):')
+    for (const t of result.themes) console.log(`  ${t.name}${t.default ? '   (default)' : ''}`)
+  }
+  if (result.layouts) {
+    console.log('Layouts (config.yaml → layout):')
+    for (const l of result.layouts) console.log(`  ${l.name}${l.default ? '   (default)' : ''}${l.source === 'built-in' ? '' : `   [${l.source}]`}`)
+  }
+}
+
 async function build({ ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const { buffer, filename, themeName, layoutName } = await renderCV({
@@ -134,6 +163,14 @@ try {
     await init(values)
   } else if (command === 'validate') {
     await validate(values)
+  } else if (command === 'list') {
+    const kind = positionals[1]
+    if (kind && !['themes', 'layouts'].includes(kind)) {
+      if (jsonMode) emit({ command: 'list', ok: false, error: { code: 'unknown-list-kind', message: `unknown list kind: ${kind} (expected themes or layouts)` } })
+      else console.error(`Unknown list kind: ${kind} (expected themes or layouts)`)
+      process.exit(EXIT.usage)
+    }
+    await list({ kind, json: values.json })
   } else if (command === 'build') {
     await build(values)
   } else {
