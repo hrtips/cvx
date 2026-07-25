@@ -104,13 +104,21 @@ The files and their exact fields:
   or [] for "available upon request".
 - keywords.yaml (optional): flat list of extra ATS keywords that are
   truthful but not already in my competencies or job titles.
-- config.yaml: theme: teal | coral | mono, layout: two-column | single-column.
+- config.yaml: schemaVersion: 1, theme: teal | coral | mono,
+  layout: two-column | single-column.
 
 My CV:
 <paste your old CV / LinkedIn profile text here>
 ```
 
-Save the output files into `cv-content/` (after `npx @hrtips/cvx init` for the folder structure and photo placeholder), then `npx @hrtips/cvx build`.
+Save the output files into `cv-content/` (after `npx @hrtips/cvx init` for the folder structure and photo placeholder), then check and render:
+
+```bash
+npx @hrtips/cvx validate    # exact errors with file + field paths and fixes
+npx @hrtips/cvx build
+```
+
+If validate reports problems, paste its output back to the assistant — the findings include the file, the field path, and a suggested fix, so one round trip usually resolves everything.
 
 ## Route D — agent-mode assistant, zero local setup
 

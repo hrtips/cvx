@@ -5,8 +5,10 @@ This document is self-contained: with only this file and a person's CV facts, yo
 ## How CVX works
 
 - `npx @hrtips/cvx init` scaffolds `cv-content/` with a complete example CV (Bruce Wayne's).
+- `npx @hrtips/cvx validate` checks every file at once and reports exact errors with suggested fixes (`--strict` also fails on unknown keys, `--json` for machine-readable output; exit `0` ok / `2` problems found). Run it after every edit.
 - `npx @hrtips/cvx build` renders `cv-content/` to a PDF in the current directory.
 - `npx @hrtips/cvx build --ats` renders an ATS-safe single-column variant instead.
+- Every content file is validated against the [canonical JSON Schema](../schema/v1/cvx.schema.json); the scaffolded files carry `$schema` headers for editor autocomplete.
 - The output PDF is named from `personal.yaml`'s `name`: lowercased, spaces → hyphens (`Bruce Wayne` → `bruce-wayne.pdf`; the ATS variant appends `-ats`).
 - Every `.yaml` file in `cv-content/` is auto-discovered by filename. A missing file, an empty file, or `[]` simply drops that section from the CV — no error.
 - All rendering is local; no network calls, no accounts.
@@ -50,13 +52,21 @@ linkedin: linkedin.com/in/brucewayne
 linkedinHref: "https://www.linkedin.com/in/brucewayne"
 ```
 
-## File: `summary.yaml` (list of strings)
+## File: `summary.yaml` (list of bullets)
 
 The professional-summary bullets at the top of page 1. Aim for 3–6 bullets, each a single sentence focused on scope, specialisation, or headline achievements.
 
 ```yaml
 - "Strategic operations leader with 20+ years' experience, progressing from solo field operative to Field Commander of a citywide security network."
 - "Specialised in recruiting and developing elite field talent."
+```
+
+A bullet is usually a plain string, but any bullet (here or in `experience[].bullets`) may instead be an object embedding a clickable link: `text` (before the link), `link` — an object of `href` + `label` (the clickable part) — and optional `suffix` (after it):
+
+```yaml
+- text: "Published the "
+  link: { href: "https://example.com/report", label: "annual security report" }
+  suffix: " read by 40k+ practitioners."
 ```
 
 ## File: `experience.yaml` (list of entries)
@@ -71,7 +81,7 @@ Work history, most recent first. Per entry:
 | `location` | string | optional | Muted line under the meta line |
 | `description` | string | optional | One-line italic company/role description |
 | `progression` | list of `{title, period}` | optional | Indented title-history block (promotions within the role) |
-| `bullets` | list of strings | optional | Impact bullets — start with a verb, quantify where truthful; 3–6 per recent role, fewer for older ones |
+| `bullets` | list of bullets | optional | Impact bullets — start with a verb, quantify where truthful; 3–6 per recent role, fewer for older ones. Plain strings, or the `{text, link, suffix}` object form (see `summary.yaml`) |
 
 ```yaml
 - role: Founder & Field Commander – Gotham Operations
@@ -144,6 +154,7 @@ Leadership: [Executive Leadership, Team Building]
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
+| `schemaVersion` | integer | `1` | Content schema major version — content files never break within a major |
 | `theme` | `teal` \| `coral` \| `mono` | `teal` | Colour scheme (`mono` is black-and-white, ATS-optimised) |
 | `layout` | `two-column` \| `single-column` \| custom layout filename | `two-column` | Page structure |
 | `page1ExperienceCount` | integer | auto | Experience entries on page 1 (omit for automatic greedy bin-packing) |

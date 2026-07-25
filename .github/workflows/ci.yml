@@ -26,7 +26,7 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - name: Packaged E2E — init, build, ATS
+      - name: Packaged E2E — init, validate, list, build, ATS
         shell: bash
         run: |
           npm pack
@@ -36,6 +36,30 @@ jobs:
           npm init -y > /dev/null
           npm install --no-audit --no-fund "$TARBALL"
           npx cvx init
+
+          # validate: scaffold passes strict, --json is parseable stdout
+          npx cvx validate --strict
+          npx cvx validate --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(!r.ok||r.command!=='validate')process.exit(1)})"
+
+          # validate: seeded error → exit 2, findings carry file+path
+          cp cv-content/personal.yaml personal.bak
+          printf 'title: No Name\nlinkdin: typo\n' > cv-content/personal.yaml
+          set +e
+          npx cvx validate --json > findings.json; CODE=$?
+          set -e
+          test "$CODE" -eq 2
+          node -e "const r=require('./findings.json');if(r.ok)process.exit(1);if(!r.errors.some(e=>e.file==='personal.yaml'&&e.message.includes('name')))process.exit(1);if(!r.warnings.some(w=>w.suggestion&&w.suggestion.includes('linkedin')))process.exit(1)"
+          mv personal.bak cv-content/personal.yaml
+
+          # list: inventory is stable
+          npx cvx list --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);const t=r.themes.map(x=>x.name);if(!['teal','coral','mono'].every(n=>t.includes(n)))process.exit(1)})"
+
+          # unknown command → exit 64
+          set +e
+          npx cvx frobnicate 2>/dev/null; CODE=$?
+          set -e
+          test "$CODE" -eq 64
+
           npx cvx build
           npx cvx build --ats
           test -f bruce-wayne.pdf && test -f bruce-wayne-ats.pdf
