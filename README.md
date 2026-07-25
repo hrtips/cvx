@@ -171,6 +171,19 @@ The formats are deliberately LLM-friendly, and the schema is published for machi
 
 Save the generated files into `cv-content/`, drop in your photo, run `npx @hrtips/cvx build`. No web access in your assistant? Use the [self-contained prompt](docs/ai-guide.md#route-c--chat-assistant-self-contained-prompt).
 
+### Plug it into your agent (MCP)
+
+CVX ships an MCP server — any MCP client (Claude Desktop, Claude Code, Cursor, VS Code, …) can drive the whole loop with four tools: `get_schema`, `init_cv`, `validate_cv`, `build_pdf`. No API keys, fully offline.
+
+```bash
+npx @hrtips/cvx mcp init --client claude          # Claude Code (.mcp.json, project)
+npx @hrtips/cvx mcp init --client claude-desktop  # Claude Desktop (global config)
+npx @hrtips/cvx mcp init --client cursor          # Cursor (.cursor/mcp.json)
+npx @hrtips/cvx mcp init --client vscode          # VS Code (.vscode/mcp.json)
+```
+
+Then restart the client and ask it to make your CV — it fetches the schema, scaffolds, fills in your details, validates after every edit, and renders the PDF. The config writer merges into existing files; it never clobbers other servers. There's also a ready-made [Agent Skill](skills/cvx/SKILL.md) with the same loop for skill-capable agents.
+
 ### Your photo
 
 Drop it into `cv-content/images/` as `profile.<ext>` — `jpg`, `jpeg`, `png`, or `webp` are auto-detected (that order wins if several exist). Square crop, at least 400×400px.

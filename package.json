@@ -1,7 +1,8 @@
 {
   "name": "@hrtips/cvx",
   "version": "1.3.0",
-  "description": "CVX — structured input, professional output. YAML content in, pixel-perfect CV PDFs out; swappable themes and layouts, no headless browser. Formerly makecv.",
+  "description": "CVX — structured input, professional output. YAML content in, pixel-perfect CV PDFs out; swappable themes and layouts, no headless browser. MCP server included. Formerly makecv.",
+  "mcpName": "io.github.hrtips/cvx",
   "bin": {
     "cvx": "bin/cvx.js"
   },
@@ -17,7 +18,10 @@
     "yaml",
     "cli",
     "ats",
-    "react-pdf"
+    "react-pdf",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol"
   ],
   "scripts": {
     "dev": "vite",
@@ -38,7 +42,8 @@
     "lib",
     "bin",
     "template",
-    "schema"
+    "schema",
+    "skills"
   ],
   "devDependencies": {
     "@rollup/plugin-yaml": "^5.0.0",

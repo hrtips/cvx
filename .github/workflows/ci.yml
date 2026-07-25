@@ -60,6 +60,35 @@ jobs:
           set -e
           test "$CODE" -eq 64
 
+          # MCP: initialize handshake + tools/list against the packed tarball
+          cat > mcp-smoke.cjs <<'SMOKE'
+          const { spawn } = require("child_process");
+          const p = spawn(process.execPath, ["node_modules/@hrtips/cvx/bin/cvx.js", "mcp"], { stdio: ["pipe", "pipe", "inherit"] });
+          let buf = ""; const msgs = [];
+          const send = (o) => p.stdin.write(JSON.stringify(o) + "\n");
+          p.stdout.on("data", (d) => {
+            buf += d;
+            let i; while ((i = buf.indexOf("\n")) !== -1) {
+              const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+              if (line) { msgs.push(JSON.parse(line)); step(); }
+            }
+          });
+          function step() {
+            if (msgs.length === 1) {
+              if (msgs[0].result.serverInfo.name !== "cvx") { console.error("bad serverInfo"); process.exit(1); }
+              send({ jsonrpc: "2.0", method: "notifications/initialized" });
+              send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+            } else if (msgs.length === 2) {
+              const tools = msgs[1].result.tools.map((t) => t.name).sort().join(",");
+              if (tools !== "build_pdf,get_schema,init_cv,validate_cv") { console.error("bad tools:", tools); process.exit(1); }
+              console.log("mcp smoke ok:", tools); p.kill(); process.exit(0);
+            }
+          }
+          send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "ci", version: "0" } } });
+          setTimeout(() => { console.error("mcp handshake timeout"); process.exit(1); }, 30000);
+          SMOKE
+          node mcp-smoke.cjs
+
           npx cvx build
           npx cvx build --ats
           test -f bruce-wayne.pdf && test -f bruce-wayne-ats.pdf

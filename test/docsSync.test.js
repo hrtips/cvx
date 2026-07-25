@@ -12,6 +12,7 @@ const schema = JSON.parse(readFileSync(path.join(ROOT, 'schema', 'v1', 'cvx.sche
 const cvSchemaDoc = readFileSync(path.join(ROOT, 'docs', 'cv-schema.md'), 'utf8')
 const scaffoldReadme = readFileSync(path.join(ROOT, 'template', 'cv-content', 'README.md'), 'utf8')
 const aiGuide = readFileSync(path.join(ROOT, 'docs', 'ai-guide.md'), 'utf8')
+const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8')
 
 const CONTENT_DEFS = ['personal', 'summary', 'experience', 'education', 'competencies', 'achievements', 'referees', 'keywords', 'config']
 
@@ -55,5 +56,18 @@ describe('scaffold README and AI guide stay aligned', () => {
     }
     expect(aiGuide).toContain('validate')
     expect(aiGuide).toContain('schemaVersion')
+  })
+
+  it('SKILL.md covers every content file, the MCP tools, and the truthfulness rule', () => {
+    for (const def of CONTENT_DEFS) {
+      expect(skillMd, `SKILL.md missing ${def}.yaml`).toContain(`${def}.yaml`)
+    }
+    for (const tool of ['get_schema', 'init_cv', 'validate_cv', 'build_pdf']) {
+      expect(skillMd, `SKILL.md missing tool ${tool}`).toContain(tool)
+    }
+    expect(skillMd).toMatch(/[Nn]ever invent facts/)
+    const [, frontmatter] = skillMd.split('---')
+    expect(frontmatter).toContain('name: cvx')
+    expect(frontmatter.length).toBeLessThan(1500)
   })
 })

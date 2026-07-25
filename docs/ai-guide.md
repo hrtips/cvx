@@ -10,6 +10,7 @@ Pick the route that matches the tool you have:
 | A chat assistant with web access | [Route B](#route-b--chat-assistant-with-web-access) | One paste in, files out |
 | A chat assistant without web access | [Route C](#route-c--chat-assistant-self-contained-prompt) | Same, using a self-contained prompt |
 | An agent-mode assistant that can run commands (ChatGPT agent mode, …) | [Route D](#route-d--agent-mode-assistant-zero-local-setup) | Zero local setup — the assistant runs CVX in its own workspace |
+| An MCP client (Claude Desktop, Claude Code, Cursor, VS Code, …) | [Route E](#route-e--mcp-any-client-native-tools) | One-time config — the client gets native CVX tools |
 
 Whichever route you take, the same two rules apply:
 
@@ -143,6 +144,21 @@ The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder i
 **Privacy note:** CVX itself runs entirely locally and makes zero network calls — but in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 
 ---
+
+## Route E — MCP: any client, native tools
+
+CVX ships an MCP stdio server with four tools — `get_schema`, `init_cv`, `validate_cv`, `build_pdf` — thin wrappers over the same engine as the CLI. No API keys, fully offline; the server's instructions teach the model the loop and the truthfulness rules.
+
+One-time setup (writes/merges the client's config, never clobbers other servers):
+
+```bash
+npx @hrtips/cvx mcp init --client claude          # Claude Code
+npx @hrtips/cvx mcp init --client claude-desktop  # Claude Desktop
+npx @hrtips/cvx mcp init --client cursor          # Cursor
+npx @hrtips/cvx mcp init --client vscode          # VS Code
+```
+
+Restart the client, then ask for your CV — e.g. *"Make me a CV from the LinkedIn text below. Use the CVX tools: fetch the schema, scaffold, fill in my real details, validate after every edit, and build both variants."* The assistant passes your workspace folder as `dir` on each call; the YAML lands in `cv-content/`, the PDFs next to it.
 
 ## Iterating with the assistant
 

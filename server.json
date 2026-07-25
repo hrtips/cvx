@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.hrtips/cvx",
+  "description": "Create, validate, and render professional CV PDFs from plain YAML — fully local, no accounts. Tools: get_schema, init_cv, validate_cv, build_pdf.",
+  "repository": {
+    "url": "https://github.com/hrtips/cvx",
+    "source": "github"
+  },
+  "version": "1.4.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@hrtips/cvx",
+      "version": "1.4.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
