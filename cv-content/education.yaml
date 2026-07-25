@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/education.schema.json
 - degree: "Applied Sciences & Criminology (self-directed)"
   institution: League of Shadows
   period: 1998 – 2004

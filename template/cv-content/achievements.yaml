@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/achievements.schema.json
 - year: Gotham's Most Influential Citizen
   text: "— 2024, Gotham Gazette"
 

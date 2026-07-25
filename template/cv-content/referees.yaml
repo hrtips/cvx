@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/referees.schema.json
 - name: Diana Prince
   title: Founding Member, Justice League
   company: Themysciran Embassy

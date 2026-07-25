@@ -62,7 +62,8 @@ async function init({ json }) {
 Next steps:
   1. Edit cv-content/*.yaml with your details
   2. Drop your photo at cv-content/images/profile.jpg
-  3. Run: npx @hrtips/cvx build   (or just "cvx build" if installed globally)`)
+  3. Check: npx @hrtips/cvx validate
+  4. Run:   npx @hrtips/cvx build`)
   }
 }
 

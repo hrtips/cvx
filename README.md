@@ -45,6 +45,16 @@ cv-content/
 
 Re-run `npx @hrtips/cvx build` after each file and watch the PDF update — seeing Bruce's entry next to yours makes the format self-explanatory. The output file is named after you automatically (`jane-doe.pdf`).
 
+Made a typo or unsure a file is right? `npx @hrtips/cvx validate` checks everything at once and tells you exactly what to fix:
+
+```
+cv-content/personal.yaml
+  ⚠ unknown key "linkdin"
+      ↳ did you mean "linkedin"?
+```
+
+Every scaffolded file also carries a `$schema` header, so editors with YAML support (VS Code + the YAML extension, JetBrains, …) autocomplete keys and flag mistakes as you type.
+
 Applying through a job portal? Generate the ATS-safe variant too — single column, no colours, machine-friendly:
 
 ```bash
@@ -56,9 +66,16 @@ npx @hrtips/cvx build --ats
 | Command | Does |
 |---|---|
 | `npx @hrtips/cvx init` | Scaffold `cv-content/` with the example CV (won't overwrite an existing one) |
+| `npx @hrtips/cvx validate` | Check `cv-content/` — every problem at once, with file + field paths and fixes |
+| `npx @hrtips/cvx validate --strict` | Also fail on warnings (unknown keys); recommended for agents/CI |
 | `npx @hrtips/cvx build` | Render `cv-content/` to `<your-name>.pdf` |
 | `npx @hrtips/cvx build --ats` | Render the ATS-safe single-column variant |
+| `npx @hrtips/cvx list` | Show available themes and layouts |
 | `npx @hrtips/cvx --help` / `--version` | Help / version |
+
+All commands accept `--json` for machine-readable output (one JSON object on stdout, logs on stderr) and use semantic exit codes: `0` ok, `2` validation failed, `3` render failed, `64` usage error.
+
+**Compatibility promise:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). Within a schema major version, your content files never break — new keys may appear, existing ones keep working. `npx @hrtips/cvx validate` on today's files will still pass on every future 1.x release.
 
 ---
 

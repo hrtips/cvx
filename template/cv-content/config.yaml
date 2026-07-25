@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/config.schema.json
 # ── CV Configuration ─────────────────────────────────────────────────────────
 #
 # theme      Colour scheme: teal | coral | mono
@@ -11,6 +12,9 @@
 #                        Omit (or set to null) to show the full entry.
 #
 # ─────────────────────────────────────────────────────────────────────────────
+
+# schemaVersion  Content schema major — content files never break within a major.
+schemaVersion: 1
 
 theme: teal
 layout: two-column
