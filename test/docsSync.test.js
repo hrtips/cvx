@@ -101,6 +101,10 @@ describe('assistant entry path stays intact', () => {
     expect(aiGuide).toMatch(/only renderer|never substitute/i)
     expect(aiGuide).toMatch(/Bruce Wayne('s)? (example )?photo/i) // placeholder trap
     expect(aiGuide).toMatch(/`init` is a convenience, not a prerequisite/)
+    // dogfood report 2026-07-26: bounded probe, same-turn fallback, no research sinks
+    expect(aiGuide).toMatch(/timeout 30s npx/)
+    expect(aiGuide).toMatch(/same turn/i)
+    expect(aiGuide).toMatch(/research sink/i)
   })
 
   it('llms.txt is self-sufficient and truthful', () => {

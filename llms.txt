@@ -5,7 +5,7 @@
 Assistant flow (details: AI guide below):
 
 - Get truthful source content first. A linkedin.com URL is unfetchable even when public — do not infer; ask the user for the profile's **More → Save to PDF** export, pasted text, or their existing CV, and a square photo (or "no photo"), in one message. Never invent facts.
-- If you can run commands, probe `npx -y @hrtips/cvx --version`; on success run `init` → edit → `validate --strict --json` → `build` (and `build --ats`). On failure (no npm network) write the `cv-content/*.yaml` files from the schema at the link below and hand the user: install Node LTS from nodejs.org, save the files into `cv-content/`, run `npx @hrtips/cvx build`.
+- If you can run commands, probe once with a bounded timeout — `timeout 30s npx -y @hrtips/cvx --version` — as your first action after getting source content. On success run `init` → edit → `validate --strict --json` → `build` (and `build --ats`). On any failure (npm 4xx/5xx, proxy, DNS, timeout) switch in the same turn to writing the `cv-content/*.yaml` files from the schema at the link below, report the exact error, and hand the user: install Node LTS from nodejs.org, save the files into `cv-content/`, run `npx @hrtips/cvx build`.
 - `init` is optional — `build` renders any valid `cv-content/` folder. CVX is the only renderer; never substitute another PDF generator.
 - MCP server available: `npx @hrtips/cvx mcp` (tools: get_schema, init_cv, validate_cv, build_pdf).
 

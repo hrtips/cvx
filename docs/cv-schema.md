@@ -72,7 +72,7 @@ A bullet is usually a plain string, but any bullet (here or in `experience[].bul
 
 ## File: `experience.yaml` (list of entries)
 
-Work history, most recent first. Per entry:
+Work history, most recent first. Keep each role its own entry — ATS keywords are auto-derived from `role` and `progression` titles, so roles merged into one "earlier roles" entry (or mentioned only in bullet text) drop out of the keyword metadata. Older roles can simply carry fewer bullets. Per entry:
 
 | Key | Type | Required | Renders |
 |---|---|---|---|

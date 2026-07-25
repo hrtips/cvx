@@ -24,12 +24,15 @@ You drive; the user only supplies facts and runs at most one command. The schema
 - **Given an attached CV (PDF/DOCX):** read it and proceed — never ask the user to paste what they already attached. If the format is unreadable, ask for a PDF re-save or pasted text.
 - **Given neither:** interview the user section by section against the schema (personal → experience → education → the rest).
 - **Never invent facts.** Every entry must be truthful to the user's input; ask for anything missing (dates, metrics). AI-embellished CVs fail interviews and background checks, and ATS parsers cross-check keywords against the CV body.
+- **Flag conflicts, don't silently resolve them.** If the source contradicts itself (e.g. the headline says one current title and the summary another), surface it — pick the better-supported value for the draft, but tell the user what you chose and why they should confirm.
 
 ### 2. Pick your execution path (by your own capabilities)
 
 1. **You have CVX MCP tools or the cvx skill** → use them: `get_schema` → `init_cv` → edit → `validate_cv` → `build_pdf`.
-2. **You can run shell commands** → probe with `npx -y @hrtips/cvx --version`. If it succeeds: `npx @hrtips/cvx init`, replace the example content, `npx @hrtips/cvx validate --strict --json` after every edit, `npx @hrtips/cvx build` and `build --ats`. Deliver the PDFs **and a zip of `cv-content/`** — sandboxes are ephemeral and the YAML is what the user keeps. If the probe fails (sandboxes often have no npm network), fall through to path 3.
-3. **You can write files but not run CVX** → generate every `cv-content/` file from the schema, package the folder as a downloadable zip (or one fenced code block per file, titled with its exact path), then give the user the handoff below. **The CVX CLI is the only renderer — never substitute reportlab, LaTeX, HTML-to-PDF, or any other generator.** The whole point is a validated, reproducible format the user keeps.
+2. **You can run shell commands** → probe **once, with a bounded timeout, as your first action after getting source content**: `timeout 30s npx -y @hrtips/cvx --version` (use your runtime's timeout mechanism if `timeout` is unavailable). If it succeeds: `npx @hrtips/cvx init`, replace the example content, `npx @hrtips/cvx validate --strict --json` after every edit, `npx @hrtips/cvx build` and `build --ats`. Deliver the PDFs **and a zip of `cv-content/`** — sandboxes are ephemeral and the YAML is what the user keeps. If the probe fails or times out — any npm error means the same thing (403/404/429/503, proxy, DNS; sandboxes often have no npm network) — retry at most once, then **switch to path 3 in the same turn** and report the exact command, exit code, and error alongside the fallback. Do not keep the user waiting while you investigate.
+3. **You can write files but not run CVX** → generate every `cv-content/` file from the schema, package the folder as a downloadable zip (or one fenced code block per file, titled with its exact path), then give the user the handoff below. Start each generated file with its `# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/<file>.schema.json` header (layouts use `layout.schema.json`) so editors validate it. **The CVX CLI is the only renderer — never substitute reportlab, LaTeX, HTML-to-PDF, or any other generator.** The whole point is a validated, reproducible format the user keeps.
+
+**No research sinks:** this guide plus [cv-schema.md](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md) are everything you need — once you have them and the user's source content, generate; further repository exploration adds nothing to the CV.
 
 ### 3. The handoff (relay verbatim when the user must run the build)
 
@@ -46,6 +49,8 @@ You drive; the user only supplies facts and runs at most one command. The schema
 - **Placeholder trap:** `init` scaffolds Bruce Wayne's example photo at `cv-content/images/profile.jpg`. Replace it with the user's photo or delete it before building — never ship it.
 - If validation reports problems, apply the suggested fixes and re-validate before building; findings include the file, field path, and a fix.
 - Deliver both variants when the user is applying via portals: the designed CV and the `--ats` single-column one.
+- **Keep earlier roles as separate entries** (one bullet each is fine) rather than merging them into a single "earlier roles" entry — ATS keyword derivation reads `role` and `progression` titles, not bullet prose, so merged titles disappear from the keyword metadata.
+- For reproducible re-builds later, you may pin the version you tested (`npx -y @hrtips/cvx@<version>`); content files never break within a schema major, but pinning also freezes the visual output.
 
 ---
 
