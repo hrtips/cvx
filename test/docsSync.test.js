@@ -3,7 +3,7 @@
 // without documenting it, this fails — the reverse (docs mention keys the
 // schema lacks) is caught by schema.test.js validating the shipped content.
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -13,6 +13,8 @@ const cvSchemaDoc = readFileSync(path.join(ROOT, 'docs', 'cv-schema.md'), 'utf8'
 const scaffoldReadme = readFileSync(path.join(ROOT, 'template', 'cv-content', 'README.md'), 'utf8')
 const aiGuide = readFileSync(path.join(ROOT, 'docs', 'ai-guide.md'), 'utf8')
 const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8')
+const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
 
 const CONTENT_DEFS = ['personal', 'summary', 'experience', 'education', 'competencies', 'achievements', 'referees', 'keywords', 'config']
 
@@ -69,5 +71,57 @@ describe('scaffold README and AI guide stay aligned', () => {
     const [, frontmatter] = skillMd.split('---')
     expect(frontmatter).toContain('name: cvx')
     expect(frontmatter.length).toBeLessThan(1500)
+  })
+})
+
+// The "two-line prompt" front door: a non-tech user pastes the repo URL +
+// their CV source into any LLM chat, and the fetched docs carry the assistant
+// from there. These lock the load-bearing invariants from the PM/BA review.
+describe('assistant entry path stays intact', () => {
+  it('README addresses assistants above the fold, with a raw ai-guide URL', () => {
+    const fold = readme.slice(0, 3500)
+    expect(fold).toMatch(/AI assistants/i)
+    expect(fold).toContain('raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md')
+    expect(fold).toMatch(/never invent facts/i)
+    expect(fold).toContain('Save to PDF')
+  })
+
+  it('README carries the two-line user prompt', () => {
+    expect(readme).toMatch(/Create my CV with https:\/\/github\.com\/hrtips\/cvx/)
+  })
+
+  it('ai-guide default flow precedes the human routes and covers the fallbacks', () => {
+    const flow = aiGuide.indexOf('Default flow (for assistants)')
+    expect(flow).toBeGreaterThan(-1)
+    expect(flow).toBeLessThan(aiGuide.indexOf('## Route A'))
+    expect(aiGuide).toContain('Save to PDF') // LinkedIn export ask
+    expect(aiGuide).toMatch(/linkedin[\s\S]{0,120}unfetchable/i)
+    expect(aiGuide).toContain('nodejs.org') // non-tech Node install
+    expect(aiGuide).toMatch(/no npm network|no network/i) // sandbox fallback
+    expect(aiGuide).toMatch(/only renderer|never substitute/i)
+    expect(aiGuide).toMatch(/Bruce Wayne('s)? (example )?photo/i) // placeholder trap
+    expect(aiGuide).toMatch(/`init` is a convenience, not a prerequisite/)
+  })
+
+  it('llms.txt is self-sufficient and truthful', () => {
+    expect(llms).not.toMatch(/schema below/)
+    expect(llms).toContain('Save to PDF')
+    expect(llms).toContain('npx @hrtips/cvx build')
+    expect(llms).toMatch(/never invent facts/i)
+  })
+
+  it('raw URLs referenced by the docs point at files that exist in the repo', () => {
+    const all = readme + aiGuide + llms + cvSchemaDoc + skillMd
+    for (const [, p] of all.matchAll(/raw\.githubusercontent\.com\/hrtips\/cvx\/main\/([\w./-]+)/g)) {
+      expect(existsSync(path.join(ROOT, p)), `dangling raw URL: ${p}`).toBe(true)
+    }
+  })
+
+  it('README anchors into ai-guide resolve to real headings', () => {
+    const slug = (h) => h.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/ /g, '-')
+    const headings = [...aiGuide.matchAll(/^#+\s+(.+)$/gm)].map(([, h]) => slug(h))
+    for (const [, a] of readme.matchAll(/docs\/ai-guide\.md#([\w-]+)/g)) {
+      expect(headings, `dead anchor #${a}`).toContain(a)
+    }
   })
 })

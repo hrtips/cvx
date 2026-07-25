@@ -1,20 +1,26 @@
 # CVX
 
-> npm CLI that renders a CV from plain YAML files to a pixel-perfect PDF, locally (no accounts, no cloud, no headless browser). `npx @hrtips/cvx init` scaffolds a complete example CV (Bruce Wayne's) in `cv-content/`; the user replaces his details with theirs and runs `npx @hrtips/cvx build`.
+> npm CLI that renders a CV from plain YAML files to a pixel-perfect PDF, locally (no accounts, no cloud, no headless browser). An AI assistant can drive the whole flow; the user keeps the YAML as the durable asset.
+
+Assistant flow (details: AI guide below):
+
+- Get truthful source content first. A linkedin.com URL is unfetchable even when public — do not infer; ask the user for the profile's **More → Save to PDF** export, pasted text, or their existing CV, and a square photo (or "no photo"), in one message. Never invent facts.
+- If you can run commands, probe `npx -y @hrtips/cvx --version`; on success run `init` → edit → `validate --strict --json` → `build` (and `build --ats`). On failure (no npm network) write the `cv-content/*.yaml` files from the schema at the link below and hand the user: install Node LTS from nodejs.org, save the files into `cv-content/`, run `npx @hrtips/cvx build`.
+- `init` is optional — `build` renders any valid `cv-content/` folder. CVX is the only renderer; never substitute another PDF generator.
+- MCP server available: `npx @hrtips/cvx mcp` (tools: get_schema, init_cv, validate_cv, build_pdf).
 
 Key facts:
 
-- Commands: `npx @hrtips/cvx init` (scaffold), `npx @hrtips/cvx build` (render PDF), `npx @hrtips/cvx build --ats` (ATS-safe single-column variant).
+- Commands: `npx @hrtips/cvx init` (scaffold), `validate --strict --json` (all errors at once, field paths + fixes), `build` (render PDF), `build --ats` (ATS-safe variant), `list` (themes/layouts), `mcp` (MCP server). Exit codes: 0 ok / 2 validation / 3 render / 64 usage.
 - Content lives in `cv-content/*.yaml`: `personal`, `summary`, `experience`, `education`, `competencies`, `achievements`, `referees`, `keywords`, `config`, plus `images/profile.<ext>` and optional `layouts/*.yaml`.
-- Output PDF is named from `personal.yaml`'s `name` (lowercased, hyphenated).
-- Missing/empty content files simply drop that section — no error.
-- `config.yaml` picks `theme` (teal | coral | mono), `layout` (two-column | single-column | custom), and page-1 pagination.
-- To help a user create their CV: read the content schema below, convert their CV facts into the YAML files, never invent facts.
+- Output PDF is named from `personal.yaml`'s `name` (lowercased, hyphenated). Missing/empty content files simply drop that section; a missing photo renders fine.
+- `config.yaml`: `schemaVersion: 1`, `theme` (teal | coral | mono), `layout` (two-column | single-column | custom), page-1 pagination keys.
 
 ## Docs
 
 - [CV content schema](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md): complete, self-contained YAML schema for generating cv-content/ files — start here to write content
-- [AI guide](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md): workflows and prompts for generating a CV with an assistant or coding agent
+- [AI guide](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md): the default flow for assistants + routes for every tool type
+- [Canonical JSON Schema](https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/cvx.schema.json): machine-validatable definition of every content file
 - [README](https://raw.githubusercontent.com/hrtips/cvx/main/README.md): full user and developer guide
 - [Scaffold guide](https://raw.githubusercontent.com/hrtips/cvx/main/template/cv-content/README.md): the README placed inside users' cv-content/ folders by `cvx init`
 

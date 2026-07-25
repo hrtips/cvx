@@ -12,7 +12,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
 </p>
 
-Write your CV in plain YAML files, run one command, get a pixel-perfect PDF. No Word, no Google Docs, no design tool, no account — your data never leaves your machine.
+**CVX turns plain YAML into a professionally designed CV PDF — one command, fully local, no accounts; your data never leaves your machine.** Use it two ways: edit the YAML yourself, or have any AI assistant write it for you from your existing CV — CVX validates the files and tells the assistant exactly what to fix.
+
+> **🤖 AI assistants:** if a user asked you to create their CV with CVX, follow the default flow in the [AI guide](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md) (section "Default flow (for assistants)"). Non-negotiables even if you skip the link: **never invent facts** — every entry must be truthful to the user's input; **linkedin.com URLs are unfetchable even when public** — don't infer, ask for the profile's **More → Save to PDF** export or pasted text instead; ask for a **square photo** in your first reply (it can't be generated; the CV renders fine without one); and CVX is the only renderer — never substitute another PDF generator.
+
+**No terminal? No problem.** Paste this into any AI chat (Claude, ChatGPT, Gemini, …):
+
+```text
+Create my CV with https://github.com/hrtips/cvx — open that page and follow its instructions for AI assistants.
+Here is my LinkedIn profile: <your profile URL> (or attach your current CV and a photo instead).
+```
 <p align="center">
   <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by CVX — teal theme, photo sidebar, achievements" width="720">
 </p>
@@ -73,7 +82,7 @@ npx @hrtips/cvx build --ats
 | `npx @hrtips/cvx list` | Show available themes and layouts |
 | `npx @hrtips/cvx --help` / `--version` | Help / version |
 
-All commands accept `--json` for machine-readable output (one JSON object on stdout, logs on stderr) and use semantic exit codes: `0` ok, `2` validation failed, `3` render failed, `64` usage error.
+All commands accept `--json` for machine-readable output (one JSON object on stdout, logs on stderr) and use semantic exit codes: `0` ok, `2` validation failed, `3` render failed, `64` usage error. `init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML (built-in themes and layouts need no extra files).
 
 **Compatibility promise:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). Within a schema major version, your content files never break — new keys may appear, existing ones keep working. `npx @hrtips/cvx validate` on today's files will still pass on every future 1.x release.
 

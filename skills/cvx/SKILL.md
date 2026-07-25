@@ -27,6 +27,8 @@ Exit codes: `0` ok · `2` validation failed · `3` render failed · `64` usage e
 
 Always validate after every edit and before every build. Findings include the file, the field path, and a suggested fix — apply the fix and re-validate.
 
+If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the [AI guide's default flow](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
+
 ## Rules that are not optional
 
 1. **Never invent facts.** Every entry must be truthful to the user's real history. This matters most for `keywords.yaml`: ATS parsers cross-check keywords against the CV body, and stuffing false terms gets CVs auto-rejected.

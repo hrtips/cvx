@@ -20,8 +20,8 @@ Edit → validate → build. Always validate before building; it reports every p
 
 ## Rules
 
-1. **Never invent facts.** Every entry must be truthful to the person's real history. This especially matters for `keywords.yaml` — ATS parsers cross-check keywords against the CV body, and stuffing gets CVs auto-rejected.
+1. **Never invent facts.** Every entry must be truthful to the person's real history. This especially matters for `keywords.yaml` — ATS parsers cross-check keywords against the CV body, and stuffing gets CVs auto-rejected. A linkedin.com URL is unfetchable even when public — ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
 2. **Don't rename the YAML files.** Sections are discovered by filename (`personal.yaml`, `summary.yaml`, `experience.yaml`, `education.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml`, `keywords.yaml`, `config.yaml`).
 3. **Quote strings containing colons** (`"Director: Operations"`). Date ranges are free text (`2019 – Present`).
-4. The profile photo goes at `images/profile.jpg` (or `.jpeg`/`.png`/`.webp`) — ask the user for it; it can't be generated.
+4. The profile photo goes at `images/profile.jpg` (or `.jpeg`/`.png`/`.webp`) — ask the user for it early; it can't be generated. The scaffolded `images/profile.jpg` is Bruce Wayne's example photo: replace it with the user's or delete it before building (the CV renders fine without one).
 5. `config.yaml` usually needs only `theme` + `layout`; add pagination keys only if page 1 overflows.

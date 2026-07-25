@@ -2,7 +2,54 @@
 
 CVX is designed to pair with LLMs: the content format is plain YAML with a small, documented schema, so any capable assistant — Claude, ChatGPT, Gemini, or a coding agent — can turn your existing CV, LinkedIn profile, or a rough brain-dump into polished `cv-content/` files. You review the facts, run one command, and get the PDF.
 
-Pick the route that matches the tool you have:
+**If you're a person:** paste this into any AI chat, attach your CV or photo if you have them, and let the assistant take it from there:
+
+```text
+Create my CV with https://github.com/hrtips/cvx — open that page and follow its instructions for AI assistants.
+Here is my LinkedIn profile: <your profile URL> (or attach your current CV and a photo instead).
+```
+
+**If you're the assistant:** the next section is your contract. The routes further down are reference detail — pick your own path from your capabilities; never ask the user to choose a route.
+
+## Default flow (for assistants)
+
+You drive; the user only supplies facts and runs at most one command. The schema for every content file is [cv-schema.md](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md) — fetch it before writing any YAML.
+
+### 1. Get truthful source content (first reply, one turn)
+
+- **Given a linkedin.com URL: assume it is unfetchable, even for public profiles** — LinkedIn blocks automated access with a login wall. Do not retry, do not infer or reconstruct the profile from the URL or your training data. Ask once, batching everything you need:
+
+  > *"I can't read LinkedIn directly — could you do one of these: (1) on LinkedIn, open your profile → **More → Save to PDF**, and attach that file here; (2) paste your profile text (select-all on your profile page works); or (3) attach your existing CV. Also attach a square photo (400×400px or larger) for the CV — or say 'no photo'. If you have a target job ad, paste it too and I'll tailor the wording."*
+
+- **Given an attached CV (PDF/DOCX):** read it and proceed — never ask the user to paste what they already attached. If the format is unreadable, ask for a PDF re-save or pasted text.
+- **Given neither:** interview the user section by section against the schema (personal → experience → education → the rest).
+- **Never invent facts.** Every entry must be truthful to the user's input; ask for anything missing (dates, metrics). AI-embellished CVs fail interviews and background checks, and ATS parsers cross-check keywords against the CV body.
+
+### 2. Pick your execution path (by your own capabilities)
+
+1. **You have CVX MCP tools or the cvx skill** → use them: `get_schema` → `init_cv` → edit → `validate_cv` → `build_pdf`.
+2. **You can run shell commands** → probe with `npx -y @hrtips/cvx --version`. If it succeeds: `npx @hrtips/cvx init`, replace the example content, `npx @hrtips/cvx validate --strict --json` after every edit, `npx @hrtips/cvx build` and `build --ats`. Deliver the PDFs **and a zip of `cv-content/`** — sandboxes are ephemeral and the YAML is what the user keeps. If the probe fails (sandboxes often have no npm network), fall through to path 3.
+3. **You can write files but not run CVX** → generate every `cv-content/` file from the schema, package the folder as a downloadable zip (or one fenced code block per file, titled with its exact path), then give the user the handoff below. **The CVX CLI is the only renderer — never substitute reportlab, LaTeX, HTML-to-PDF, or any other generator.** The whole point is a validated, reproducible format the user keeps.
+
+### 3. The handoff (relay verbatim when the user must run the build)
+
+> 1. Install Node.js (LTS) from **https://nodejs.org** — standard installer, click through. (Already have it? `node --version` should show 20+.)
+> 2. Save my files into a folder named exactly `cv-content` (keep the filenames). If you have a photo, put it inside `cv-content/images/` named `profile.jpg`.
+> 3. Open a terminal in the folder that *contains* `cv-content` — Windows: Shift+right-click the folder → "Open PowerShell window here"; Mac: right-click it in Finder → Services → New Terminal at Folder — and run: `npx @hrtips/cvx build`
+> 4. Your PDF appears in that folder. If you see errors, paste them back to me.
+
+`init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML; built-in themes and layouts need no extra files.
+
+### 4. Photo and delivery rules
+
+- Ask for the photo in your **first** reply (batched into the source-content ask) — it cannot be generated. No photo is fine: the CV renders cleanly without one; don't block on it.
+- **Placeholder trap:** `init` scaffolds Bruce Wayne's example photo at `cv-content/images/profile.jpg`. Replace it with the user's photo or delete it before building — never ship it.
+- If validation reports problems, apply the suggested fixes and re-validate before building; findings include the file, field path, and a fix.
+- Deliver both variants when the user is applying via portals: the designed CV and the `--ats` single-column one.
+
+---
+
+Pick the route that matches the tool you have (reference — assistants use the default flow above):
 
 | You have | Route | Friction |
 |---|---|---|

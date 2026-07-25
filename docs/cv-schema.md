@@ -10,7 +10,8 @@ This document is self-contained: with only this file and a person's CV facts, yo
 - `npx @hrtips/cvx build --ats` renders an ATS-safe single-column variant instead.
 - Every content file is validated against the [canonical JSON Schema](../schema/v1/cvx.schema.json); the scaffolded files carry `$schema` headers for editor autocomplete.
 - The output PDF is named from `personal.yaml`'s `name`: lowercased, spaces → hyphens (`Bruce Wayne` → `bruce-wayne.pdf`; the ATS variant appends `-ats`).
-- Every `.yaml` file in `cv-content/` is auto-discovered by filename. A missing file, an empty file, or `[]` simply drops that section from the CV — no error.
+- Every `.yaml` file in `cv-content/` is auto-discovered by filename. A missing file, an empty file, or `[]` simply drops that section from the CV — no error. (Required in practice: `personal.yaml`, `summary.yaml`, `experience.yaml` — `validate` checks this.)
+- `init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML; built-in themes and layouts need no extra files. A missing photo renders fine (the sidebar simply omits it).
 - All rendering is local; no network calls, no accounts.
 
 ## YAML rules that matter here
@@ -197,4 +198,4 @@ Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievemen
 4. `education.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
 5. `keywords.yaml` — only truthful terms not already covered by competencies/titles.
 6. `config.yaml` — usually just `theme` + `layout`; add pagination keys only if page 1 overflows.
-7. Tell the user to add `images/profile.jpg` (a photo can't be generated from text) and run `npx @hrtips/cvx build`.
+7. Ask for the photo in your **first** message to the user (it can't be generated) — but never block on it; the CV renders cleanly without one. If you ran `init`, replace or delete the scaffolded example photo at `images/profile.jpg` (it's Bruce Wayne's) before building. Then run `npx @hrtips/cvx build`.
