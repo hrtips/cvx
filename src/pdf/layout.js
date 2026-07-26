@@ -142,6 +142,49 @@ export function resolveFirstSidebar(layout, isSinglePage) {
   return [...new Set([...first, ...extra])]
 }
 
+/**
+ * Warning threshold for estimatePage1Overflow, in points.
+ *
+ * The estimator is intentionally conservative (charWidthFraction + ceil per
+ * text block), so a raw estimate > 0 does not mean real clipping. Empirical
+ * calibration (2026-07-26 dogfood): the shipped scaffold's tuned config
+ * estimates +209pt and renders with room to spare; the mildest observed real
+ * clip estimated +257pt. Warn above 220 — between the two.
+ */
+export const PAGE1_OVERFLOW_WARN_THRESHOLD = 220
+
+/**
+ * Estimate how far a forced page1ExperienceCount overshoots the page-1 budget.
+ *
+ * Returns the raw conservative estimate in points (0 when no count is
+ * forced). Compare against PAGE1_OVERFLOW_WARN_THRESHOLD before warning.
+ * Mirrors the config-driven branch of packExperiences: the first
+ * (count - 1) entries render whole, the last is optionally cut at
+ * page1SplitBullets. When content really overflows, the renderer clips it
+ * at the page edge (the template columns use minHeight, never shrink).
+ */
+export function estimatePage1Overflow(experience, summary, config = {}, theme) {
+  const { page1ExperienceCount: count, page1SplitBullets: splitAt } = config
+  if (count == null) return 0
+
+  const m = deriveMetrics(theme)
+  const entries = experience.slice(0, count).map((e, i) => {
+    const isLast = i === count - 1
+    if (isLast && splitAt != null && splitAt < (e.bullets?.length ?? 0)) return { ...e, endBullet: splitAt }
+    return e
+  })
+
+  let used = 0
+  entries.forEach((e, i) => {
+    used += entryH(e, m) + (i > 0 ? calcDividerH(m) : 0)
+  })
+
+  const budget = m.pageH - m.topBar - m.mainPad.top - m.mainPad.bottom
+    - summaryH(summary ?? [], m) - m.spacer - calcTitleH(m) - m.safety
+
+  return Math.max(0, Math.round(used - budget))
+}
+
 export function packExperiences(experience, summary, config = {}, theme) {
   const m = deriveMetrics(theme)
   const { page1ExperienceCount, page1SplitBullets } = config

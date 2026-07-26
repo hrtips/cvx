@@ -1,7 +1,7 @@
 // cvx validate engine: catches seeded errors with paths + suggestions,
 // warns without failing on ignorable problems, and promotes under strict.
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, cpSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, cpSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -140,5 +140,30 @@ describe('validateContent', () => {
     expect(result.warnings.some((f) => f.code === 'wrong-extension')).toBe(true)
     // summary is then missing as a .yaml file → required-file error
     expect(result.errors.some((f) => f.file === 'summary.yaml' && f.code === 'missing-file')).toBe(true)
+  })
+})
+
+// Dogfood regression (2026-07-26): a forced page1ExperienceCount that cannot
+// fit used to render silently corrupted PDFs (flex-shrink glyph overlap).
+// Validation must now warn before anyone builds.
+describe('page-1 overflow estimate', () => {
+  it('warns when page1ExperienceCount cannot fit', () => {
+    const contentDir = scaffold((dir) => {
+      const config = readFileSync(path.join(dir, 'config.yaml'), 'utf8')
+        .replace('page1ExperienceCount: 2', 'page1ExperienceCount: 6')
+        .replace(/^page1SplitBullets: 2$/m, '')
+      writeFileSync(path.join(dir, 'config.yaml'), config)
+    })
+    const result = validateContent({ contentDir })
+    const finding = result.warnings.find((f) => f.code === 'page1-overflow')
+    expect(finding).toBeDefined()
+    expect(finding.path).toBe('/page1ExperienceCount')
+    expect(finding.message).toMatch(/pt past the tuned margin/)
+    expect(finding.suggestion).toMatch(/page1SplitBullets/)
+  })
+
+  it('stays silent for the shipped scaffold pagination', () => {
+    const result = validateContent({ contentDir: scaffold() })
+    expect(result.warnings.filter((f) => f.code === 'page1-overflow')).toEqual([])
   })
 })

@@ -64,15 +64,16 @@ export async function validateCv({ dir, strict = true } = {}) {
 export async function buildPdf({ dir, ats = false } = {}) {
   // lib/fonts in the published package; src/fonts in a repo checkout pre-build
   const libFonts = join(pkgRoot, 'lib', 'fonts')
+  const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: contentDirOf(dir),
     fontsDir: existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts'),
     ats,
-    warn: () => {},
+    warn: (msg) => warnings.push(msg),
   })
   const path = join(workspace(dir), filename)
   writeFileSync(path, buffer)
-  return { ok: true, filename, path, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName }
+  return { ok: true, filename, path, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName, warnings }
 }
 
 /**

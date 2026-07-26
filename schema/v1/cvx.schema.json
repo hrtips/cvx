@@ -297,7 +297,7 @@
         "page1ExperienceCount": {
           "type": "integer",
           "minimum": 1,
-          "description": "Exact number of experience entries on page 1. Omit for automatic page packing."
+          "description": "Exact number of experience entries on page 1 — entry N+1 starts page 2. If the forced count does not fit, validate/build warn and the overflow is clipped at the page edge. Omit for automatic page packing (never overflows)."
         },
         "page1SplitBullets": {
           "type": "integer",

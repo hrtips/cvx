@@ -158,7 +158,7 @@ Leadership: [Executive Leadership, Team Building]
 | `schemaVersion` | integer | `1` | Content schema major version — content files never break within a major |
 | `theme` | `teal` \| `coral` \| `mono` | `teal` | Colour scheme (`mono` is black-and-white, ATS-optimised) |
 | `layout` | `two-column` \| `single-column` \| custom layout filename | `two-column` | Page structure |
-| `page1ExperienceCount` | integer | auto | Experience entries on page 1 (omit for automatic greedy bin-packing) |
+| `page1ExperienceCount` | integer | auto | Experience entries on page 1 — entry N+1 starts page 2. If the count doesn't fit, `validate`/`build` warn and the overflow is clipped; automatic packing (omit the key) never overflows |
 | `page1SplitBullets` | integer | off | Show only N bullets of page 1's last entry; the rest continue on page 2 |
 | `atsKeywords.enabled` | boolean | `true` | Master switch for keyword metadata |
 | `atsKeywords.autoDerive` | boolean | `true` | Also derive keywords from competencies + job titles |

@@ -17,6 +17,8 @@ import { dirname, join, basename } from 'path'
 import yaml from 'js-yaml'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { PHOTO_EXTENSIONS } from './profilePhoto.js'
+import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
+import { THEMES } from './themes/index.js'
 
 const Ajv2020 = Ajv2020Module.default ?? Ajv2020Module
 
@@ -213,8 +215,22 @@ export function validateContent({ contentDir, strict = false } = {}) {
     }
   }
 
-  // Layout inventory: unknown layout warns (renderer falls back to built-in).
+  // Forced pagination that can't fit: the renderer clips overflow, so surface
+  // the estimate here where agents look first.
   const config = docs.config ?? {}
+  if (config.page1ExperienceCount != null && Array.isArray(docs.experience)) {
+    const theme = THEMES[config.theme] ?? THEMES.teal
+    const overflow = estimatePage1Overflow(docs.experience, Array.isArray(docs.summary) ? docs.summary : [], config, theme)
+    if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
+      add('warning', 'config.yaml', 'page1-overflow', {
+        path: '/page1ExperienceCount',
+        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the tuned margin) — overflow is clipped at the page edge in the designed layout`,
+        suggestion: 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination',
+      })
+    }
+  }
+
+  // Layout inventory: unknown layout warns (renderer falls back to built-in).
   const layoutsDir = join(contentDir, 'layouts')
   const userLayouts = existsSync(layoutsDir)
     ? readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml')).map((f) => basename(f, '.yaml'))

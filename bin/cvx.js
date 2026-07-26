@@ -173,15 +173,16 @@ async function mcpInit({ client, json }) {
 
 async function build({ ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
+  const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir:   join(pkgRoot, 'lib', 'fonts'),
     ats,
-    warn: (msg) => console.error(`⚠ ${msg}`),
+    warn: (msg) => { warnings.push(msg); console.error(`⚠ ${msg}`) },
   })
   writeFileSync(join(process.cwd(), filename), buffer)
   if (json) {
-    emit({ command: 'build', ok: true, filename, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName })
+    emit({ command: 'build', ok: true, filename, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName, warnings })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
     console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)

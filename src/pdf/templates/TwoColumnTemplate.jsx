@@ -9,7 +9,13 @@ const makeStyles = (t) => {
   return StyleSheet.create({
     page:       { fontFamily: t.typography.fontFamily, backgroundColor: t.palette.white },
     topBar:     { height: g.topBar, backgroundColor: t.palette.accent },
-    body:       { flexDirection: 'row', height: bodyH, backgroundColor: t.palette.accent },
+    // minHeight, NOT height: a fixed height authorizes yoga to compress the
+    // columns' children when content overflows (glyphs overprint — see
+    // dogfood report 2026-07-26). With a minimum, short content still fills
+    // the page and long content overflows past the page edge, clipped —
+    // visible and honest. The packer + page1-overflow warning keep content
+    // within budget; this is the last line of defense.
+    body:       { flexDirection: 'row', minHeight: bodyH, backgroundColor: t.palette.accent },
     sidebar:    { width: sidebarPct, backgroundColor: t.palette.sidebarBg },
     mainFirst:  { flex: 1, flexDirection: 'column', backgroundColor: t.palette.white, borderTopLeftRadius: t.chrome.mainColumnTopRadius },
     mainCont:   { flex: 1, flexDirection: 'column', backgroundColor: t.palette.white },

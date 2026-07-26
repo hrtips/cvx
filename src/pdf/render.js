@@ -15,6 +15,7 @@ import { setupReproducibility } from './reproducible.js'
 import { loadContent } from './loadContent.js'
 import { normalizeLayout } from './loadLayout.js'
 import { discoverThemes } from './themes/index.js'
+import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
 import CVDocument from './CVDocument.jsx'
 import ATSDocument from './ATSDocument.jsx'
 
@@ -73,6 +74,16 @@ export async function renderCV({ contentDir, fontsDir, ats = false, env = proces
   }
   if (layoutName && !layout) {
     warn(`Layout "${layoutName}" not found in ${join(contentDir, 'layouts')}. Using built-in default.`)
+  }
+
+  const overflow = estimatePage1Overflow(content.experience ?? [], content.summary ?? [], config, theme)
+  if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
+    warn(
+      `page1ExperienceCount: ${config.page1ExperienceCount} likely does not fit on page 1 ` +
+      `(estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the tuned margin) — ` +
+      `overflowing content is clipped at the page edge. Check the rendered page 1; ` +
+      `reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination.`
+    )
   }
 
   const buffer = await renderToBuffer(
