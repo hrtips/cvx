@@ -34,7 +34,13 @@ You drive; the user only supplies facts and runs at most one command. The schema
 
 **No research sinks:** this guide plus [cv-schema.md](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md) are everything you need — once you have them and the user's source content, generate; further repository exploration adds nothing to the CV.
 
-### 3. The handoff (relay verbatim when the user must run the build)
+### 3. Review, brainstorm, and preview — before any build
+
+- **Review the draft's content**, not just its validity: grammar and prose (verb-first bullets, consistent tense — past for former roles, present for the current one), and **gaps** — missing dates, roles without outcomes or metrics, thin descriptions, sections the source hints at but the draft lacks (certifications, publications, languages). Turn the gaps into 3–5 targeted questions **batched into one message**; fix unambiguous prose issues silently and list notable rewrites.
+- **Show what's going in before you build.** Give the user a plain-language rundown of exactly what the CV will contain — each section with its entries (roles with periods, and what lands on page 1), referees or "available upon request", which keywords go into the invisible ATS metadata, plus theme/layout/photo status — and get their OK. Summarize the YAML; don't dump it. Nothing appears on the CV that the user hasn't seen.
+- A truthful thin bullet beats an embellished one — never pad with invented metrics.
+
+### 4. The handoff (relay verbatim when the user must run the build)
 
 > 1. Install Node.js (LTS) from **https://nodejs.org** — standard installer, click through. (Already have it? `node --version` should show 20+.)
 > 2. Save my files into a folder named exactly `cv-content` (keep the filenames). If you have a photo, put it inside `cv-content/images/` named `profile.jpg`.
@@ -43,7 +49,7 @@ You drive; the user only supplies facts and runs at most one command. The schema
 
 `init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML; built-in themes and layouts need no extra files.
 
-### 4. Photo and delivery rules
+### 5. Photo and delivery rules
 
 - Ask for the photo in your **first** reply (batched into the source-content ask) — it cannot be generated. No photo is fine: the CV renders cleanly without one; don't block on it.
 - **Placeholder trap:** `init` scaffolds Bruce Wayne's example photo at `cv-content/images/profile.jpg`. Replace it with the user's photo or delete it before building — never ship it.

@@ -29,6 +29,18 @@ Always validate after every edit and before every build. Findings include the fi
 
 If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the [AI guide's default flow](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
 
+## Review, then brainstorm — before the final build
+
+After converting the user's material into YAML (and passing validation), review the *content* and bring your findings to the user as a short brainstorm — never silently ship the first draft:
+
+1. **Grammar and prose.** Verb-first bullets; consistent tense (past for former roles, present for the current one); no typos, no filler words; quantify only where the source supports it. Fix what's unambiguous silently; list notable rewrites for the user to approve.
+2. **Gaps.** Missing dates, roles with no outcomes or metrics, thin one-line descriptions, unexplained employment gaps, and sections the source hints at but the draft lacks (certifications, publications, languages). Turn these into **3–5 targeted questions, batched into one message** — e.g. *"Your CEO role lists no outcomes — any truthful numbers on users, revenue, or funding? And your LinkedIn mentions three publications; want them on the CV?"*
+3. **Conflicts.** Contradictory titles or dates between sources — present both options and ask which is correct; never pick silently.
+
+4. **Pre-build preview.** Before calling `build_pdf` (or running `build`), show the user a plain-language rundown of exactly what the CV will contain and get their OK: each section with its entries — roles with companies and periods (and which land on page 1), education, the competency pills, achievements, referees or *"available upon request"*, which keywords go into the (invisible) ATS metadata — plus the theme, layout, and photo status. Summarize the YAML; don't dump it. Nothing goes on the CV the user hasn't seen.
+
+Apply the answers, re-validate, then build both variants. A truthful thin bullet always beats an embellished one — never pad with invented metrics.
+
 ## Rules that are not optional
 
 1. **Never invent facts.** Every entry must be truthful to the user's real history. This matters most for `keywords.yaml`: ATS parsers cross-check keywords against the CV body, and stuffing false terms gets CVs auto-rejected.

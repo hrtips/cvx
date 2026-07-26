@@ -68,6 +68,12 @@ describe('scaffold README and AI guide stay aligned', () => {
       expect(skillMd, `SKILL.md missing tool ${tool}`).toContain(tool)
     }
     expect(skillMd).toMatch(/[Nn]ever invent facts/)
+    // review → brainstorm → pre-build preview (maintainer requirements, 2026-07-26)
+    expect(skillMd).toMatch(/brainstorm/i)
+    expect(skillMd).toMatch(/batched into one message/)
+    expect(skillMd).toMatch(/Pre-build preview/i)
+    expect(aiGuide).toMatch(/brainstorm/i)
+    expect(aiGuide).toMatch(/Show what's going in before you build/)
     const [, frontmatter] = skillMd.split('---')
     expect(frontmatter).toContain('name: cvx')
     expect(frontmatter.length).toBeLessThan(1500)
