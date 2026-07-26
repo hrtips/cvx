@@ -50,7 +50,8 @@ export async function initCv({ dir } = {}) {
     dest,
     nextSteps: [
       'Edit the YAML files in cv-content/ with real, truthful details (see AGENTS.md there)',
-      'Ask the user for a photo at cv-content/images/profile.jpg — it cannot be generated',
+      'Replace or delete cv-content/images/profile.jpg — it is the example person\'s photo; never ship it on a real CV',
+      'Ask the user for their photo (square, 400x400px+) — it cannot be generated; the CV renders fine without one',
       'Run validate_cv after every edit, then build_pdf',
     ],
   }

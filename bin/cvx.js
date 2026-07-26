@@ -127,7 +127,10 @@ async function list({ kind, json }) {
   }
 }
 
-const MCP_ENTRY = { command: 'npx', args: ['-y', '@hrtips/cvx', 'mcp'] }
+// Pin the exact version that wrote the config: predictable output for the
+// user (visual layout frozen until they re-run mcp init) and canary configs
+// actually launch the canary instead of resolving `latest`.
+const MCP_ENTRY = { command: 'npx', args: ['-y', `@hrtips/cvx@${version}`, 'mcp'] }
 const MCP_CLIENTS = {
   claude:           { file: () => join(process.cwd(), '.mcp.json'),            root: 'mcpServers', entry: { type: 'stdio', ...MCP_ENTRY } },
   cursor:           { file: () => join(process.cwd(), '.cursor', 'mcp.json'),  root: 'mcpServers', entry: MCP_ENTRY },
@@ -167,8 +170,8 @@ async function mcpInit({ client, json }) {
   config[target.root] = { ...config[target.root], cvx: target.entry }
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(config, null, 2) + '\n')
-  if (json) emit({ command: 'mcp-init', ok: true, client, file })
-  else console.log(`✅ Added the cvx MCP server to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up.`)
+  if (json) emit({ command: 'mcp-init', ok: true, client, file, version })
+  else console.log(`✅ Added the cvx MCP server (pinned to ${version}) to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up. Re-run mcp init after upgrading cvx.`)
 }
 
 async function build({ ats, json }) {
