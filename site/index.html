@@ -1,381 +1,411 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CVX — structured input, professional output</title>
-<meta name="description" content="Write your CV in plain YAML, run one command, get a pixel-perfect PDF. Fully local — no accounts, no cloud, no headless browser. Any AI assistant can drive it.">
-<link rel="icon" href="icon.png">
-<meta property="og:title" content="CVX — structured input, professional output">
-<meta property="og:description" content="Plain YAML in, pixel-perfect CV PDF out. Fully local. Any AI assistant can drive it.">
-<meta property="og:image" content="https://raw.githubusercontent.com/hrtips/cvx/main/assets/brand/social-preview.png">
-<meta property="og:type" content="website">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CVX — the new way to write a CV</title>
+<meta name="description" content="Hand your old CV or LinkedIn export to Claude, ChatGPT, Gemini or Copilot. It asks about the gaps, then builds a designed CV PDF on your machine. Fully local, open source." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="CVX — the new way to write a CV" />
+<meta property="og:description" content="Don't format a CV. Have a conversation. Any AI assistant can drive CVX — plain YAML in, pixel-perfect PDF out, fully local." />
+<meta property="og:image" content="https://raw.githubusercontent.com/hrtips/cvx/main/assets/brand/social-preview.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="icon" href="./icon.png" />
 <style>
-  :root {
-    --ink:      #0B1220;
-    --ink-soft: #121b2e;
-    --blue:     #2563EB;
-    --blue-hi:  #4f83ff;
-    --mint:     #22D3A8;
-    --pale:     #F5F7FA;
-    --paper:    #ffffff;
-    /* navy-biased neutrals — chosen, not defaulted */
-    --ink-70:   #3a4358;
-    --ink-50:   #5c6478;
-    --line:     #e2e6ee;
-    --line-dk:  #223049;
-    --radius:   14px;
-    --maxw:     1080px;
-    --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  }
-
+  html, body { margin: 0; padding: 0; background: #FBFAF8; }
   * { box-sizing: border-box; }
+  a { color: #1A6070; text-decoration: none; }
+  a:hover { color: #0E3E49; }
+  ::selection { background: #CFE3E6; }
   html { scroll-behavior: smooth; }
-  body {
-    margin: 0;
-    font-family: var(--sans);
-    color: var(--ink);
-    background: var(--pale);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-  a { color: var(--blue); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
-  img { max-width: 100%; display: block; }
-  code, pre, kbd { font-family: var(--mono); }
+  .copied { display: none; }
+  .copied.show { display: block; }
+[data-hv="0"]:hover{background: #101718 !important;color: #FBFAF8 !important}
+[data-hv="1"]:hover{border-color: #1A6070 !important;color: #1A6070 !important}
+[data-hv="2"]:hover{background: #1A6070 !important;color: #FFFFFF !important}
+[data-hv="3"]:hover{border-color: #1A6070 !important;color: #1A6070 !important}
+[data-hv="4"]:hover{border-color: #1A6070 !important;color: #1A6070 !important}
+[data-hv="5"]:hover{background: #182324 !important;color: #FFFFFF !important}
+[data-hv="6"]:hover{background: #182324 !important;color: #FFFFFF !important}
+[data-hv="7"]:hover{background: #182324 !important;color: #FFFFFF !important}
+[data-hv="8"]:hover{background: #182324 !important;color: #FFFFFF !important}
+[data-hv="9"]:hover{background: #0E3E49 !important;color: #FFFFFF !important}
+[data-hv="10"]:hover{border-color: #101718 !important;background: #FFFFFF !important}
 
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
-
-  /* ── wordmark: CV with a signal-blue superscript × ── */
-  .cvx { font-weight: 800; letter-spacing: -0.02em; }
-  .cvx sup { color: var(--blue); font-size: 0.62em; font-weight: 800; top: -0.5em; margin-left: 0.02em; }
-  .on-ink .cvx { color: var(--pale); }
-  .on-ink .cvx sup { color: var(--blue-hi); }
-
-  /* ── nav ── */
-  header {
-    position: sticky; top: 0; z-index: 20;
-    background: rgba(245,247,250,0.85);
-    backdrop-filter: saturate(1.2) blur(8px);
-    border-bottom: 1px solid var(--line);
+  /* --- responsive: inline styles are overridden deliberately --- */
+  @media (max-width: 1080px) {
+    #agents [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
   }
-  .nav { display: flex; align-items: center; justify-content: space-between; height: 62px; }
-  .brand { display: flex; align-items: baseline; gap: 2px; font-size: 22px; }
-  .nav-links { display: flex; align-items: center; gap: 22px; font-size: 15px; font-weight: 500; }
-  .nav-links a { color: var(--ink-70); }
-  .nav-links a:hover { color: var(--ink); text-decoration: none; }
-  .nav-cta {
-    background: var(--ink); color: var(--pale) !important;
-    padding: 8px 15px; border-radius: 9px; font-weight: 600;
+  @media (max-width: 940px) {
+    section[style*="grid-template-columns"],
+    section > div[style*="grid-template-columns"],
+    #conversation div[style*="grid-template-columns: 1.15fr"],
+    #start div[style*="grid-template-columns: 1fr 1fr"],
+    footer > div { gap: 36px !important; }
+    /* bulletproof: no two-column grid survives on mobile, whatever its ratio */
+    [style*="display: grid"] { grid-template-columns: 1fr !important; }
+    /* chat bubbles must not exceed the (now full-width) column */
+    #conversation [style*="max-width: 78%"],
+    #conversation [style*="max-width: 84%"] { max-width: 100% !important; }
+    #top { padding: 56px 24px 48px !important; }
+    #top > div:last-child { padding: 0 !important; }
+    section > div { padding-left: 24px !important; padding-right: 24px !important; }
+    header > div { padding: 0 20px !important; gap: 16px !important; }
+    header nav a:not(:last-child) { display: none !important; }
+    h1 { font-size: 33px !important; }
+    h2 { font-size: 30px !important; }
+    h3 { font-size: 22px !important; }
+    #agents [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr !important; }
   }
-  .nav-cta:hover { background: var(--ink-soft); text-decoration: none; }
-  @media (max-width: 620px) { .nav-links .hide-sm { display: none; } }
-
-  /* ── hero ── */
-  .hero { padding: 72px 0 40px; }
-  .eyebrow {
-    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.04em;
-    color: var(--ink-50); text-transform: uppercase; margin: 0 0 18px;
-    display: flex; gap: 10px; flex-wrap: wrap;
-  }
-  .eyebrow span { display: inline-flex; align-items: center; gap: 6px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); display: inline-block; }
-  h1 {
-    font-size: clamp(34px, 5.4vw, 58px); line-height: 1.05; letter-spacing: -0.03em;
-    font-weight: 800; margin: 0 0 20px; text-wrap: balance; max-width: 16ch;
-  }
-  h1 .accent { color: var(--blue); }
-  .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--ink-70); max-width: 54ch; margin: 0 0 30px; }
-  .lede b { color: var(--ink); font-weight: 600; }
-
-  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 9px;
-    font-weight: 600; font-size: 15px; padding: 13px 20px; border-radius: 11px;
-    border: 1px solid transparent; cursor: pointer;
-  }
-  .btn-primary { background: var(--blue); color: #fff; }
-  .btn-primary:hover { background: #1d54cf; text-decoration: none; }
-  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
-  .btn-ghost:hover { border-color: var(--ink-50); text-decoration: none; }
-
-  /* ── input → output showcase ── */
-  .showcase {
-    margin-top: 54px;
-    display: grid; grid-template-columns: 1fr auto 1.15fr; gap: 22px; align-items: center;
-  }
-  .times {
-    font-weight: 800; font-size: 40px; color: var(--blue); line-height: 1;
-    text-align: center; user-select: none;
-  }
-  .times small { display: block; font-family: var(--mono); font-size: 11px; font-weight: 600;
-    color: var(--ink-50); letter-spacing: 0.06em; margin-top: 8px; text-transform: uppercase; }
-
-  .code-card {
-    background: var(--ink); border-radius: var(--radius); overflow: hidden;
-    box-shadow: 0 24px 60px -30px rgba(11,18,32,0.5), 0 2px 8px rgba(11,18,32,0.08);
-    border: 1px solid var(--line-dk);
-  }
-  .code-bar {
-    display: flex; align-items: center; gap: 7px; padding: 11px 14px;
-    border-bottom: 1px solid var(--line-dk);
-  }
-  .code-bar i { width: 11px; height: 11px; border-radius: 50%; background: #38455e; display: inline-block; }
-  .code-bar span { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: #6b7690; }
-  pre { margin: 0; padding: 18px 18px 20px; overflow-x: auto; font-size: 13px; line-height: 1.75; color: #cdd6e6; }
-  .t-key  { color: var(--mint); }
-  .t-str  { color: #e6c07b; }
-  .t-cmt  { color: #5c6b85; font-style: italic; }
-  .t-mut  { color: #7c88a1; }
-  .shot {
-    border-radius: var(--radius); border: 1px solid var(--line);
-    box-shadow: 0 24px 60px -28px rgba(11,18,32,0.4), 0 2px 8px rgba(11,18,32,0.06);
-    background: var(--paper);
-  }
-  @media (max-width: 800px) {
-    .showcase { grid-template-columns: 1fr; }
-    .times { transform: rotate(90deg); margin: 4px 0; }
-  }
-
-  /* ── section scaffolding ── */
-  section { padding: 64px 0; }
-  .section-band { background: var(--ink); color: var(--pale); }
-  .kicker {
-    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--blue); margin: 0 0 12px;
-  }
-  .section-band .kicker { color: var(--blue-hi); }
-  h2 { font-size: clamp(26px, 3.4vw, 36px); letter-spacing: -0.02em; font-weight: 800; margin: 0 0 14px; text-wrap: balance; }
-  .sub { font-size: 17px; color: var(--ink-70); max-width: 58ch; margin: 0 0 8px; }
-  .section-band .sub { color: #a7b2c8; }
-
-  /* ── three ways in ── */
-  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 36px; }
-  @media (max-width: 860px) { .ways { grid-template-columns: 1fr; } }
-  .way {
-    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 22px; display: flex; flex-direction: column;
-  }
-  .way h3 { font-size: 17px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  .way p { font-size: 14.5px; color: var(--ink-70); margin: 0 0 16px; }
-  .term {
-    background: var(--ink); border-radius: 10px; padding: 14px 15px; margin-top: auto;
-    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: #cdd6e6; overflow-x: auto;
-  }
-  .term .p { color: var(--mint); user-select: none; }
-  .term .c { color: #5c6b85; }
-  .term .ok { color: var(--mint); }
-
-  /* ── loop / how it works ── */
-  .loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 36px; }
-  @media (max-width: 860px) { .loop { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 460px) { .loop { grid-template-columns: 1fr; } }
-  .step {
-    border: 1px solid var(--line-dk); border-radius: var(--radius); padding: 20px; background: var(--ink-soft);
-  }
-  .step .n { font-family: var(--mono); font-size: 13px; color: var(--blue-hi); font-weight: 700; }
-  .step h3 { font-size: 16px; margin: 8px 0 6px; color: var(--pale); }
-  .step p { font-size: 14px; color: #a7b2c8; margin: 0; }
-  .step code { color: var(--mint); font-size: 13px; }
-
-  /* ── validate callout ── */
-  .validate { margin-top: 30px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 26px; align-items: center; }
-  @media (max-width: 800px) { .validate { grid-template-columns: 1fr; } }
-  .validate .why h3 { font-size: 19px; margin: 0 0 8px; color: var(--pale); }
-  .validate .why p { color: #a7b2c8; margin: 0; font-size: 15px; }
-
-  /* ── features ── */
-  .grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; }
-  @media (max-width: 820px) { .grid6 { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 500px) { .grid6 { grid-template-columns: 1fr; } }
-  .feat { padding: 4px 2px; }
-  .feat h3 { font-size: 16px; margin: 0 0 5px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
-  .feat h3::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--blue); flex: none; }
-  .feat p { font-size: 14.5px; color: var(--ink-70); margin: 0; }
-
-  /* ── ATS row ── */
-  .ats { display: grid; grid-template-columns: 1fr 300px; gap: 30px; align-items: center; margin-top: 20px; }
-  @media (max-width: 720px) { .ats { grid-template-columns: 1fr; } .ats img { max-width: 260px; } }
-
-  /* ── footer ── */
-  footer { background: var(--ink); color: #a7b2c8; padding: 46px 0 40px; }
-  .foot { display: flex; flex-wrap: wrap; gap: 26px 40px; justify-content: space-between; align-items: flex-start; }
-  .foot a { color: #c4cddd; }
-  .foot .cols { display: flex; gap: 46px; flex-wrap: wrap; }
-  .foot .col { display: flex; flex-direction: column; gap: 9px; font-size: 14.5px; }
-  .foot .col b { color: var(--pale); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 2px; }
-  .foot .tag { font-size: 14px; max-width: 30ch; }
-  .foot .brand { font-size: 24px; margin-bottom: 10px; }
-  .copy { margin-top: 30px; font-size: 13px; color: #6b7690; border-top: 1px solid var(--line-dk); padding-top: 20px; }
 </style>
 </head>
 <body>
+<div style="font-family: Lato, sans-serif; color: #101718; background: #FBFAF8; min-height: 100%; overflow-x: hidden">
 
-<header>
-  <nav class="wrap nav">
-    <span class="brand cvx">CV<sup>×</sup>&nbsp;<span style="font-weight:600;font-size:14px;letter-spacing:0;color:var(--ink-50)">cvx</span></span>
-    <span class="nav-links">
-      <a href="#how" class="hide-sm">How it works</a>
-      <a href="#agents" class="hide-sm">For agents</a>
-      <a href="https://github.com/hrtips/cvx#readme">Docs</a>
-      <a href="https://github.com/hrtips/cvx" class="nav-cta">GitHub</a>
-    </span>
-  </nav>
-</header>
-
-<main>
-  <section class="hero wrap">
-    <p class="eyebrow">
-      <span><i class="dot"></i>Open source · Apache-2.0</span>
-      <span><i class="dot"></i>Fully local</span>
-      <span><i class="dot"></i>No account</span>
-    </p>
-    <h1>Plain YAML in.<br><span class="accent">Pixel-perfect</span> CV out.</h1>
-    <p class="lede">Write your CV as a few plain text files, run one command, and get a professionally designed PDF. <b>Your data never leaves your machine</b> — no Word, no Google Docs, no design tool, no sign-up. And any AI assistant can drive the whole thing.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="#start">Create your CV</a>
-      <a class="btn btn-ghost" href="#agents">Use it with your AI &rarr;</a>
+  <header style="position: sticky; top: 0; z-index: 50; background: rgba(251,250,248,0.88); backdrop-filter: blur(10px); border-bottom: 1px solid #E7E3DC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 0 40px; height: 64px; display: flex; align-items: center; gap: 32px">
+      <a href="#top" style="display: flex; align-items: baseline; gap: 9px; color: #101718">
+        <span style="font-size: 21px; font-weight: 900; letter-spacing: -0.02em">CV<span style="color: #1A6070">×</span></span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7C837F; letter-spacing: 0.08em">cvx</span>
+      </a>
+      <nav style="margin-left: auto; display: flex; align-items: center; gap: 28px; font-size: 14.5px; color: #4A5354">
+        <a href="#start" style="color: #4A5354">Start here</a>
+        <a href="#conversation" style="color: #4A5354">What it feels like</a>
+        <a href="#agents" style="color: #4A5354">For agents</a>
+        <a href="https://github.com/hrtips/cvx#readme" style="color: #4A5354">Docs</a>
+        <a href="https://github.com/hrtips/cvx" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; border: 1px solid #101718; border-radius: 999px; color: #101718; font-weight: 700; font-size: 13.5px" data-hv="0">GitHub</a>
+      </nav>
     </div>
+  </header>
 
-    <div class="showcase">
-      <div class="code-card" aria-label="Example CV content in YAML">
-        <div class="code-bar"><i></i><i></i><i></i><span>cv-content/personal.yaml</span></div>
-<pre><span class="t-cmt"># who you are — the rest is experience.yaml, etc.</span>
-<span class="t-key">name</span>: <span class="t-str">Ada Lovelace</span>
-<span class="t-key">title</span>: <span class="t-str">Principal Engineer</span>
-<span class="t-key">email</span>: <span class="t-str">ada@analytical.dev</span>
-<span class="t-key">linkedin</span>: <span class="t-str">linkedin.com/in/ada</span>
-<span class="t-key">location</span>: <span class="t-str">London, UK</span></pre>
-      </div>
-      <div class="times" aria-hidden="true">×<small>build</small></div>
-      <img class="shot" src="hero-two-column.png" width="720" height="1018"
-           alt="A designed two-column CV PDF produced by CVX — teal theme, photo sidebar, experience and achievements." loading="lazy">
-    </div>
-  </section>
+  <section id="top" style="max-width: 1180px; margin: 0 auto; padding: 80px 40px 68px; display: grid; grid-template-columns: 1.06fr 0.94fr; gap: 68px; align-items: center">
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #1A6070; margin-bottom: 20px">The new way to write a CV</div>
+      <h1 style="font-size: 66px; line-height: 0.98; letter-spacing: -0.035em; font-weight: 900; margin: 0 0 22px; text-wrap: balance">Don't format a CV.<br /><span style="color: #1A6070">Have a conversation.</span></h1>
+      <p style="font-size: 19px; line-height: 1.55; color: #4A5354; margin: 0 0 30px; max-width: 31em; text-wrap: pretty">Hand your old CV or LinkedIn export to Claude, ChatGPT, Gemini or Copilot with the prompt below. It asks about the gaps, then builds a designed PDF on your machine.</p>
 
-  <section id="start" class="section-band">
-    <div class="wrap">
-      <p class="kicker">Three ways in</p>
-      <h2>However you work, cvx meets you there.</h2>
-      <p class="sub">The same engine behind a terminal command, a chat prompt, or a native agent tool.</p>
-      <div class="ways">
-        <div class="way">
-          <h3>In your terminal</h3>
-          <p>Two commands: scaffold an example CV, then make it yours and build.</p>
-          <div class="term"><span class="p">$</span> npx @hrtips/cvx init
-<span class="p">$</span> npx @hrtips/cvx build
-<span class="ok">✅</span> ada-lovelace.pdf</div>
+      <div style="border: 1px solid #DCD7CE; border-radius: 14px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(16,23,24,0.04), 0 18px 40px -28px rgba(16,23,24,0.35); overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid #EFEBE4; background: #FCFBF9">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #1A6070; display: inline-block"></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7C837F">Paste this into any AI chat</span>
+          <button type="button" data-copy="hero" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="1">Copy</button>
         </div>
-        <div class="way">
-          <h3>In any AI chat</h3>
-          <p>Paste two lines into Claude, ChatGPT, or Gemini with your LinkedIn export or CV.</p>
-          <div class="term"><span class="c"># paste into any assistant</span>
-Create my CV with
-github.com/hrtips/cvx —
-here's my CV: <span class="t-mut">[attach]</span></div>
+        <div style="padding: 20px 18px; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.8; color: #232C2D">
+          <div>Create my CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> —</div>
+          <div>open that page and follow its instructions</div>
+          <div>for AI assistants.</div>
+          <div style="margin-top: 10px">Here is my current CV: <span style="color: #A9A399">[attach]</span></div>
         </div>
-        <div class="way">
-          <h3>As an MCP tool</h3>
-          <p>Give your agent four native tools. Configure once, no keys, offline.</p>
-          <div class="term"><span class="p">$</span> npx @hrtips/cvx mcp init \
-    --client claude
-<span class="ok">✅</span> get_schema · init_cv
-   validate_cv · build_pdf</div>
+        <div class="copied" id="copied-hero">
+          <div style="padding: 0 18px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #1A6070">✓ copied — now attach your CV and send</div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <section id="how" class="wrap">
-    <p class="kicker">How it works</p>
-    <h2>A tight loop that tells you what's wrong.</h2>
-    <p class="sub">Every content file is defined by a versioned JSON Schema, so editors autocomplete it and cvx validates it before it ever renders.</p>
-    <div class="loop">
-      <div class="step"><span class="n">01</span><h3>Scaffold</h3><p><code>init</code> writes a complete example CV in <code>cv-content/</code>.</p></div>
-      <div class="step"><span class="n">02</span><h3>Edit</h3><p>Plain YAML files — one per section. Your editor autocompletes each field.</p></div>
-      <div class="step"><span class="n">03</span><h3>Validate</h3><p><code>validate</code> reports every problem at once, with the fix.</p></div>
-      <div class="step"><span class="n">04</span><h3>Build</h3><p><code>build</code> renders a designed PDF — reproducibly, byte for byte.</p></div>
-    </div>
-
-    <div class="validate section-band" style="border-radius:var(--radius); padding:30px; margin-top:34px;">
-      <div class="validate" style="margin:0;">
-        <div class="code-card" style="box-shadow:none;">
-          <div class="code-bar"><i></i><i></i><i></i><span>npx @hrtips/cvx validate</span></div>
-<pre><span class="t-mut">cv-content/personal.yaml</span>
-  <span style="color:#ff9a8a">✖</span> missing required key <span class="t-str">"name"</span>
-  <span style="color:#e6c07b">⚠</span> unknown key <span class="t-str">"linkdin"</span>
-      <span class="t-mut">↳ did you mean "linkedin"?</span>
-<span style="color:#ff9a8a">✖ 1 error, 1 warning</span></pre>
-        </div>
-        <div class="why">
-          <h3>Errors in your terminal, not surprises in your PDF.</h3>
-          <p>Exact file and field paths, suggested fixes, and semantic exit codes — so a person, a CI job, or an agent all know precisely what to change.</p>
-        </div>
+      <div style="display: flex; align-items: center; gap: 22px; margin-top: 26px; flex-wrap: wrap">
+        <a href="#start" style="display: inline-flex; align-items: center; gap: 9px; background: #101718; color: #FBFAF8; padding: 14px 24px; border-radius: 999px; font-weight: 700; font-size: 15px" data-hv="2">Walk me through it →</a>
+        <span style="font-size: 14.5px; color: #6B7370">Free · open source · your data never leaves your machine</span>
       </div>
     </div>
-  </section>
 
-  <section id="agents" class="wrap" style="padding-top:20px;">
-    <p class="kicker">Built for people and agents</p>
-    <h2>Six things it always is.</h2>
-    <div class="grid6">
-      <div class="feat"><h3>CLI-first</h3><p>Built for the command line and for scripts. No GUI to click through.</p></div>
-      <div class="feat"><h3>Structured</h3><p>Your CV is data — plain YAML, deterministic and machine-readable.</p></div>
-      <div class="feat"><h3>Professional</h3><p>Typeset, print-quality PDFs from swappable themes and layouts.</p></div>
-      <div class="feat"><h3>Reproducible</h3><p>Same input, same bytes out — verified on every release.</p></div>
-      <div class="feat"><h3>Local</h3><p>No accounts, no cloud, no headless browser. Nothing leaves your machine.</p></div>
-      <div class="feat"><h3>Agent-ready</h3><p>JSON output, a JSON Schema, an MCP server, and a skill — designed for LLMs.</p></div>
+    <div style="position: relative; padding: 8px 0 30px 34px">
+      <div style="position: relative; z-index: 2; border-radius: 6px; overflow: hidden; border: 1px solid #E2DDD4; box-shadow: 0 40px 80px -44px rgba(16,23,24,0.55), 0 2px 4px rgba(16,23,24,0.05); background: #FFFFFF">
+        
+          <img src="./hero-two-column.png" alt="Two-column CV PDF for Bruce Wayne rendered by cvx" style="display: block; width: 100%; height: auto" />
+        
+        
+      </div>
+      <div style="position: absolute; left: 0; bottom: 0; z-index: 3; width: 250px; background: #101718; color: #E7EDEC; border-radius: 10px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; box-shadow: 0 24px 48px -20px rgba(16,23,24,0.6)">
+        <div style="color: #7C8A88; margin-bottom: 6px">written by your assistant</div>
+        <div><span style="color: #7FB3BD">name:</span> Bruce Wayne</div>
+        <div><span style="color: #7FB3BD">title:</span> Field Commander</div>
+        <div><span style="color: #7FB3BD">company:</span> Wayne Enterprises</div>
+      </div>
+      <div style="position: absolute; right: 0; top: -6px; z-index: 3; background: #FFFFFF; border: 1px solid #E2DDD4; border-radius: 999px; padding: 7px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1A6070; box-shadow: 0 10px 24px -14px rgba(16,23,24,0.4)">bruce-wayne.pdf</div>
     </div>
   </section>
 
-  <section class="section-band">
-    <div class="wrap">
-      <p class="kicker">Applying through a portal?</p>
-      <div class="ats">
+  <section id="start" style="border-top: 1px solid #E7E3DC; background: #F5F2EC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 82px 40px">
+      <div style="display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 64px; align-items: end; margin-bottom: 46px">
         <div>
-          <h2>An ATS-safe variant, one flag away.</h2>
-          <p class="sub">Add <code style="color:var(--mint)">--ats</code> for a single-column, no-colour, machine-parseable version — same content, tuned for applicant tracking systems. Keyword metadata included.</p>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #1A6070; margin-bottom: 16px">Start here</div>
+          <h2 style="font-size: 42px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 900; margin: 0">Pick the one that<br />sounds like you.</h2>
         </div>
-        <img class="shot" src="hero-ats.png" alt="An ATS-safe single-column CV variant produced by CVX." loading="lazy">
+        <p style="font-size: 17px; line-height: 1.6; color: #4A5354; margin: 0; max-width: 34em">Copy the prompt, attach the file, send. Ten minutes, mostly spent answering questions.</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 26px">
+        <div style="border: 1px solid #DCD7CE; border-radius: 16px; background: #FFFFFF; overflow: hidden; display: flex; flex-direction: column">
+          <div style="padding: 28px 30px 22px; border-bottom: 1px solid #EFEBE4">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #FFFFFF; background: #1A6070; border-radius: 999px; padding: 5px 11px">If you have a CV</span>
+              <span style="font-size: 13.5px; color: #6B7370">You need: your current CV</span>
+            </div>
+            <h3 style="margin: 0 0 12px; font-size: 27px; font-weight: 900; letter-spacing: -0.025em; line-height: 1.1">Rebuild the CV you already have — and fix what's missing.</h3>
+            <p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #5A6262">Your assistant reads it and tells you what's thin — no numbers, a gap in dates, a role with no outcome — then asks until it's filled.</p>
+          </div>
+          <div style="padding: 20px 22px 24px">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7C837F">Prompt to paste</span>
+              <button type="button" data-copy="a" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="3">Copy</button>
+            </div>
+            <div style="background: #F5F2EC; border-radius: 10px; padding: 18px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.85; color: #2C3536; display: flex; flex-direction: column; gap: 12px">
+              <p style="margin: 0">I want to create a new CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> — open that page and follow its instructions for AI assistants.</p>
+              <p style="margin: 0">My current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.</p>
+              <p style="margin: 0">Then write the <span style="white-space: nowrap">cv-content</span> YAML, validate it, and build the PDF.</p>
+            </div>
+            <div class="copied" id="copied-a">
+              <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #1A6070">✓ copied to clipboard</div>
+            </div>
+          </div>
+          <div style="margin-top: auto; padding: 16px 30px 22px; display: flex; flex-wrap: wrap; gap: 8px">
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">Gap interview</span>
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">Stronger bullets</span>
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">Same facts, better told</span>
+          </div>
+        </div>
+
+        <div style="border: 1px solid #DCD7CE; border-radius: 16px; background: #FFFFFF; overflow: hidden; display: flex; flex-direction: column">
+          <div style="padding: 28px 30px 22px; border-bottom: 1px solid #EFEBE4">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #FFFFFF; background: #101718; border-radius: 999px; padding: 5px 11px">If you don't have a CV</span>
+              <span style="font-size: 13.5px; color: #6B7370">You need: your LinkedIn PDF</span>
+            </div>
+            <h3 style="margin: 0 0 12px; font-size: 27px; font-weight: 900; letter-spacing: -0.025em; line-height: 1.1">No CV at all? Turn your LinkedIn profile into one.</h3>
+            <p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #5A6262">On your profile, hit <span style="font-weight: 700; color: #101718">More → Save to PDF</span> and attach that file. Assistants can't read linkedin.com links, even public ones — the export they can.</p>
+          </div>
+          <div style="padding: 20px 22px 24px">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #7C837F">Prompt to paste</span>
+              <button type="button" data-copy="b" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="4">Copy</button>
+            </div>
+            <div style="background: #F5F2EC; border-radius: 10px; padding: 18px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.85; color: #2C3536; display: flex; flex-direction: column; gap: 12px">
+              <p style="margin: 0">Create my CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> — open that page and follow its instructions for AI assistants.</p>
+              <p style="margin: 0">Attached is my LinkedIn profile export (More → Save to PDF) and a square photo. Use it as the source of truth, ask me about anything thin or missing, and don't invent results I haven't given you.</p>
+              <p style="margin: 0">Target role: <span style="color: #8A8579">[paste the job ad]</span></p>
+            </div>
+            <div class="copied" id="copied-b">
+              <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #1A6070">✓ copied to clipboard</div>
+            </div>
+          </div>
+          <div style="margin-top: auto; padding: 16px 30px 22px; display: flex; flex-wrap: wrap; gap: 8px">
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">Profile export</span>
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">Tailored to a job ad</span>
+            <span style="font-size: 13px; color: #6B7370; background: #F0EDE7; border-radius: 999px; padding: 6px 12px">From zero to PDF</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 26px; border: 1px solid #DCD7CE; border-radius: 14px; background: #FFFFFF; padding: 22px 26px; display: flex; gap: 26px; align-items: center; flex-wrap: wrap">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #1A6070">Before you send</span>
+        <span style="font-size: 15.5px; line-height: 1.6; color: #4A5354; flex: 1; min-width: 34ch">Attach a <span style="color: #101718; font-weight: 700">square photo</span> (400×400 or larger) if you want one — an assistant can't generate it, and the design works fine without.</span>
       </div>
     </div>
   </section>
-</main>
 
-<footer>
-  <div class="wrap">
-    <div class="foot">
-      <div class="on-ink">
-        <div class="brand cvx">CV<sup>×</sup></div>
-        <p class="tag">Structured input. Professional output. To the power of ×.</p>
+  <section id="conversation" style="border-top: 1px solid #E7E3DC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 82px 40px">
+      <div style="display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 64px; align-items: end; margin-bottom: 44px">
+        <div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #1A6070; margin-bottom: 16px">What it feels like</div>
+          <h2 style="font-size: 42px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 900; margin: 0">It interviews you.<br />You just answer.</h2>
+        </div>
+        <p style="font-size: 17px; line-height: 1.6; color: #4A5354; margin: 0; max-width: 34em">A real exchange, shortened. You supply the facts only you know; it does the rest.</p>
       </div>
-      <div class="cols">
-        <span class="col">
-          <b>Start</b>
-          <a href="https://www.npmjs.com/package/@hrtips/cvx">npm package</a>
-          <a href="https://github.com/hrtips/cvx#readme">Quick start</a>
-          <a href="https://github.com/hrtips/cvx/blob/main/docs/cv-schema.md">Content schema</a>
-        </span>
-        <span class="col">
-          <b>For agents</b>
-          <a href="https://github.com/hrtips/cvx/blob/main/docs/ai-guide.md">AI guide</a>
-          <a href="https://registry.modelcontextprotocol.io/v0/servers?search=io.github.hrtips/cvx">MCP registry</a>
-          <a href="https://github.com/hrtips/cvx/blob/main/skills/cvx/SKILL.md">Agent skill</a>
-        </span>
-        <span class="col">
-          <b>Project</b>
-          <a href="https://github.com/hrtips/cvx">GitHub</a>
-          <a href="https://github.com/hrtips/cvx/releases">Releases</a>
-          <a href="https://github.com/hrtips/cvx/blob/main/LICENSE">Apache-2.0</a>
-        </span>
+
+      <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: start">
+        <div style="display: flex; flex-direction: column; gap: 14px">
+          <div style="align-self: flex-end; max-width: 78%; background: #101718; color: #F1F3F1; border-radius: 16px 16px 4px 16px; padding: 15px 19px; font-size: 15.5px; line-height: 1.55">Here's my CV from 2021. Make me a good one with cvx.</div>
+          <div style="align-self: flex-start; max-width: 84%; background: #FFFFFF; border: 1px solid #E2DDD4; border-radius: 16px 16px 16px 4px; padding: 15px 19px; font-size: 15.5px; line-height: 1.6; color: #2C3536">Read it. Three problems: duties instead of outcomes, an unexplained 2022 gap, no numbers. Four questions —
+            <div style="margin-top: 10px; color: #4A5354">1. What changed at Wayne Enterprises because you were there?<br />2. What happened in 2022?<br />3. Team size at your most recent role?<br />4. Which job are we targeting?</div>
+          </div>
+          <div style="align-self: flex-end; max-width: 78%; background: #101718; color: #F1F3F1; border-radius: 16px 16px 4px 16px; padding: 15px 19px; font-size: 15.5px; line-height: 1.55">Cut incident response from 40 to 12 minutes. 2022 was a sabbatical. Team of nine. Targeting Head of Operations.</div>
+          <div style="align-self: flex-start; max-width: 84%; background: #FFFFFF; border: 1px solid #E2DDD4; border-radius: 16px 16px 16px 4px; padding: 15px 19px; font-size: 15.5px; line-height: 1.6; color: #2C3536">Written and validated — seven YAML files, no errors. Building the PDF now, plus the ATS-safe version for portals.
+            <div style="margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #1A6070; background: #F0F5F5; border-radius: 8px; padding: 10px 12px">✅ bruce-wayne.pdf · 2 pages<br />✅ bruce-wayne-ats.pdf</div>
+          </div>
+        </div>
+
+        <div style="border: 1px solid #DCD7CE; border-radius: 16px; background: #FFFFFF; padding: 28px 28px 26px">
+          <h3 style="margin: 0 0 18px; font-size: 21px; font-weight: 900; letter-spacing: -0.02em">Why it doesn't drift</h3>
+          <div style="display: flex; flex-direction: column; gap: 18px">
+            <div>
+              <div style="font-size: 16px; font-weight: 700; margin-bottom: 5px">It can't invent facts</div>
+              <div style="font-size: 14.5px; line-height: 1.6; color: #5A6262">Anything it can't source from you, it asks about.</div>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 700; margin-bottom: 5px">It can't get the format wrong</div>
+              <div style="font-size: 14.5px; line-height: 1.6; color: #5A6262">Files are schema-checked before rendering, so it fixes its own mistakes.</div>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 700; margin-bottom: 5px">It can't leak your CV</div>
+              <div style="font-size: 14.5px; line-height: 1.6; color: #5A6262">Renders on your machine, no network calls. No account, no upload.</div>
+            </div>
+            <div>
+              <div style="font-size: 16px; font-weight: 700; margin-bottom: 5px">You keep the source</div>
+              <div style="font-size: 14.5px; line-height: 1.6; color: #5A6262">Plain text files you own. Next time, change two lines and rebuild.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <p class="copy">CVX is free and open source. Your CV data stays on your machine — cvx makes no network calls and keeps no accounts.</p>
-  </div>
-</footer>
+  </section>
 
+  
+  <section style="border-top: 1px solid #E7E3DC; background: #F5F2EC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 78px 40px; display: grid; grid-template-columns: 1fr 0.8fr; gap: 68px; align-items: center">
+      <div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #1A6070; margin-bottom: 16px">Applying through a portal?</div>
+        <h2 style="font-size: 38px; line-height: 1.06; letter-spacing: -0.03em; font-weight: 900; margin: 0 0 18px">Ask for the ATS version<br />in the same sentence.</h2>
+        <p style="font-size: 17px; line-height: 1.6; color: #4A5354; margin: 0 0 24px; max-width: 32em">Single column, no colour, machine-parseable. Designed PDF for humans, plain one for portals.</p>
+        <div style="display: inline-block; background: #FFFFFF; border: 1px solid #DCD7CE; border-radius: 10px; padding: 14px 18px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; color: #2C3536">"Also build the ATS-safe variant."</div>
+      </div>
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #E2DDD4; box-shadow: 0 30px 60px -40px rgba(16,23,24,0.5); background: #FFFFFF">
+        <img src="./hero-ats.png" alt="ATS-safe single-column CV variant for Bruce Wayne" style="display: block; width: 100%; height: auto" />
+      </div>
+    </div>
+  </section>
+  
+
+  <section id="agents" style="background: #101718; color: #E9EDEC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 78px 40px">
+      <div style="display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: end; margin-bottom: 40px">
+        <div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #A9D6DE; margin-bottom: 16px">From here on, it's for your assistant</div>
+          <h2 style="font-size: 40px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 900; margin: 0; color: #FFFFFF">The technical part<br />you don't have to read.</h2>
+        </div>
+        <p style="font-size: 17px; line-height: 1.6; color: #9EA9A7; margin: 0; max-width: 34em">Wiring cvx into an agent? This is the whole surface. Everyone else can stop at the prompt above.</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #23302F; border: 1px solid #23302F; border-radius: 14px; overflow: hidden; margin-bottom: 22px">
+        <div style="background: #131C1D; padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">get_schema</span>
+          <span style="font-size: 14.5px; line-height: 1.55; color: #909B99">Pull the canonical JSON Schema before writing a line.</span>
+        </div>
+        <div style="background: #131C1D; padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">init_cv</span>
+          <span style="font-size: 14.5px; line-height: 1.55; color: #909B99">Scaffold <span style="white-space: nowrap">cv-content/</span> with the worked Bruce Wayne example.</span>
+        </div>
+        <div style="background: #131C1D; padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">validate_cv</span>
+          <span style="font-size: 14.5px; line-height: 1.55; color: #909B99">Every problem at once, with file, field and suggested fix.</span>
+        </div>
+        <div style="background: #131C1D; padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 8px">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">build_pdf</span>
+          <span style="font-size: 14.5px; line-height: 1.55; color: #909B99">Render locally and reproducibly — same input, same bytes.</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px">
+        <div style="background: #131C1D; border: 1px solid #23302F; border-radius: 14px; padding: 24px 26px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.8; color: #D8DEDD">
+          <div style="font-family: Lato, sans-serif; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #6E7A78; margin-bottom: 14px">Install &amp; drive it</div>
+          <div><span style="color: #6E7A78">$</span> npx @hrtips/cvx mcp init --client claude</div>
+          <div><span style="color: #6E7A78">$</span> npx @hrtips/cvx init</div>
+          <div><span style="color: #6E7A78">$</span> npx @hrtips/cvx validate --strict --json</div>
+          <div><span style="color: #E08C84">✖</span> missing required key "name" <span style="color: #6E7A78">exit 2</span></div>
+          <div><span style="color: #6E7A78">$</span> npx @hrtips/cvx build <span style="color: #A9D6DE">--ats</span></div>
+          <div style="color: #8FBF9A">✅ bruce-wayne.pdf</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #23302F; border: 1px solid #23302F; border-radius: 14px; overflow: hidden">
+          <a href="https://github.com/hrtips/cvx/blob/main/llms.txt" style="background: #131C1D; padding: 18px 20px; display: flex; flex-direction: column; gap: 5px; color: #E9EDEC" data-hv="5">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">llms.txt</span>
+            <span style="font-size: 13.5px; line-height: 1.5; color: #909B99">Entry point listing every doc, in reading order.</span>
+          </a>
+          <a href="https://github.com/hrtips/cvx/blob/main/docs/cv-schema.md" style="background: #131C1D; padding: 18px 20px; display: flex; flex-direction: column; gap: 5px; color: #E9EDEC" data-hv="6">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">cv-schema.md</span>
+            <span style="font-size: 13.5px; line-height: 1.5; color: #909B99">Field-by-field spec for all seven content files.</span>
+          </a>
+          <a href="https://registry.modelcontextprotocol.io/v0/servers?search=io.github.hrtips/cvx" style="background: #131C1D; padding: 18px 20px; display: flex; flex-direction: column; gap: 5px; color: #E9EDEC" data-hv="7">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">MCP registry</span>
+            <span style="font-size: 13.5px; line-height: 1.5; color: #909B99">io.github.hrtips/cvx — installable, no keys, offline.</span>
+          </a>
+          <a href="https://github.com/hrtips/cvx/blob/main/skills/cvx/SKILL.md" style="background: #131C1D; padding: 18px 20px; display: flex; flex-direction: column; gap: 5px; color: #E9EDEC" data-hv="8">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #A9D6DE">SKILL.md</span>
+            <span style="font-size: 13.5px; line-height: 1.5; color: #909B99">The same loop packaged for skill-capable agents.</span>
+          </a>
+        </div>
+      </div>
+
+      <div style="margin-top: 22px; border: 1px dashed #2C3A39; border-radius: 12px; padding: 18px 24px; display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #E0C184">Rules for assistants</span>
+        <span style="font-size: 15px; line-height: 1.6; color: #9EA9A7; flex: 1; min-width: 30ch">Never invent a fact. linkedin.com URLs are unfetchable even when public — ask for the <span style="color: #E9EDEC">More → Save to PDF</span> export. Ask for a square photo in the first reply. cvx is the renderer; never substitute another PDF generator.</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-top: 1px solid #E7E3DC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 88px 40px 80px; text-align: center">
+      <h2 style="font-size: 50px; line-height: 1.02; letter-spacing: -0.035em; font-weight: 900; margin: 0 0 20px; text-wrap: balance">Open a chat. Attach your CV.<br />Paste the prompt.</h2>
+      <p style="font-size: 18px; line-height: 1.6; color: #4A5354; margin: 0 auto 34px; max-width: 48ch">Ten minutes of answering questions, and a PDF that looks like someone designed it — because someone did.</p>
+      <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap">
+        <a href="#start" style="background: #1A6070; color: #FFFFFF; padding: 15px 28px; border-radius: 999px; font-weight: 700; font-size: 15.5px" data-hv="9">Get the prompt</a>
+        <a href="https://github.com/hrtips/cvx#readme" style="border: 1px solid #C9C3B8; color: #101718; padding: 15px 28px; border-radius: 999px; font-weight: 700; font-size: 15.5px" data-hv="10">Read the docs</a>
+      </div>
+    </div>
+  </section>
+
+  <footer style="border-top: 1px solid #E7E3DC; background: #F5F2EC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 54px 40px 44px; display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px">
+      <div>
+        <div style="font-size: 22px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 10px">CV<span style="color: #1A6070">×</span></div>
+        <p style="margin: 0; font-size: 14.5px; line-height: 1.6; color: #6B7370; max-width: 26em">Structured input. Professional output. Free and open source — your CV data stays on your machine.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14.5px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #A9A399; margin-bottom: 2px">Start</div>
+        <a href="#start" style="color: #4A5354">The prompts</a>
+        <a href="https://github.com/hrtips/cvx#readme" style="color: #4A5354">Quick start</a>
+        <a href="https://www.npmjs.com/package/@hrtips/cvx" style="color: #4A5354">npm package</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14.5px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #A9A399; margin-bottom: 2px">For agents</div>
+        <a href="https://github.com/hrtips/cvx/blob/main/docs/ai-guide.md" style="color: #4A5354">AI guide</a>
+        <a href="https://github.com/hrtips/cvx/blob/main/docs/cv-schema.md" style="color: #4A5354">Content schema</a>
+        <a href="https://registry.modelcontextprotocol.io/v0/servers?search=io.github.hrtips/cvx" style="color: #4A5354">MCP registry</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14.5px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #A9A399; margin-bottom: 2px">Project</div>
+        <a href="https://github.com/hrtips/cvx" style="color: #4A5354">GitHub</a>
+        <a href="https://github.com/hrtips/cvx/releases" style="color: #4A5354">Releases</a>
+        <a href="https://github.com/hrtips/cvx/blob/main/LICENSE" style="color: #4A5354">Apache-2.0</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var HEAD = "Create my CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.";
+  var PROMPTS = {
+    hero: HEAD + "\nHere is my current CV: [attach]",
+    a: "I want to create a new CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.\n\nMy current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.\n\nThen write the cv-content YAML, validate it, and build the PDF.",
+    b: HEAD + "\n\nAttached is my LinkedIn profile export (More \u2192 Save to PDF) and a square photo. Use it as the source of truth, ask me about anything thin or missing, and don't invent results I haven't given you.\n\nTarget role: [paste the job ad]"
+  };
+  var timer;
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'absolute'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.getAttribute('data-copy');
+      var text = PROMPTS[key];
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
+      } else { fallbackCopy(text); }
+      document.querySelectorAll('.copied').forEach(function (el) { el.classList.remove('show'); });
+      var note = document.getElementById('copied-' + key);
+      if (note) note.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(function () { if (note) note.classList.remove('show'); }, 2500);
+    });
+  });
+})();
+</script>
 </body>
 </html>

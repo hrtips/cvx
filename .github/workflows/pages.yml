@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - site/**
+      - llms.txt
       - assets/hero-two-column.png
       - assets/hero-ats.png
       - assets/brand/**
@@ -44,6 +45,7 @@ jobs:
           cp assets/hero-two-column.png _site/hero-two-column.png
           cp assets/hero-ats.png _site/hero-ats.png
           cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
+          cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
           ls -la _site
 
       - uses: actions/upload-pages-artifact@v3
