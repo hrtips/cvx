@@ -42,6 +42,7 @@ jobs:
         run: |
           mkdir -p _site
           cp site/index.html _site/index.html
+          cp site/cvx-i18n.js _site/cvx-i18n.js   # EN/hi/ta/si translations loaded by index.html
           cp assets/hero-two-column.png _site/hero-two-column.png
           cp assets/hero-ats.png _site/hero-ats.png
           cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png

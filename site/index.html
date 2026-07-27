@@ -12,14 +12,85 @@
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Sinhala:wght@400;600;800&family=Noto+Sans+Tamil:wght@400;600;800&family=Noto+Sans+Devanagari:wght@400;600;800&display=swap" rel="stylesheet" />
 <link rel="icon" href="./icon.png" />
+<script src="./cvx-i18n.js"></script>
 <style>
+
   html, body { margin: 0; padding: 0; background: #FBFAF8; }
   * { box-sizing: border-box; }
   a { color: #1A6070; text-decoration: none; }
   a:hover { color: #0E3E49; }
   ::selection { background: #CFE3E6; }
+  body[data-lang="si"] h1, body[data-lang="ta"] h1, body[data-lang="hi"] h1 {
+    font-size: 50px !important; line-height: 1.24 !important; letter-spacing: -0.01em !important; font-weight: 800 !important;
+  }
+  body[data-lang="si"] h2, body[data-lang="ta"] h2, body[data-lang="hi"] h2 {
+    font-size: 34px !important; line-height: 1.3 !important; letter-spacing: -0.005em !important; font-weight: 800 !important;
+  }
+  body[data-lang="si"] h3, body[data-lang="ta"] h3, body[data-lang="hi"] h3 {
+    line-height: 1.35 !important; letter-spacing: 0 !important; font-weight: 800 !important;
+  }
+  body[data-lang="si"] p, body[data-lang="ta"] p, body[data-lang="hi"] p {
+    line-height: 1.75 !important;
+  }
+  body[data-lang="si"] [style*="text-transform: uppercase"],
+  body[data-lang="ta"] [style*="text-transform: uppercase"],
+  body[data-lang="hi"] [style*="text-transform: uppercase"] {
+    letter-spacing: 0 !important; text-transform: none !important; line-height: 1.5 !important;
+  }
+  body[data-lang="si"] [style*="text-transform: uppercase"] { font-family: 'Noto Sans Sinhala', Lato, sans-serif !important; }
+  body[data-lang="ta"] [style*="text-transform: uppercase"] { font-family: 'Noto Sans Tamil', Lato, sans-serif !important; }
+  body[data-lang="hi"] [style*="text-transform: uppercase"] { font-family: 'Noto Sans Devanagari', Lato, sans-serif !important; }
+  body[data-lang="si"] header nav a, body[data-lang="ta"] header nav a, body[data-lang="hi"] header nav a {
+    font-size: 12.5px !important; white-space: nowrap !important;
+  }
+  body[data-lang="si"] header nav, body[data-lang="ta"] header nav, body[data-lang="hi"] header nav { gap: 18px !important; }
+  body[data-lang="si"] header > div, body[data-lang="ta"] header > div, body[data-lang="hi"] header > div { gap: 18px !important; }
+  body[data-lang="si"] [style*="width: 250px"], body[data-lang="ta"] [style*="width: 250px"], body[data-lang="hi"] [style*="width: 250px"] {
+    width: 290px !important; overflow-wrap: anywhere !important;
+  }
+  @media (max-width: 1040px) { header nav a[href^="#"], header nav a[href*="readme"] { display: none !important; } }
+  @media (max-width: 1080px) {
+    #agents [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media (max-width: 940px) {
+    section[style*="grid-template-columns"],
+    section [style*="grid-template-columns"],
+    footer > div { grid-template-columns: 1fr !important; }
+    section[style*="grid-template-columns"]:not([style*="gap: 1px"]),
+    section > div[style*="grid-template-columns"]:not([style*="gap: 1px"]),
+    section > div > div[style*="grid-template-columns"]:not([style*="gap: 1px"]),
+    footer > div { gap: 32px !important; }
+    section > div { padding-left: 24px !important; padding-right: 24px !important; }
+    #top { padding: 48px 24px 44px !important; }
+    #top > div:last-child { padding: 0 !important; }
+    header > div { padding: 0 18px !important; }
+    h1 { font-size: 40px !important; }
+    h2 { font-size: 29px !important; }
+    h3 { font-size: 21px !important; }
+    body[data-lang="si"] h1, body[data-lang="ta"] h1, body[data-lang="hi"] h1 { font-size: 32px !important; }
+    body[data-lang="si"] h2, body[data-lang="ta"] h2, body[data-lang="hi"] h2 { font-size: 25px !important; }
+    #agents [style*="font-size: 12.5px; line-height: 1.8"] { overflow-x: auto !important; }
+    [style*="max-width: 78%"], [style*="max-width: 84%"] { max-width: 94% !important; }
+  }
+  @media (max-width: 620px) {
+    section > div { padding-top: 52px !important; padding-bottom: 52px !important; }
+    #top { padding: 36px 20px 40px !important; }
+    section > div, header > div, footer > div { padding-left: 20px !important; padding-right: 20px !important; }
+    h1 { font-size: 34px !important; }
+    h2 { font-size: 26px !important; }
+    [style*="font-size: 13.5px; line-height: 1.8"] { font-size: 12px !important; }
+    [style*="font-size: 12.5px; line-height: 1.85"] { font-size: 11.5px !important; }
+    [data-hero-yaml] { position: static !important; width: auto !important; margin-top: 12px !important; }
+    [data-hero-pill] { display: none !important; }
+    header > div { gap: 10px !important; }
+    header nav { gap: 10px !important; }
+    [data-lang-btn] { padding: 4px 7px !important; font-size: 11px !important; }
+    [data-no-i18n] { padding: 2px !important; }
+    header nav a:last-child { padding: 6px 12px !important; font-size: 12.5px !important; }
+  }
+
   html { scroll-behavior: smooth; }
   .copied { display: none; }
   .copied.show { display: block; }
@@ -34,36 +105,10 @@
 [data-hv="8"]:hover{background: #182324 !important;color: #FFFFFF !important}
 [data-hv="9"]:hover{background: #0E3E49 !important;color: #FFFFFF !important}
 [data-hv="10"]:hover{border-color: #101718 !important;background: #FFFFFF !important}
-
-  /* --- responsive: inline styles are overridden deliberately --- */
-  @media (max-width: 1080px) {
-    #agents [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr 1fr !important; }
-  }
-  @media (max-width: 940px) {
-    section[style*="grid-template-columns"],
-    section > div[style*="grid-template-columns"],
-    #conversation div[style*="grid-template-columns: 1.15fr"],
-    #start div[style*="grid-template-columns: 1fr 1fr"],
-    footer > div { gap: 36px !important; }
-    /* bulletproof: no two-column grid survives on mobile, whatever its ratio */
-    [style*="display: grid"] { grid-template-columns: 1fr !important; }
-    /* chat bubbles must not exceed the (now full-width) column */
-    #conversation [style*="max-width: 78%"],
-    #conversation [style*="max-width: 84%"] { max-width: 100% !important; }
-    #top { padding: 56px 24px 48px !important; }
-    #top > div:last-child { padding: 0 !important; }
-    section > div { padding-left: 24px !important; padding-right: 24px !important; }
-    header > div { padding: 0 20px !important; gap: 16px !important; }
-    header nav a:not(:last-child) { display: none !important; }
-    h1 { font-size: 33px !important; }
-    h2 { font-size: 30px !important; }
-    h3 { font-size: 22px !important; }
-    #agents [style*="repeat(4, 1fr)"] { grid-template-columns: 1fr !important; }
-  }
 </style>
 </head>
 <body>
-<div style="font-family: Lato, sans-serif; color: #101718; background: #FBFAF8; min-height: 100%; overflow-x: hidden">
+<div style="font-family: Lato, 'Noto Sans Sinhala', 'Noto Sans Tamil', 'Noto Sans Devanagari', sans-serif; color: #101718; background: #FBFAF8; min-height: 100%; overflow-x: hidden">
 
   <header style="position: sticky; top: 0; z-index: 50; background: rgba(251,250,248,0.88); backdrop-filter: blur(10px); border-bottom: 1px solid #E7E3DC">
     <div style="max-width: 1180px; margin: 0 auto; padding: 0 40px; height: 64px; display: flex; align-items: center; gap: 32px">
@@ -76,6 +121,12 @@
         <a href="#conversation" style="color: #4A5354">What it feels like</a>
         <a href="#agents" style="color: #4A5354">For agents</a>
         <a href="https://github.com/hrtips/cvx#readme" style="color: #4A5354">Docs</a>
+        <div data-no-i18n="true" style="display: flex; align-items: center; gap: 2px; border: 1px solid #DCD7CE; border-radius: 999px; padding: 3px; background: #FFFFFF">
+          <button type="button" data-lang-btn="en" style="border: 0; background: transparent; border-radius: 999px; padding: 5px 10px; font-family: Lato, sans-serif; font-size: 12.5px; font-weight: 700; color: #6B7370; cursor: pointer">EN</button>
+          <button type="button" data-lang-btn="hi" style="border: 0; background: transparent; border-radius: 999px; padding: 5px 10px; font-family: 'Noto Sans Devanagari', Lato, sans-serif; font-size: 12.5px; font-weight: 600; color: #6B7370; cursor: pointer">हिं</button>
+          <button type="button" data-lang-btn="ta" style="border: 0; background: transparent; border-radius: 999px; padding: 5px 10px; font-family: 'Noto Sans Tamil', Lato, sans-serif; font-size: 12.5px; font-weight: 600; color: #6B7370; cursor: pointer">தமிழ்</button>
+          <button type="button" data-lang-btn="si" style="border: 0; background: transparent; border-radius: 999px; padding: 5px 10px; font-family: 'Noto Sans Sinhala', Lato, sans-serif; font-size: 12.5px; font-weight: 600; color: #6B7370; cursor: pointer">සිං</button>
+        </div>
         <a href="https://github.com/hrtips/cvx" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 15px; border: 1px solid #101718; border-radius: 999px; color: #101718; font-weight: 700; font-size: 13.5px" data-hv="0">GitHub</a>
       </nav>
     </div>
@@ -117,13 +168,13 @@
         
         
       </div>
-      <div style="position: absolute; left: 0; bottom: 0; z-index: 3; width: 250px; background: #101718; color: #E7EDEC; border-radius: 10px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; box-shadow: 0 24px 48px -20px rgba(16,23,24,0.6)">
+      <div data-hero-yaml="true" style="position: absolute; left: 0; bottom: 0; z-index: 3; width: 250px; background: #101718; color: #E7EDEC; border-radius: 10px; padding: 14px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7; box-shadow: 0 24px 48px -20px rgba(16,23,24,0.6)">
         <div style="color: #7C8A88; margin-bottom: 6px">written by your assistant</div>
         <div><span style="color: #7FB3BD">name:</span> Bruce Wayne</div>
         <div><span style="color: #7FB3BD">title:</span> Field Commander</div>
         <div><span style="color: #7FB3BD">company:</span> Wayne Enterprises</div>
       </div>
-      <div style="position: absolute; right: 0; top: -6px; z-index: 3; background: #FFFFFF; border: 1px solid #E2DDD4; border-radius: 999px; padding: 7px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1A6070; box-shadow: 0 10px 24px -14px rgba(16,23,24,0.4)">bruce-wayne.pdf</div>
+      <div data-hero-pill="true" style="position: absolute; right: 0; top: -6px; z-index: 3; background: #FFFFFF; border: 1px solid #E2DDD4; border-radius: 999px; padding: 7px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #1A6070; box-shadow: 0 10px 24px -14px rgba(16,23,24,0.4)">bruce-wayne.pdf</div>
     </div>
   </section>
 
@@ -373,7 +424,6 @@
     </div>
   </footer>
 </div>
-
 <script>
 (function () {
   var HEAD = "Create my CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.";
@@ -382,7 +432,38 @@
     a: "I want to create a new CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.\n\nMy current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.\n\nThen write the cv-content YAML, validate it, and build the PDF.",
     b: HEAD + "\n\nAttached is my LinkedIn profile export (More \u2192 Save to PDF) and a square photo. Use it as the source of truth, ask me about anything thin or missing, and don't invent results I haven't given you.\n\nTarget role: [paste the job ad]"
   };
-  var timer;
+  var timer, orig = [], lang = 'en';
+  function norm(s) { return s.replace(/\s+/g, ' ').trim(); }
+  function applyLang() {
+    orig.forEach(function (p) { p[0].innerHTML = p[1]; });
+    orig = [];
+    document.body.setAttribute('data-lang', lang);
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
+      var on = b.getAttribute('data-lang-btn') === lang;
+      b.style.background = on ? '#101718' : 'transparent';
+      b.style.color = on ? '#FBFAF8' : '#6B7370';
+    });
+    var dict = window.CVX_I18N && window.CVX_I18N[lang];
+    if (!dict) return;
+    document.querySelectorAll('h1,h2,h3,p,span,div,a,button').forEach(function (el) {
+      if (el.querySelector('button') || el.closest('[data-no-i18n]')) return;
+      var key = norm(el.textContent);
+      if (!key || key.length > 400) return;
+      var val = dict.t[key];
+      if (!val && dict.p) {
+        for (var pre in dict.p) { if (key.indexOf(pre) === 0) { val = dict.p[pre]; break; } }
+      }
+      if (val && val !== el.innerHTML) { orig.push([el, el.innerHTML]); el.innerHTML = val; }
+    });
+  }
+  document.querySelectorAll('[data-lang-btn]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      lang = b.getAttribute('data-lang-btn');
+      try { localStorage.setItem('cvx-lang', lang); } catch (e) {}
+      applyLang();
+    });
+  });
   function fallbackCopy(text) {
     var ta = document.createElement('textarea');
     ta.value = text; ta.setAttribute('readonly', '');
@@ -393,18 +474,19 @@
   }
   document.querySelectorAll('[data-copy]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var key = btn.getAttribute('data-copy');
-      var text = PROMPTS[key];
+      var key = btn.getAttribute('data-copy'), text = PROMPTS[key];
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
       } else { fallbackCopy(text); }
       document.querySelectorAll('.copied').forEach(function (el) { el.classList.remove('show'); });
       var note = document.getElementById('copied-' + key);
-      if (note) note.classList.add('show');
+      if (note) { note.classList.add('show'); applyLang(); }
       clearTimeout(timer);
       timer = setTimeout(function () { if (note) note.classList.remove('show'); }, 2500);
     });
   });
+  try { lang = localStorage.getItem('cvx-lang') || 'en'; } catch (e) {}
+  applyLang();
 })();
 </script>
 </body>
