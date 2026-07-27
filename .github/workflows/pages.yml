@@ -1,0 +1,54 @@
+name: Deploy landing page
+
+# Publishes site/index.html to https://hrtips.github.io/cvx/.
+# Images are copied from assets/ at build time so they aren't duplicated in git.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - assets/hero-two-column.png
+      - assets/hero-ats.png
+      - assets/brand/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure Pages (self-enable on first run)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Assemble _site
+        run: |
+          mkdir -p _site
+          cp site/index.html _site/index.html
+          cp assets/hero-two-column.png _site/hero-two-column.png
+          cp assets/hero-ats.png _site/hero-ats.png
+          cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
+          ls -la _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
