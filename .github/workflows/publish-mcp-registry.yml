@@ -1,0 +1,49 @@
+name: Publish to MCP Registry
+
+# Lists @hrtips/cvx on registry.modelcontextprotocol.io.
+#
+# The org namespace io.github.hrtips/* can ONLY be claimed via GitHub Actions
+# OIDC — an interactive `mcp-publisher login github` grants a person's personal
+# io.github.<user>/* namespace and nothing else, regardless of org membership
+# visibility. Running here authenticates as the hrtips/cvx repo, which the
+# registry maps to io.github.hrtips/*.
+#
+# Run manually (workflow_dispatch) after a release's npm package is live, or
+# automatically when a GitHub release is published. Preconditions the registry
+# enforces: the npm package @hrtips/cvx@<version> must already exist and carry
+# a matching `mcpName` field.
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write   # OIDC token → proves the run belongs to hrtips/cvx
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # need tags to sync server.json version
+
+      - name: Sync server.json version to the latest tag
+        run: |
+          VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')"
+          echo "Publishing MCP server version $VERSION"
+          jq --arg v "$VERSION" '.version = $v | (.packages[]?.version) |= $v' server.json > server.tmp
+          mv server.tmp server.json
+          cat server.json
+
+      - name: Install mcp-publisher
+        run: curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate via GitHub OIDC (grants io.github.hrtips/*)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to the registry
+        run: ./mcp-publisher publish
