@@ -33,13 +33,24 @@ If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.ya
 
 After converting the user's material into YAML (and passing validation), review the *content* and bring your findings to the user as a short brainstorm — never silently ship the first draft:
 
-1. **Grammar and prose.** Verb-first bullets; consistent tense (past for former roles, present for the current one); no typos, no filler words; quantify only where the source supports it. Fix what's unambiguous silently; list notable rewrites for the user to approve.
-2. **Gaps.** Missing dates, roles with no outcomes or metrics, thin one-line descriptions, unexplained employment gaps, and sections the source hints at but the draft lacks (certifications, publications, languages). Turn these into **3–5 targeted questions, batched into one message** — e.g. *"Your CEO role lists no outcomes — any truthful numbers on users, revenue, or funding? And your LinkedIn mentions three publications; want them on the CV?"*
+1. **Grammar and prose.** Strong action verbs, verb-first bullets (*managed*, *shipped*, *cut* — not *responsible for*); consistent tense (past for former roles, present for the current one); no typos, no filler words; quantify only where the source supports it. Translate insider jargon into plain-language impact a non-specialist recruiter understands. Fix what's unambiguous silently; list notable rewrites for the user to approve.
+2. **Gaps and quality.** Missing dates, roles with no outcomes or metrics, thin one-line descriptions, unexplained employment gaps, an unprofessional email address (flag it, suggest `first.last@…`), a `competencies` list that is all hard or all soft skills (aim for a truthful mix, weighted to the target role), and sections the source hints at but the draft lacks (certifications, publications, languages). Turn these into **3–5 targeted questions, batched into one message** — e.g. *"Your CEO role lists no outcomes — any truthful numbers on users, revenue, or funding? And your LinkedIn mentions three publications; want them on the CV?"*
 3. **Conflicts.** Contradictory titles or dates between sources — present both options and ask which is correct; never pick silently.
 
 4. **Pre-build preview.** Before calling `build_pdf` (or running `build`), show the user a plain-language rundown of exactly what the CV will contain and get their OK: each section with its entries — roles with companies and periods (and which land on page 1), education, the competency pills, achievements, referees or *"available upon request"*, which keywords go into the (invisible) ATS metadata — plus the theme, layout, and photo status. Summarize the YAML; don't dump it. Nothing goes on the CV the user hasn't seen.
 
 Apply the answers, re-validate, then build both variants. A truthful thin bullet always beats an embellished one — never pad with invented metrics.
+
+## Tailoring to a job posting
+
+If the user gives you a target job description, tailor **truthfully** — never invent experience to match it:
+
+- Mirror the posting's own wording for skills and duties the user genuinely has; recruiters and ATS match on exact terms. Add real, posting-relevant skills to `competencies.yaml` and truthful terms to `keywords.yaml`.
+- Lead with and expand the experience bullets most relevant to the role; keep the rest but trim them.
+- Point `summary.yaml` at the target role.
+- Recent graduate or career-changer with thin experience: make `education.yaml` and `competencies.yaml` do more of the work, and keep the experience section tight.
+
+Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reusable for the next application.
 
 ## Rules that are not optional
 
@@ -58,7 +69,7 @@ Every scaffolded file carries a `$schema` header; the canonical JSON Schema live
 - `education.yaml`: list of `{degree, institution, period}`.
 - `competencies.yaml`: 6–12 short skill strings.
 - `achievements.yaml`: list of `{year, text}` — `year` is the bold headline (often the award name), `text` the attribution.
-- `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` for "available upon request".
+- `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` to print "References available upon request." Modern guidance treats even that line as filler — offer to drop the section (a layout without the `referees` slot) and reclaim the space.
 - `keywords.yaml` (optional): extra truthful ATS keywords not already covered by competencies/titles; embedded in PDF metadata, never printed.
 - `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename); pagination keys only if page 1 overflows.
 
