@@ -1,0 +1,642 @@
+{
+  "schemaVersion": 2,
+  "note": "Recorded against the CURRENT (pre-C1/C2/C3) layout engine. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff. See research/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.",
+  "fixturePlan": {
+    "totalFixtures": 28,
+    "pairwiseRows": 18,
+    "riskScenarios": 3,
+    "namedEdgeCases": 7,
+    "totalCartesianCombinations": 1944,
+    "droppedCombinations": 1926
+  },
+  "fixtures": {
+    "pw-00": {
+      "description": "pairwise: certifications=absent,publications=absent,languages=absent,referees=absent,achievements=absent, textLength=short, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "pw-01": {
+      "description": "pairwise: certifications=absent,publications=one,languages=one,referees=one,achievements=one, textLength=typical, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 3
+    },
+    "pw-02": {
+      "description": "pairwise: certifications=absent,publications=many,languages=many,referees=many,achievements=many, textLength=long, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-03": {
+      "description": "pairwise: certifications=one,publications=absent,languages=one,referees=many,achievements=absent, textLength=overflowing, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 6,
+          "blankPages": [],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 5,
+          "blankPages": [
+            4
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "pw-04": {
+      "description": "pairwise: certifications=one,publications=one,languages=absent,referees=absent,achievements=many, textLength=typical, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-05": {
+      "description": "pairwise: certifications=one,publications=many,languages=absent,referees=one,achievements=one, textLength=short, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-06": {
+      "description": "pairwise: certifications=many,publications=absent,languages=many,referees=one,achievements=absent, textLength=typical, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-07": {
+      "description": "pairwise: certifications=many,publications=one,languages=absent,referees=many,achievements=one, textLength=long, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 8,
+          "blankPages": [
+            2,
+            4,
+            6
+          ],
+          "emptyColumns": [
+            {
+              "page": 2,
+              "side": "sidebar"
+            },
+            {
+              "page": 4,
+              "side": "sidebar"
+            },
+            {
+              "page": 6,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 4,
+          "blankPages": [
+            3
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "pw-08": {
+      "description": "pairwise: certifications=many,publications=many,languages=one,referees=absent,achievements=many, textLength=overflowing, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-09": {
+      "description": "pairwise: certifications=one,languages=many,publications=one,referees=absent,achievements=one, textLength=overflowing, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 9,
+          "blankPages": [
+            3,
+            5,
+            7
+          ],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            },
+            {
+              "page": 3,
+              "side": "both"
+            },
+            {
+              "page": 5,
+              "side": "both"
+            },
+            {
+              "page": 7,
+              "side": "both"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "pw-10": {
+      "description": "pairwise: certifications=absent,publications=absent,languages=absent,referees=one,achievements=many, textLength=overflowing, volume=multi-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 6,
+          "blankPages": [],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "pw-11": {
+      "description": "pairwise: certifications=one,publications=absent,languages=one,referees=absent,achievements=absent, textLength=long, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-12": {
+      "description": "pairwise: certifications=many,publications=one,languages=one,referees=many,achievements=absent, textLength=short, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "pw-13": {
+      "description": "pairwise: achievements=one,publications=absent,certifications=absent,languages=absent,referees=absent, textLength=short, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "pw-14": {
+      "description": "pairwise: achievements=absent,publications=many,certifications=absent,languages=absent,referees=absent, textLength=typical, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-15": {
+      "description": "pairwise: languages=many,certifications=absent,publications=absent,referees=absent,achievements=many, textLength=short, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "pw-16": {
+      "description": "pairwise: referees=one,certifications=absent,publications=absent,languages=absent,achievements=absent, textLength=long, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "pw-17": {
+      "description": "pairwise: referees=many,certifications=absent,publications=absent,languages=absent,achievements=absent, textLength=typical, volume=fits-1-page",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "risk-tall-sidebar-short-main": {
+      "description": "tall sidebar (every optional section \"many\") + short main (short text, fits-1-page volume) — the exact shape that triggers bug (a): sidebar overflows a physical page while the main column has long since run out.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "risk-maxed-out": {
+      "description": "maxed out: every optional section \"many\", overflowing text, multi-page volume — worst-case content load (akin to the Batman demo).",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 9,
+          "blankPages": [],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 5,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "risk-sparse-1-page": {
+      "description": "sparse: every optional section absent, short text, fits-1-page volume — the opposite extreme (near-empty CV; checks resolveFirstSidebar's single-page fold does not misbehave when there is almost nothing to fold).",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "edge-oversized-section": {
+      "description": "single oversized section: certifications has ~60 items, everything else at \"one\" — does an individual sidebar section this large ever clip, or only waste pages? (untested territory per C0's own analysis — see research/c0-baseline.md)",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 6,
+          "blankPages": [
+            5
+          ],
+          "emptyColumns": [
+            {
+              "page": 5,
+              "side": "both"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-minimal": {
+      "description": "all-optional-absent minimal CV: only personal + summary + experience (no education, competencies, or any of the five optional sections).",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 1,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 1
+    },
+    "edge-one-entry-sections": {
+      "description": "one-entry sections: all five optional sections simultaneously at \"one\" — pairwise coverage guarantees every PAIR of sections is jointly \"one\", not all five at once, so this is added explicitly.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-labelless-long-url": {
+      "description": "a label-less long-URL link in personal.links (renders as the raw href — ContactSection.jsx: `l.label || l.href`) — stresses long-token wrap in a real render path, not just the isolated measure-diff corpus.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-non-latin-name": {
+      "description": "non-Latin personal.name (Sinhala) — ties to the fallback-font measurement risk (design doc G-a): Lato has no Sinhala glyphs and no fallback (e.g. Noto) is registered today.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-explicit-empty-referees": {
+      "description": "referees: [] (explicit empty list) rather than absent (no file) — schema-documented distinct shape (empty list prints the \"available upon request\" placeholder in the two-column layout).",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-forced-split-config": {
+      "description": "config-driven page1ExperienceCount + page1SplitBullets (mirrors the shipped scaffold's own config.yaml) — a distinct packExperiences() branch with no budget check of its own.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [
+            1
+          ],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 3
+    },
+    "scaffold-default": {
+      "description": "The shipped template/cv-content scaffold, unmodified (its default config.yaml forces page1ExperienceCount:2, page1SplitBullets:2).",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [
+            1
+          ],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    }
+  },
+  "measureDiffCorpus": [
+    {
+      "id": "short",
+      "estimated": 1,
+      "rendered": 1,
+      "errorPct": 0
+    },
+    {
+      "id": "typical-bullet",
+      "estimated": 5,
+      "rendered": 4,
+      "errorPct": 25
+    },
+    {
+      "id": "long-bullet",
+      "estimated": 6,
+      "rendered": 5,
+      "errorPct": 20
+    },
+    {
+      "id": "long-token-url",
+      "estimated": 4,
+      "rendered": 3,
+      "errorPct": 33
+    },
+    {
+      "id": "non-latin-sinhala",
+      "estimated": 2,
+      "rendered": 1,
+      "errorPct": 100
+    },
+    {
+      "id": "non-latin-tamil",
+      "estimated": 2,
+      "rendered": 1,
+      "errorPct": 100
+    },
+    {
+      "id": "non-latin-devanagari",
+      "estimated": 2,
+      "rendered": 1,
+      "errorPct": 100
+    }
+  ]
+}
