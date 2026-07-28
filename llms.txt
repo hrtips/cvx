@@ -11,8 +11,8 @@ Assistant flow (details: AI guide below):
 
 Key facts:
 
-- Commands: `npx @hrtips/cvx init` (scaffold), `validate --strict --json` (all errors at once, field paths + fixes), `build` (render PDF), `build --ats` (ATS-safe variant), `list` (themes/layouts), `mcp` (MCP server). Exit codes: 0 ok / 2 validation / 3 render / 64 usage.
-- Content lives in `cv-content/*.yaml`: `personal`, `summary`, `experience`, `education`, `competencies`, `achievements`, `referees`, `keywords`, `config`, plus `images/profile.<ext>` and optional `layouts/*.yaml`.
+- Commands: `npx @hrtips/cvx init` (scaffold), `validate --strict --json` (all errors at once, field paths + fixes), `build` (render PDF), `build --ats` (ATS-safe variant), `build --all` (validate + both variants in one command), `list` (themes/layouts), `mcp` (MCP server). Exit codes: 0 ok / 2 validation / 3 render / 64 usage.
+- Content lives in `cv-content/*.yaml`: `personal`, `summary`, `experience`, `education`, `certifications`, `publications`, `languages`, `competencies`, `achievements`, `referees`, `keywords`, `config`, plus `images/profile.<ext>` and optional `layouts/*.yaml`.
 - Output PDF is named from `personal.yaml`'s `name` (lowercased, hyphenated). Missing/empty content files simply drop that section; a missing photo renders fine.
 - `config.yaml`: `schemaVersion: 1`, `theme` (teal | coral | mono), `layout` (two-column | single-column | custom), page-1 pagination keys.
 

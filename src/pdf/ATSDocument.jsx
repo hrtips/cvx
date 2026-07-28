@@ -64,12 +64,13 @@ const makeStyles = (t) => StyleSheet.create({
   refGap:      { height: 7 },
 })
 
-function ATSContent({ personal, summary, experience, achievements, education, competencies, referees, profilePhoto }) {
+function ATSContent({ personal, summary, experience, achievements, education, certifications, publications, languages, competencies, referees, profilePhoto }) {
   const theme = useTheme()
   const s = useMemo(() => makeStyles(theme), [theme])
 
+  const linkParts = (personal.links ?? []).map((l) => (l.label ? `${l.label}: ${l.href}` : l.href))
   const contactParts = [
-    personal.phone, personal.email, personal.linkedin, personal.location,
+    personal.phone, personal.email, personal.linkedin, personal.location, ...linkParts,
   ].filter(Boolean)
 
   return (
@@ -149,11 +150,51 @@ function ATSContent({ personal, summary, experience, achievements, education, co
         </View>
       )}
 
+      {/* Certifications */}
+      {certifications?.length > 0 && (
+        <View>
+          <Text style={s.section}>Certifications</Text>
+          {certifications.map((c, i) => (
+            <View key={i}>
+              {i > 0 && <View style={{ height: 5 }} />}
+              <Text style={s.degree}>{c.name}</Text>
+              {(c.issuer || c.year) && (
+                <Text style={s.eduMeta}>{[c.issuer, c.year].filter(Boolean).join('  |  ')}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Publications */}
+      {publications?.length > 0 && (
+        <View>
+          <Text style={s.section}>Publications</Text>
+          {publications.map((p, i) => (
+            <View key={i}>
+              {i > 0 && <View style={{ height: 5 }} />}
+              <Text style={s.degree}>{p.title}</Text>
+              {(p.venue || p.year) && (
+                <Text style={s.eduMeta}>{[p.venue, p.year].filter(Boolean).join('  |  ')}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Core Competencies */}
       {competencies?.length > 0 && (
         <View>
           <Text style={s.section}>Core Competencies</Text>
           <Text style={s.compText}>{competencies.join('  ·  ')}</Text>
+        </View>
+      )}
+
+      {/* Languages */}
+      {languages?.length > 0 && (
+        <View>
+          <Text style={s.section}>Languages</Text>
+          <Text style={s.compText}>{languages.map((l) => (l.proficiency ? `${l.language} (${l.proficiency})` : l.language)).join('  ·  ')}</Text>
         </View>
       )}
 
@@ -191,7 +232,8 @@ function ATSContent({ personal, summary, experience, achievements, education, co
 
 export default function ATSDocument({
   personal, summary, experience, achievements,
-  education, competencies, referees, keywords, profilePhoto,
+  education, certifications, publications, languages,
+  competencies, referees, keywords, profilePhoto,
   theme, config, creationDate,
 }) {
   const activeTheme = theme ?? monoTheme
@@ -214,6 +256,7 @@ export default function ATSDocument({
         <ATSContent
           personal={personal} summary={summary} experience={experience}
           achievements={achievements} education={education}
+          certifications={certifications} publications={publications} languages={languages}
           competencies={competencies} referees={referees}
           profilePhoto={profilePhoto}
         />

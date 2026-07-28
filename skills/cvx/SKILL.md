@@ -19,7 +19,7 @@ If the CVX MCP server is connected, use its tools: `get_schema` → `init_cv` �
 ```bash
 npx @hrtips/cvx init                      # scaffold cv-content/ with a complete example CV
 npx @hrtips/cvx validate --strict --json  # every problem at once: file + field paths + fixes
-npx @hrtips/cvx build --json              # writes <name>.pdf; add --ats for the ATS-safe variant
+npx @hrtips/cvx build --json              # writes <name>.pdf; --ats for the ATS variant, --all for both
 npx @hrtips/cvx list --json               # available themes and layouts
 ```
 
@@ -55,7 +55,7 @@ Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reu
 ## Rules that are not optional
 
 1. **Never invent facts.** Every entry must be truthful to the user's real history. This matters most for `keywords.yaml`: ATS parsers cross-check keywords against the CV body, and stuffing false terms gets CVs auto-rejected.
-2. **Don't rename the YAML files.** Sections are discovered by filename: `personal.yaml`, `summary.yaml`, `experience.yaml`, `education.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml`, `keywords.yaml`, `config.yaml`.
+2. **Don't rename the YAML files.** Sections are discovered by filename: `personal.yaml`, `summary.yaml`, `experience.yaml`, `education.yaml`, `certifications.yaml`, `publications.yaml`, `languages.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml`, `keywords.yaml`, `config.yaml`.
 3. **Quote strings containing colons** (`"Director: Operations"`). Date ranges are free text (`2019 – Present`).
 4. The photo goes at `cv-content/images/profile.jpg` (or `.jpeg`/`.png`/`.webp`) — ask the user for it; it cannot be generated.
 
@@ -63,10 +63,13 @@ Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reu
 
 Every scaffolded file carries a `$schema` header; the canonical JSON Schema lives at `schema/v1/` in the repo and is returned by the MCP `get_schema` tool.
 
-- `personal.yaml` (object): `name` (required — drives the output filename), `title`, `company`, `phone`+`phoneHref`, `email`, `linkedin`+`linkedinHref`, `facebook`+`facebookHref`, `location`.
+- `personal.yaml` (object): `name` (required — drives the output filename), `title`, `company`, `phone`+`phoneHref`, `email`, `linkedin`+`linkedinHref`, `facebook`+`facebookHref`, `location`, `links` (list of `{label, href}` for a blog/portfolio; `label` optional).
 - `summary.yaml`: list of 3–6 single-sentence bullets. A bullet may also be `{text, link: {href, label}, suffix}` to embed a clickable link (same form works in experience bullets).
 - `experience.yaml`: list of roles, most recent first — `role` (required), `company`, `period`, `location`, `description`, `progression` (list of `{title, period}`), `bullets` (verb-first, quantified, truthful).
 - `education.yaml`: list of `{degree, institution, period}`.
+- `certifications.yaml`: list of `{name, issuer, year}` — only `name` required; kept separate from achievements.
+- `publications.yaml`: list of `{title, venue, year}` — only `title` required.
+- `languages.yaml`: list of `{language, proficiency}` — `proficiency` is free text (Native, Professional, …).
 - `competencies.yaml`: 6–12 short skill strings.
 - `achievements.yaml`: list of `{year, text}` — `year` is the bold headline (often the award name), `text` the attribution.
 - `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` to print "References available upon request." Modern guidance treats even that line as filler — offer to drop the section (a layout without the `referees` slot) and reclaim the space.

@@ -20,6 +20,7 @@ import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { homedir } from 'os'
 import { parseArgs } from 'node:util'
+import { execFileSync } from 'node:child_process'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
@@ -33,6 +34,7 @@ Usage:
   cvx validate         Check cv-content/ — all errors at once, with fixes
   cvx build            Render cv-content/ to <your-name>.pdf
   cvx build --ats      Render the ATS-safe single-column variant
+  cvx build --all      Validate, then render both the designed and ATS PDFs
   cvx list [themes|layouts]   Show available themes and layouts
   cvx mcp              Run the MCP stdio server (4 tools, fully offline)
   cvx mcp init --client claude|claude-desktop|cursor|vscode
@@ -192,12 +194,61 @@ async function build({ ats, json }) {
   }
 }
 
+// build --all: validate first (errors block), then render both variants.
+// One command instead of validate + build + build --ats, so an agent has
+// fewer steps to stall on and always produces both PDFs.
+//
+// Each variant renders in its OWN child process. @react-pdf/renderer leaks
+// font-subset state across renderToBuffer() calls in a single process, which
+// corrupts the 2nd PDF's ToUnicode/text layer — the ATS variant would look
+// correct on screen but extract as garbled text, breaking exactly the ATS
+// parsers it exists for. Separate processes keep every PDF's text layer clean
+// (regression-guarded by the layout harness's content oracle).
+async function buildAll({ json }) {
+  const contentDir = join(process.cwd(), 'cv-content')
+  const { validateContent } = await import('../lib/pdf/validateContent.js')
+  const vr = validateContent({ contentDir, strict: false })
+  if (!vr.ok) {
+    if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'validation-failed', message: 'validation failed — fix errors before building' }, errors: vr.errors, warnings: vr.warnings })
+    else {
+      console.error('✖ validation failed — fix these before building:')
+      for (const f of vr.errors) console.error(`  ✖ cv-content/${f.file ?? ''}${f.path && f.path !== '(root)' ? ` ${f.path}:` : ''} ${f.message}`)
+    }
+    process.exit(EXIT.validation)
+  }
+
+  const cliPath = fileURLToPath(import.meta.url)
+  const outputs = []
+  for (const ats of [false, true]) {
+    const label = ats ? 'ATS' : 'designed'
+    let res
+    try {
+      const stdout = execFileSync(process.execPath, [cliPath, 'build', ...(ats ? ['--ats'] : []), '--json'],
+        { cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
+      res = JSON.parse(stdout)
+    } catch (err) {
+      if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'render-failed', message: `${label} variant failed: ${err.message}` } })
+      else console.error(`Build failed for the ${label} variant: ${err.message}`)
+      process.exit(EXIT.render)
+    }
+    if (!res?.ok) {
+      if (json) emit({ command: 'build', all: true, ok: false, error: res?.error ?? { code: 'render-failed', message: `${label} variant failed` } })
+      else console.error(`Build failed for the ${label} variant.`)
+      process.exit(EXIT.render)
+    }
+    outputs.push({ filename: res.filename, bytes: res.bytes, ats, theme: res.theme, layout: res.layout, warnings: res.warnings ?? [] })
+    if (!json) console.log(`✅ ${res.filename}  (${(res.bytes / 1024).toFixed(0)} KB, ${ats ? 'ATS' : `theme: ${res.theme}, layout: ${res.layout}`})`)
+  }
+  if (json) emit({ command: 'build', all: true, ok: true, outputs })
+}
+
 let command = null
 let jsonMode = false
 try {
   const { values, positionals } = parseArgs({
     options: {
       ats:     { type: 'boolean', default: false },
+      all:     { type: 'boolean', default: false },
       strict:  { type: 'boolean', default: false },
       json:    { type: 'boolean', default: false },
       client:  { type: 'string' },
@@ -237,7 +288,8 @@ try {
       process.exit(EXIT.usage)
     }
   } else if (command === 'build') {
-    await build(values)
+    if (values.all) await buildAll(values)
+    else await build(values)
   } else {
     if (jsonMode) emit({ command, ok: false, error: { code: 'unknown-command', message: `unknown command: ${command}` } })
     else console.error(`Unknown command: ${command}\n\n${HELP}`)

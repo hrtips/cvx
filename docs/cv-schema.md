@@ -39,8 +39,9 @@ Identity header + contact block. Only the keys listed here render — arbitrary 
 | `facebook` | string | optional | Contact row (Facebook icon) |
 | `facebookHref` | string | optional | Makes the Facebook row clickable |
 | `location` | string | optional | Contact row (pin icon), e.g. `"Gotham City, USA"` |
+| `links` | list of `{label, href}` | optional | Extra contact rows — blog, portfolio, GitHub, personal site. `label` is optional and falls back to the URL. Keeps working alongside the built-in `linkedin`/`facebook` rows |
 
-Contact rows appear only for keys that are present. The ATS layout's header uses `phone`, `email`, `linkedin`, `location` (not `facebook`).
+Contact rows appear only for keys that are present, with any `links` last. The ATS layout's header uses `phone`, `email`, `linkedin`, `location` (not `facebook`) and appends any `links`.
 
 ```yaml
 name: Bruce Wayne
@@ -51,6 +52,9 @@ phoneHref: "tel:+12015552283"
 email: bruce.wayne@wayne-enterprises.com
 linkedin: linkedin.com/in/brucewayne
 linkedinHref: "https://www.linkedin.com/in/brucewayne"
+links:
+  - label: Wayne Foundation
+    href: "https://www.wayne-foundation.org"
 ```
 
 ## File: `summary.yaml` (list of bullets)
@@ -107,6 +111,37 @@ Most recent first. Per entry: `degree` (string), `institution` (string), `period
 - degree: BSc, Criminology & Chemistry
   institution: Gotham University
   period: 1994 – 1998
+```
+
+## File: `certifications.yaml` (list of entries)
+
+Professional certifications, most recent first — kept separate from `achievements.yaml` (awards). Per entry: `name` (**required**), `issuer` (string), `year` (string). Omit the file if there are none.
+
+```yaml
+- name: "LFD259: Kubernetes for Developers"
+  issuer: The Linux Foundation
+  year: "2023"
+```
+
+## File: `publications.yaml` (list of entries)
+
+Publications and written work, most recent first. Per entry: `title` (**required**), `venue` (string), `year` (string). Omit the file if there are none.
+
+```yaml
+- title: "Applied Deterrence: Non-Lethal Intervention at Scale"
+  venue: Gotham Journal of Criminology
+  year: "2021"
+```
+
+## File: `languages.yaml` (list of entries)
+
+Languages spoken. Per entry: `language` (**required**), `proficiency` (string, free text — e.g. Native, Professional, Conversational). Omit the file if there are none.
+
+```yaml
+- language: English
+  proficiency: Native
+- language: Japanese
+  proficiency: Professional
 ```
 
 ## File: `competencies.yaml` (list of strings)
@@ -179,14 +214,14 @@ pages:
     sidebar: [identity-photo, contact, achievements]
     main:    [summary, spacer: 27, experience]
   continuation:             # middle pages (repeat as needed)
-    sidebar: [identity-compact, education, competencies]
+    sidebar: [identity-compact, education, certifications, competencies, languages, publications]
     main:    [experience:continued]
   last:                     # final page
     sidebar: [identity-compact, referees]
     main:    [experience:continued]
 ```
 
-Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `competencies`, `referees` (sidebar); `summary`, `experience`, `experience:continued`, `header-ats` (main); `spacer: N` (N points of vertical space, either slot).
+Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees` (sidebar); `summary`, `experience`, `experience:continued`, `header-ats` (main); `spacer: N` (N points of vertical space, either slot).
 
 ---
 
@@ -195,7 +230,7 @@ Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievemen
 1. `personal.yaml` — name (required), title, contact details with `*Href` links where known.
 2. `summary.yaml` — 3–6 single-sentence bullets.
 3. `experience.yaml` — every role, most recent first, with quantified truthful bullets.
-4. `education.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
+4. `education.yaml`, `certifications.yaml`, `publications.yaml`, `languages.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
 5. `keywords.yaml` — only truthful terms not already covered by competencies/titles.
 6. `config.yaml` — usually just `theme` + `layout`; add pagination keys only if page 1 overflows.
 7. Ask for the photo in your **first** message to the user (it can't be generated) — but never block on it; the CV renders cleanly without one. If you ran `init`, replace or delete the scaffolded example photo at `images/profile.jpg` (it's Bruce Wayne's) before building. Then run `npx @hrtips/cvx build`.

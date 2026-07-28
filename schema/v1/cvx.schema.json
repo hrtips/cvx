@@ -44,6 +44,22 @@
         }
       ]
     },
+    "linkEntry": {
+      "type": "object",
+      "description": "A labelled hyperlink used by personal.links.",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Visible link text, e.g. \"Portfolio\" or \"Blog\". Optional — falls back to the URL if omitted."
+        },
+        "href": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Destination URL. Required."
+        }
+      },
+      "required": ["href"],
+      "additionalProperties": false
+    },
     "personal": {
       "title": "personal.yaml",
       "description": "Identity and contact details. Required in practice: 'name' drives the output filename and PDF metadata. (The default two-column layout also needs summary.yaml and experience.yaml present.)",
@@ -92,6 +108,11 @@
         "location": {
           "type": "string",
           "description": "City / country line. Plain text, no link."
+        },
+        "links": {
+          "type": "array",
+          "description": "Extra labelled links beyond the built-in linkedin/facebook rows — portfolio, blog, GitHub, personal site, etc. Each item is { label, href }.",
+          "items": { "$ref": "#/$defs/linkEntry" }
         }
       },
       "required": ["name"],
@@ -185,6 +206,77 @@
       "description": "Education as a list of entries, most recent first.",
       "type": "array",
       "items": { "$ref": "#/$defs/educationEntry" }
+    },
+    "certificationEntry": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Certification name, e.g. \"LFD259: Kubernetes for Developers\". Required. Also feeds ATS keyword derivation."
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Awarding body, e.g. \"The Linux Foundation\"."
+        },
+        "year": {
+          "type": "string",
+          "description": "Free-text year or date earned. Omit to hide the date line."
+        }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+    "certifications": {
+      "title": "certifications.yaml",
+      "description": "Professional certifications as a list of entries, most recent first. Kept distinct from achievements.yaml (awards and recognitions).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/certificationEntry" }
+    },
+    "publicationEntry": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Publication title. Required."
+        },
+        "venue": {
+          "type": "string",
+          "description": "Where it appeared — journal, conference, publisher, or site."
+        },
+        "year": {
+          "type": "string",
+          "description": "Free-text year or date. Omit to hide the date line."
+        }
+      },
+      "required": ["title"],
+      "additionalProperties": false
+    },
+    "publications": {
+      "title": "publications.yaml",
+      "description": "Publications and written work as a list of entries, most recent first.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/publicationEntry" }
+    },
+    "languageEntry": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Language name, e.g. \"English\". Required."
+        },
+        "proficiency": {
+          "type": "string",
+          "description": "Free-text proficiency, e.g. \"Native\", \"Professional\", \"Conversational\". Omit to show just the language."
+        }
+      },
+      "required": ["language"],
+      "additionalProperties": false
+    },
+    "languages": {
+      "title": "languages.yaml",
+      "description": "Languages spoken as a list of entries.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/languageEntry" }
     },
     "competencies": {
       "title": "competencies.yaml",

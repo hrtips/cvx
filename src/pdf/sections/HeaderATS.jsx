@@ -13,7 +13,8 @@ const makeStyles = (t) => StyleSheet.create({
 export default function HeaderATS({ data }) {
   const s = useStyles(makeStyles)
   const { personal, profilePhoto } = data
-  const contactParts = [personal.phone, personal.email, personal.linkedin, personal.location].filter(Boolean)
+  const linkParts = (personal.links ?? []).map((l) => (l.label ? `${l.label}: ${l.href}` : l.href))
+  const contactParts = [personal.phone, personal.email, personal.linkedin, personal.location, ...linkParts].filter(Boolean)
 
   return (
     <View style={s.headerRow}>

@@ -14,15 +14,19 @@ import TwoColumnTemplate from './templates/TwoColumnTemplate.jsx'
 import SingleColumnTemplate from './templates/SingleColumnTemplate.jsx'
 
 // ── Default layout configs ──────────────────────────────────────────────────
+// TWO_COLUMN_LAYOUT is exported (in addition to the default export below)
+// purely so the C0 test harness (test/layout-harness/sidebarPlan.js) can
+// read the real sidebar section->page-kind assignment instead of a
+// hand-copied duplicate — no behavior change.
 
-const TWO_COLUMN_LAYOUT = {
+export const TWO_COLUMN_LAYOUT = {
   template: 'two-column',
   first: {
     sidebar: ['identity-photo', 'contact', 'achievements'],
     main:    ['summary', 'spacer:27', 'experience'],
   },
   continuation: {
-    sidebar: ['identity-compact', 'education', 'competencies'],
+    sidebar: ['identity-compact', 'education', 'certifications', 'competencies', 'languages', 'publications'],
     main:    ['experience:continued'],
   },
   last: {
@@ -34,7 +38,7 @@ const TWO_COLUMN_LAYOUT = {
 const SINGLE_COLUMN_LAYOUT = {
   template: 'single-column',
   first: {
-    main: ['header-ats', 'summary', 'experience', 'education', 'competencies', 'achievements', 'referees'],
+    main: ['header-ats', 'summary', 'experience', 'education', 'certifications', 'publications', 'competencies', 'languages', 'achievements', 'referees'],
   },
 }
 
@@ -144,7 +148,8 @@ function SingleColumnDocument({ data, activeLayout }) {
 
 export default function CVDocument({
   personal, summary, experience, achievements,
-  education, competencies, referees, keywords, profilePhoto, config,
+  education, certifications, publications, languages,
+  competencies, referees, keywords, profilePhoto, config,
   theme, layout, creationDate,
 }) {
   const layoutName   = config?.layout ?? 'two-column'
@@ -156,7 +161,7 @@ export default function CVDocument({
     page1SplitBullets:    config?.page1SplitBullets ?? null,
   }
 
-  const data = { personal, summary, experience, achievements, education, competencies, referees, profilePhoto }
+  const data = { personal, summary, experience, achievements, education, certifications, publications, languages, competencies, referees, profilePhoto }
 
   const isSingleColumn = (activeLayout.template ?? layoutName) === 'single-column'
 

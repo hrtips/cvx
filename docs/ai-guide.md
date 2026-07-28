@@ -148,7 +148,8 @@ The files and their exact fields:
 
 - personal.yaml (object): name (required), title, company,
   phone + phoneHref (e.g. "tel:+123..."), email, linkedin + linkedinHref,
-  location. Only these keys render.
+  location, links (optional list of {label, href} for a blog/portfolio;
+  label optional, falls back to the URL). Only these keys render.
 - summary.yaml: list of 3-6 single-sentence bullet strings.
 - experience.yaml: list of roles, most recent first. Per entry:
   role (required), company, period (free text like "2019 – Present"),
@@ -156,6 +157,9 @@ The files and their exact fields:
   progression (optional list of {title, period} for promotions within
   the role), bullets (list of verb-first, quantified impact statements).
 - education.yaml: list of {degree, institution, period}.
+- certifications.yaml: list of {name, issuer, year}; only name required.
+- publications.yaml: list of {title, venue, year}; only title required.
+- languages.yaml: list of {language, proficiency}; proficiency is free text.
 - competencies.yaml: list of 6-12 short skill strings (1-3 words each).
 - achievements.yaml: list of {year, text} where year is the award name
   (bold headline) and text is the attribution like "— 2024, Organisation".

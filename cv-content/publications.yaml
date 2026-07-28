@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/publications.schema.json
+- title: "Applied Deterrence: Non-Lethal Intervention at Scale"
+  venue: Gotham Journal of Criminology
+  year: "2021"
+
+- title: "Urban Resilience After Systemic Collapse"
+  venue: Wayne Foundation Report
+  year: "2019"

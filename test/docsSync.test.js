@@ -16,7 +16,7 @@ const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8
 const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
 const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
 
-const CONTENT_DEFS = ['personal', 'summary', 'experience', 'education', 'competencies', 'achievements', 'referees', 'keywords', 'config']
+const CONTENT_DEFS = ['personal', 'summary', 'experience', 'education', 'certifications', 'publications', 'languages', 'competencies', 'achievements', 'referees', 'keywords', 'config']
 
 const keysOf = (def) => Object.keys(schema.$defs[def]?.properties ?? {})
 
@@ -31,6 +31,9 @@ describe('docs/cv-schema.md restates the schema', () => {
     personal: keysOf('personal'),
     experience: keysOf('experienceEntry'),
     education: keysOf('educationEntry'),
+    certifications: keysOf('certificationEntry'),
+    publications: keysOf('publicationEntry'),
+    languages: keysOf('languageEntry'),
     achievements: keysOf('achievementEntry'),
     referees: keysOf('refereeEntry'),
     config: [...keysOf('config').filter((k) => k !== 'atsKeywords'), ...Object.keys(schema.$defs.config.properties.atsKeywords.properties).map((k) => `atsKeywords.${k}`)],

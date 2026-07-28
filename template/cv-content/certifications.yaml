@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/certifications.schema.json
+- name: "Wilderness Survival & Escapology"
+  issuer: League of Shadows
+  year: "2003"
+
+- name: "Advanced Forensic Investigation"
+  issuer: Gotham University
+  year: "1998"

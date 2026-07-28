@@ -11,6 +11,9 @@ import IdentityCompact     from './IdentityCompact.jsx'
 import ContactSection      from './ContactSection.jsx'
 import AchievementsSection from './AchievementsSection.jsx'
 import EducationSection    from './EducationSection.jsx'
+import CertificationsSection from './CertificationsSection.jsx'
+import PublicationsSection from './PublicationsSection.jsx'
+import LanguagesSection    from './LanguagesSection.jsx'
 import CompetenciesSection from './CompetenciesSection.jsx'
 import RefereesSection     from './RefereesSection.jsx'
 import SummarySection      from './SummarySection.jsx'
@@ -23,6 +26,9 @@ export const SECTION_REGISTRY = {
   'contact':          ContactSection,
   'achievements':     AchievementsSection,
   'education':        EducationSection,
+  'certifications':   CertificationsSection,
+  'publications':     PublicationsSection,
+  'languages':        LanguagesSection,
   'competencies':     CompetenciesSection,
   'referees':         RefereesSection,
   'summary':          SummarySection,

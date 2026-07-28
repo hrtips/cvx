@@ -7,3 +7,6 @@ phoneHref: "tel:+12015552283"
 email: bruce.wayne@wayne-enterprises.com
 linkedin: linkedin.com/in/brucewayne
 linkedinHref: "https://www.linkedin.com/in/brucewayne"
+links:
+  - label: Wayne Foundation
+    href: "https://www.wayne-foundation.org"

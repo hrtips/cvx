@@ -6,10 +6,16 @@
 //
 // The theme argument provides all typography/spacing/geometry values so the
 // estimator stays in sync with what components actually render.
+//
+// deriveMetrics/lineCount/entryH/summaryH are exported (in addition to the
+// public API below) purely so the C0 test harness (test/layout-harness/
+// estimator.js) can compute page-fill estimates without maintaining a
+// hand-copied duplicate of this file's private formulas — no behavior
+// change, this is the same code that packExperiences() itself calls.
 
 import { tealTheme } from './themes/teal.js'
 
-function deriveMetrics(theme) {
+export function deriveMetrics(theme) {
   const t = theme ?? tealTheme
   const ty = t.typography
   const sp = t.spacing
@@ -53,7 +59,7 @@ function deriveMetrics(theme) {
 
 function lh(pt, leading) { return pt * leading }
 
-function lineCount(text, pt, w, cw) {
+export function lineCount(text, pt, w, cw) {
   const cpl = Math.max(1, Math.floor(w / (pt * cw)))
   return Math.max(1, Math.ceil(text.length / cpl))
 }
@@ -66,7 +72,7 @@ function calcDividerH(m) {
   return m.dividerHeight + m.dividerMargin * 2
 }
 
-function summaryH(summary, m) {
+export function summaryH(summary, m) {
   let h = calcTitleH(m) + m.descMt  // title + bullet list margin-top
   for (const b of summary) {
     const txt = typeof b === 'string' ? b : b.text
@@ -76,7 +82,7 @@ function summaryH(summary, m) {
   return h
 }
 
-function entryH(e, m) {
+export function entryH(e, m) {
   if (e.isContinuation) {
     let h = lh(m.roleSize, m.roleLeading)
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
