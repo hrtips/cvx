@@ -1,19 +1,17 @@
-// C0 — measure-vs-render diff harness (stub for C2).
+// C2 — measure-vs-render diff harness, now populated with the real measurer.
 //
-// layout.js's `lineCount` is a char-width estimate (`floor(width /
-// (size*charWidthFraction))` chars per line); C2 replaces it with a real
-// fontkit measurer. There's no real measurer to compare against yet, so
-// this harness renders the corpus through the *actual* react-pdf + pinned
-// Lato pipeline and rasterizes it (test/layout-harness/measureDiff.js) to
-// get a genuine "how many lines did this actually wrap to" — not a stand-in.
+// layout.js's OLD `lineCount` was a char-width estimate (`floor(width /
+// (size*charWidthFraction))` chars per line); C2 (src/pdf/measure.js) added
+// a real fontkit measurer. This harness renders the corpus through the
+// *actual* react-pdf + pinned Lato pipeline and rasterizes it
+// (test/layout-harness/measureDiff.js) to get a genuine "how many lines did
+// this actually wrap to", and now compares THREE things per row: the old
+// estimate, the new measurement, and that rendered ground truth.
 //
-// Baseline-locked like the render oracle: this does NOT assert the
-// estimator is *accurate* (it currently isn't — see the numbers below and
-// research/c0-baseline.md), only that today's measured error hasn't changed
-// since it was recorded. When C2 lands the real measurer, swap
-// measureDiff.js's `estimatedLineCount()` for it, regenerate baseline.json,
-// and the recorded error should collapse toward 0% — that delta *is* C2's
-// acceptance evidence.
+// Baseline-locked like the render oracle: this does NOT hard-assert the new
+// measurer is *perfectly* accurate in general — it asserts today's recorded
+// numbers haven't regressed, plus a small set of hard, structural
+// expectations (below) that must hold regardless of the exact numbers.
 //
 // Guarded with `describe.skipIf(!hasPdftoppm())` where a render+rasterize
 // is actually needed — see layoutRenderOracle.test.js's docblock for why
@@ -26,43 +24,71 @@ import { hasPdftoppm, cleanupFixtureDirs } from './layout-harness/scaffold.js'
 
 const baseline = loadBaseline()
 
-describe('C0 measure-vs-render diff corpus — the corpus itself (no rendering needed, always runs)', () => {
+describe('C0/C2 measure-vs-render diff corpus — the corpus itself (no rendering needed, always runs)', () => {
   it('the corpus itself (ids) matches what was recorded — a change here means the corpus changed, not just the numbers', () => {
     expect(CORPUS.map((c) => c.id)).toEqual(baseline.measureDiffCorpus.map((r) => r.id))
   })
 })
 
-describe.skipIf(!hasPdftoppm())('C0 measure-vs-render diff corpus — baseline-locked (stub for C2)', () => {
+describe.skipIf(!hasPdftoppm())('C2 measure-vs-render diff corpus — baseline-locked', () => {
   afterAll(() => cleanupFixtureDirs())
 
-  it('estimated-vs-rendered line counts match the recorded baseline for every corpus row', async () => {
+  it('estimated/measured/rendered line counts match the recorded baseline for every corpus row', async () => {
     const rows = await runDiffCorpus()
     const d = diff(rows, baseline.measureDiffCorpus)
     if (d.length > 0) {
       throw new Error(
-        'REGRESSION vs baseline.json.measureDiffCorpus (if this is an intentional measurer change — e.g. C2 landing — ' +
+        'REGRESSION vs baseline.json.measureDiffCorpus (if this is an intentional measurer change — ' +
         `regenerate with: node test/layout-harness/generateBaseline.js):\n  ${d.join('\n  ')}`
       )
     }
   }, 30000)
 
-  it('documents the known direction and magnitude of today\'s estimator error (informational)', async () => {
+  it('HARD: the real measurer (C2) is at least as accurate as the old estimate on every Latin row, and exact on most', async () => {
     const rows = await runDiffCorpus()
     const latinRows = rows.filter((r) => !r.id.startsWith('non-latin'))
-    const nonLatinRows = rows.filter((r) => r.id.startsWith('non-latin'))
+    expect(latinRows.length).toBeGreaterThan(0)
+    for (const r of latinRows) {
+      // |measured error| must never be WORSE than |estimated error| — C2 is
+      // a strict accuracy upgrade on text the bundled font can actually
+      // render, never a regression on any individual corpus row.
+      expect(Math.abs(r.measuredErrorPct)).toBeLessThanOrEqual(Math.abs(r.estimatedErrorPct))
+    }
+    // On this corpus, real measurement lands exactly on the rendered line
+    // count for ordinary Latin text (0% error) — recorded, not just
+    // "not worse", because that's the headline result worth protecting.
+    for (const r of latinRows) expect(r.measured).toBe(r.rendered)
+  }, 30000)
+
+  it('documents the known direction and magnitude of the OLD estimator\'s error, and that it is now the browser-preview fallback only (informational)', async () => {
+    const rows = await runDiffCorpus()
+    const latinRows = rows.filter((r) => !r.id.startsWith('non-latin'))
 
     // Design doc's own claim: "today's char-width estimate overshoots ~34%".
     // Every Latin row we sampled overshoots (estimated > rendered); none
     // under-shoots (which would be the more dangerous direction — risking
-    // real clipping rather than just a loose safety margin).
+    // real clipping rather than just a loose safety margin). Still true
+    // post-C2 — this is the FALLBACK formula's behavior, unchanged by
+    // design (layout.js keeps it verbatim for the isomorphic browser
+    // preview when no measurer is injected).
     for (const r of latinRows) expect(r.estimated).toBeGreaterThanOrEqual(r.rendered)
+  }, 30000)
 
-    // Non-Latin (Sinhala/Tamil/Devanagari) fallback-font risk (design doc
-    // G-a): Lato has no glyphs for these scripts and no fallback (e.g.
-    // Noto) is registered today, so the *rendered* line count collapses
-    // (far fewer visible ink bands than the estimator predicts) rather than
-    // growing — the opposite failure shape from the Latin rows, and a
-    // starker one: not just "loose", but measuring the wrong thing entirely.
-    for (const r of nonLatinRows) expect(r.estimated).toBeGreaterThan(r.rendered)
+  it('non-Latin: measurement accuracy is UNCHANGED by C2 (expected — see measure.js\'s detect-and-warn approach, not fixed here)', async () => {
+    const rows = await runDiffCorpus()
+    const nonLatinRows = rows.filter((r) => r.id.startsWith('non-latin'))
+    expect(nonLatinRows.length).toBeGreaterThan(0)
+
+    // Lato has no glyphs for Sinhala/Tamil/Devanagari and C2 deliberately
+    // does NOT bundle a fallback font (tarball-size budget — the
+    // maintainer's call to make separately); real measurement of text the
+    // font can't render is not meaningfully possible, so `measured` neither
+    // improves nor regresses here — both still mispredict against the
+    // (near-invisible) rendered ground truth. What DID change: measure.js's
+    // unsupportedChars()/findUnsupportedGlyphs() now DETECTS this and
+    // WARNS (validateContent.js / render.js), turning the old silent
+    // failure into a loud, honest one — see src/pdf/measure.test.js and
+    // validateContent.test.js's "unsupported-glyph detection" suite.
+    for (const r of nonLatinRows) expect(r.measured).toBe(r.estimated)
   }, 30000)
 })

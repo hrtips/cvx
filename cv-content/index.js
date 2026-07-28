@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { pickProfilePhoto } from '../src/pdf/profilePhoto.js'
+import { normalizeContent } from '../src/pdf/normalizeContent.js'
 
 // Eagerly import all YAML files in this directory
 const yamlModules = import.meta.glob('./*.yaml', { eager: true })
@@ -20,7 +21,10 @@ let config = {}
 for (const [path, mod] of Object.entries(yamlModules)) {
   // "./personal.yaml" → "personal"
   const key = path.replace('./', '').replace('.yaml', '')
-  const data = mod.default ?? mod
+  // NFC-normalize — mirrors src/pdf/loadContent.js (the Node/CLI loader) so
+  // the browser preview and the CLI build never disagree on this (review
+  // round 2, SHOULD #4 — see normalizeContent.js's module docblock).
+  const data = normalizeContent(mod.default ?? mod)
 
   if (key === 'config') {
     config = data

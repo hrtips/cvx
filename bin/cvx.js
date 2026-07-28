@@ -75,7 +75,7 @@ Next steps:
 
 async function validate({ strict, json }) {
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const result = validateContent({ contentDir: join(process.cwd(), 'cv-content'), strict })
+  const result = validateContent({ contentDir: join(process.cwd(), 'cv-content'), strict, fontsDir: join(pkgRoot, 'lib', 'fonts') })
 
   if (json) {
     emit({ command: 'validate', ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked })
@@ -207,7 +207,7 @@ async function build({ ats, json }) {
 async function buildAll({ json }) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const vr = validateContent({ contentDir, strict: false })
+  const vr = validateContent({ contentDir, strict: false, fontsDir: join(pkgRoot, 'lib', 'fonts') })
   if (!vr.ok) {
     if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'validation-failed', message: 'validation failed — fix errors before building' }, errors: vr.errors, warnings: vr.warnings })
     else {

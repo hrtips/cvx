@@ -14,6 +14,7 @@ import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join, basename } from 'path'
 import { load } from 'js-yaml'
 import { pickProfilePhoto } from './profilePhoto.js'
+import { normalizeContent } from './normalizeContent.js'
 
 /**
  * Load all YAML content from a directory.
@@ -32,7 +33,9 @@ export function loadContent(contentDir) {
 
   for (const file of files) {
     const key = basename(file, '.yaml')
-    const parsed = load(readFileSync(join(contentDir, file), 'utf-8'))
+    // NFC-normalize before anything measures/renders/glyph-checks this data
+    // (review round 2, SHOULD #4) — see normalizeContent.js's module docblock.
+    const parsed = normalizeContent(load(readFileSync(join(contentDir, file), 'utf-8')))
 
     if (key === 'config') {
       Object.assign(config, parsed)

@@ -57,8 +57,12 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@react-pdf/renderer": "^4.5.1",
     "ajv": "^8.20.0",
+    "fontkit": "^2.0.4",
     "js-yaml": "^4.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
+  },
+  "overrides": {
+    "fontkit": "$fontkit"
   }
 }

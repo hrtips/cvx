@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "note": "Recorded against the CURRENT (pre-C1/C2/C3) layout engine. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff. See research/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.",
+  "note": "Recorded 2026-07-28, POST-C2 (real fontkit measurement — src/pdf/measure.js) and its round-2 review fixes: per-bullet/per-sidebar-item content-completeness sentinels (contentOracle.js), the shipped scaffold's forced page-1 split removed (template/cv-content/config.yaml + the root cv-content/config.yaml demo — automatic pagination fits this content without a wasted page), a broadened measure-vs-render corpus (bold role, italic description, sidebar row, bold name — at real layout.js widths, not an arbitrary 200pt), and quantized page-budget comparisons (layout.js). This note previously (incorrectly) claimed \"the CURRENT (pre-C1/C2/C3) engine\" — false as of C2; corrected here rather than left stale. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff — that diff IS the evidence the fix worked (or, if unexpected, evidence of a regression to stop and investigate, not launder in). See research/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.",
   "fixturePlan": {
     "totalFixtures": 28,
     "pairwiseRows": 18,
@@ -145,11 +145,10 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 8,
+          "pageCount": 6,
           "blankPages": [
             2,
-            4,
-            6
+            4
           ],
           "emptyColumns": [
             {
@@ -158,10 +157,6 @@
             },
             {
               "page": 4,
-              "side": "sidebar"
-            },
-            {
-              "page": 6,
               "side": "sidebar"
             }
           ]
@@ -571,20 +566,13 @@
       "logicalTotalPages": 3
     },
     "scaffold-default": {
-      "description": "The shipped template/cv-content scaffold, unmodified (its default config.yaml forces page1ExperienceCount:2, page1SplitBullets:2).",
+      "description": "The shipped template/cv-content scaffold, unmodified (default config.yaml: theme + layout only — no forced page1ExperienceCount/page1SplitBullets since review round 2; automatic pagination handles it without a wasted page).",
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 4,
-          "blankPages": [
-            1
-          ],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 3,
@@ -592,51 +580,97 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 2
+      "logicalTotalPages": 3
     }
   },
   "measureDiffCorpus": [
     {
       "id": "short",
       "estimated": 1,
+      "measured": 1,
       "rendered": 1,
-      "errorPct": 0
+      "estimatedErrorPct": 0,
+      "measuredErrorPct": 0
     },
     {
       "id": "typical-bullet",
-      "estimated": 5,
-      "rendered": 4,
-      "errorPct": 25
+      "estimated": 3,
+      "measured": 3,
+      "rendered": 3,
+      "estimatedErrorPct": 0,
+      "measuredErrorPct": 0
     },
     {
       "id": "long-bullet",
-      "estimated": 6,
-      "rendered": 5,
-      "errorPct": 20
+      "estimated": 4,
+      "measured": 3,
+      "rendered": 3,
+      "estimatedErrorPct": 33,
+      "measuredErrorPct": 0
     },
     {
       "id": "long-token-url",
-      "estimated": 4,
+      "estimated": 3,
+      "measured": 3,
       "rendered": 3,
-      "errorPct": 33
+      "estimatedErrorPct": 0,
+      "measuredErrorPct": 0
+    },
+    {
+      "id": "description-italic",
+      "estimated": 4,
+      "measured": 3,
+      "rendered": 3,
+      "estimatedErrorPct": 33,
+      "measuredErrorPct": 0
+    },
+    {
+      "id": "role-bold",
+      "estimated": 2,
+      "measured": 1,
+      "rendered": 1,
+      "estimatedErrorPct": 100,
+      "measuredErrorPct": 0
+    },
+    {
+      "id": "sidebar-row",
+      "estimated": 4,
+      "measured": 3,
+      "rendered": 3,
+      "estimatedErrorPct": 33,
+      "measuredErrorPct": 0
+    },
+    {
+      "id": "name-bold",
+      "estimated": 2,
+      "measured": 2,
+      "rendered": 2,
+      "estimatedErrorPct": 0,
+      "measuredErrorPct": 0
     },
     {
       "id": "non-latin-sinhala",
       "estimated": 2,
+      "measured": 2,
       "rendered": 1,
-      "errorPct": 100
+      "estimatedErrorPct": 100,
+      "measuredErrorPct": 100
     },
     {
       "id": "non-latin-tamil",
       "estimated": 2,
+      "measured": 2,
       "rendered": 1,
-      "errorPct": 100
+      "estimatedErrorPct": 100,
+      "measuredErrorPct": 100
     },
     {
       "id": "non-latin-devanagari",
       "estimated": 2,
+      "measured": 2,
       "rendered": 1,
-      "errorPct": 100
+      "estimatedErrorPct": 100,
+      "measuredErrorPct": 100
     }
   ]
 }

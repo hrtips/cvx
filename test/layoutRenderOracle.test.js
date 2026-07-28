@@ -49,7 +49,7 @@ import { ROOT, mkFixtureDir, writeFixtureContent, hasPdftoppm, extractText, clea
 import { runOracle } from './layout-harness/renderOracle.js'
 import { normalizeOracleFacts, loadBaseline, diff } from './layout-harness/baseline.js'
 import { structuralFactsFor, hardInvariantViolations } from './layout-harness/structuralFacts.js'
-import { sentinelsFor, checkCompleteness } from './layout-harness/contentOracle.js'
+import { sentinelsFor, checkCompleteness, tailSentinel } from './layout-harness/contentOracle.js'
 
 const { fixtures, meta } = buildFixturePlan()
 const baseline = loadBaseline()
@@ -100,16 +100,45 @@ describe('C0 content-completeness oracle — self-test (proves the check is not 
     expect(droppedReferees.missing).toEqual([{ section: 'referees', text: 'Referee 2' }])
   })
 
-  it('sentinelsFor() extracts a greppable last-item sentinel per present section, and every experience role (not just the last)', () => {
+  it('sentinelsFor() extracts a greppable sentinel for EVERY item of every present section (round 2 fix: was last-item-only)', () => {
     const content = buildContent({ id: 'x', sections: { certifications: 'many', referees: 'absent' }, textLength: 'typical', volume: 'multi-page' })
     const sentinels = sentinelsFor(content)
-    // "many" = 8 items (indices 0..7) — the LAST item's sentinel, not the first, is the strong check (proves the section rendered all the way through).
+    // "many" = 8 items (indices 0..7) — EVERY item's sentinel is present now,
+    // not just the last: a silently-dropped MIDDLE item is exactly what
+    // last-item-only checking could never notice.
+    expect(sentinels).toContainEqual({ section: 'certifications', text: 'Certification 0' })
     expect(sentinels).toContainEqual({ section: 'certifications', text: 'Certification 7' })
-    expect(sentinels.some((s) => s.text === 'Certification 0')).toBe(false)
+    expect(sentinels.filter((s) => s.section === 'certifications')).toHaveLength(8)
     // absent sections contribute no sentinel at all:
     expect(sentinels.some((s) => s.section === 'referees')).toBe(false)
-    // every experience entry (multi-page volume = 5 entries), not just one:
-    expect(sentinels.filter((s) => s.section === 'experience')).toEqual(content.experience.map((e) => ({ section: 'experience', text: e.role })))
+  })
+
+  it('sentinelsFor() extracts every experience role (not just one) AND every bullet (round 2 fix: bullets were never checked at all)', () => {
+    const content = buildContent({ id: 'x', sections: { certifications: 'one' }, textLength: 'typical', volume: 'multi-page' })
+    const sentinels = sentinelsFor(content)
+    // every experience entry (multi-page volume = 5 entries) contributes its role:
+    for (const e of content.experience) {
+      expect(sentinels).toContainEqual({ section: 'experience', text: e.role })
+    }
+    // AND every one of its bullets, as a TAIL substring (see tailSentinel() —
+    // a physical-page clip drops a wrapped block's LATER words while its
+    // first line can still render, so the tail is the part that actually
+    // proves the whole bullet survived):
+    for (const e of content.experience) {
+      for (const b of e.bullets) {
+        expect(sentinels).toContainEqual({ section: 'experience', text: tailSentinel(b) })
+      }
+    }
+    const totalBullets = content.experience.reduce((n, e) => n + e.bullets.length, 0)
+    expect(sentinels.filter((s) => s.section === 'experience')).toHaveLength(content.experience.length + totalBullets)
+  })
+
+  it('tailSentinel() returns the trailing words of a long string and the whole (short) string unchanged', () => {
+    expect(tailSentinel('Led a team of five engineers.')).toBe('Led a team of five engineers.')
+    expect(tailSentinel('Established and scaled a citywide security operation from a solo initiative to a franchised network.'))
+      .toBe('solo initiative to a franchised network.')
+    expect(tailSentinel('')).toBe('')
+    expect(tailSentinel(null)).toBe('')
   })
 
   it('personal.name is never a sentinel (documented — see contentOracle.js NON_LATIN_NAME_CAVEAT)', () => {
@@ -158,7 +187,25 @@ describe.skipIf(!hasPdftoppm())('C0 render oracle — every curated fixture: har
 describe.skipIf(!hasPdftoppm())('C0 render oracle — the shipped scaffold (template/cv-content, unmodified)', () => {
   afterAll(() => cleanupFixtureDirs())
 
-  it('reproduces the two known bugs, baseline-locked from the real default config', () => {
+  // History: this test used to assert the scaffold's default config
+  // (page1ExperienceCount: 2, page1SplitBullets: 2) reproduced bug (a)/(b)
+  // (physical page count 4 vs logical 2, a blank page, an empty sidebar
+  // column) — the concrete example research/c0-baseline.md walked through.
+  // A review round (post-C2) found that forcing that split was never
+  // actually necessary (the scaffold's own AGENTS.md rule: "add pagination
+  // keys only if page 1 overflows") and, per real font measurement, was
+  // genuinely ~72pt over page 1's honest budget — so it was removed from
+  // template/cv-content/config.yaml (and the root cv-content/config.yaml
+  // demo), letting automatic pagination handle it. Automatic pagination
+  // respects its own budget by construction, so the shipped scaffold is now
+  // a CLEAN example (physical pageCount === logical totalPages, no blank
+  // page, no empty column) rather than a buggy one — asserted explicitly
+  // below, not just "matches baseline". Bug (a)/(b) are real bugs in the
+  // engine, still reproducible (and still baseline-locked) on other curated
+  // fixtures in this same describe file — the shipped scaffold no longer
+  // being one of them is a genuine improvement, not the bug being fixed
+  // everywhere.
+  it('renders cleanly — no forced split, no blank page, no empty column — baseline-locked from the real default config', () => {
     const dir = mkFixtureDir('scaffold-default')
     cpSync(path.join(ROOT, 'template', 'cv-content'), path.join(dir, 'cv-content'), { recursive: true })
     const oracle = runOracle(dir)
@@ -172,31 +219,18 @@ describe.skipIf(!hasPdftoppm())('C0 render oracle — the shipped scaffold (temp
       publications: read('publications.yaml'), languages: read('languages.yaml'),
       referees: read('referees.yaml'), achievements: read('achievements.yaml'), competencies: read('competencies.yaml'),
     }
+    expect(content.config.page1ExperienceCount).toBeUndefined() // guards against the forced keys silently creeping back in
 
     const structural = assertHardInvariants(content)
     assertContentComplete(oracle, content)
     assertMatchesDescriptiveBaseline('scaffold-default', { logicalTotalPages: structural.logicalTotalPages, oracle: normalizeOracleFacts(oracle) })
 
-    // Spelled out explicitly too (not just "matches baseline"), because this
-    // is the concrete example research/c0-baseline.md walks through: bug (b)
-    // — the corner badge spills onto its own near-blank page (page index 1)
-    // — the SIDEBAR band there has ZERO ink bands (nothing at all — the
-    // badge lands in the MAIN band, not the sidebar); bug (a) — the sidebar
-    // (education, certifications, competencies, languages, publications,
-    // referees) outlives the main column and spills onto physical page
-    // index 3. That page no longer shows up in `emptyColumns`: the corner
-    // badge itself always contributes exactly one ink band to the MAIN
-    // region on any page it lands on, so "main has 0 bands" specifically
-    // does not trip there under the presence-based signal (a documented
-    // trade-off — see renderOracle.js's docblock). Bug (a) is still fully
-    // visible via the physical-vs-logical page-count gap asserted below,
-    // and the content-completeness oracle above independently proves the
-    // sidebar's tail content (referees, publications) really did render
-    // there, in full, un-clipped.
-    expect(oracle.designed.pageCount).toBe(4)
-    expect(structural.logicalTotalPages).toBe(2)
-    expect(oracle.designed.blankPages).toEqual([1])
-    expect(oracle.designed.emptyColumns).toEqual([{ page: 1, side: 'sidebar' }])
+    // Spelled out explicitly too (not just "matches baseline"): physical and
+    // logical page counts now agree exactly, and there is no blank page or
+    // empty column at all.
+    expect(oracle.designed.pageCount).toBe(structural.logicalTotalPages)
+    expect(oracle.designed.blankPages).toEqual([])
+    expect(oracle.designed.emptyColumns).toEqual([])
   }, 20000)
 })
 

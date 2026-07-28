@@ -21,6 +21,12 @@ const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const workspace = (dir) => resolve(dir ?? process.cwd())
 const contentDirOf = (dir) => join(workspace(dir), 'cv-content')
 
+// lib/fonts in the published package; src/fonts in a repo checkout pre-build.
+function resolveFontsDir() {
+  const libFonts = join(pkgRoot, 'lib', 'fonts')
+  return existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts')
+}
+
 export async function getSchema({ dir } = {}) {
   const schema = JSON.parse(readFileSync(join(pkgRoot, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
   const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
@@ -58,17 +64,15 @@ export async function initCv({ dir } = {}) {
 }
 
 export async function validateCv({ dir, strict = true } = {}) {
-  const result = validateContent({ contentDir: contentDirOf(dir), strict })
+  const result = validateContent({ contentDir: contentDirOf(dir), strict, fontsDir: resolveFontsDir() })
   return { ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked }
 }
 
 export async function buildPdf({ dir, ats = false } = {}) {
-  // lib/fonts in the published package; src/fonts in a repo checkout pre-build
-  const libFonts = join(pkgRoot, 'lib', 'fonts')
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: contentDirOf(dir),
-    fontsDir: existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts'),
+    fontsDir: resolveFontsDir(),
     ats,
     warn: (msg) => warnings.push(msg),
   })

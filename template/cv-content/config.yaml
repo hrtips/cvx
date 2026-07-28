@@ -19,9 +19,6 @@ schemaVersion: 1
 theme: teal
 layout: two-column
 
-page1ExperienceCount: 2
-page1SplitBullets: 2
-
 # ── ATS & AI-parser optimisation ──────────────────────────────────────────────
 #
 # Embeds keywords into the PDF's standard "Keywords" metadata field, which some

@@ -86,9 +86,9 @@ function buildSidebar(keys, data, theme) {
 
 // ── Two-column renderer ─────────────────────────────────────────────────────
 
-function TwoColumnDocument({ data, activeLayout, activeTheme, packing }) {
+function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }) {
   const { page1Experiences, continuationChunks, totalPages } =
-    packExperiences(data.experience, data.summary, packing, activeTheme)
+    packExperiences(data.experience, data.summary, packing, activeTheme, measure)
 
   // On a single-page CV, fold the continuation/last sidebar sections
   // (education, competencies, referees) into page 1 so they never silently drop.
@@ -150,7 +150,7 @@ export default function CVDocument({
   personal, summary, experience, achievements,
   education, certifications, publications, languages,
   competencies, referees, keywords, profilePhoto, config,
-  theme, layout, creationDate,
+  theme, layout, creationDate, measure,
 }) {
   const layoutName   = config?.layout ?? 'two-column'
   const activeLayout = layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
@@ -182,7 +182,7 @@ export default function CVDocument({
       >
         {isSingleColumn
           ? <SingleColumnDocument data={data} activeLayout={activeLayout} />
-          : <TwoColumnDocument data={data} activeLayout={activeLayout} activeTheme={activeTheme} packing={packing} />
+          : <TwoColumnDocument data={data} activeLayout={activeLayout} activeTheme={activeTheme} packing={packing} measure={measure} />
         }
       </Document>
     </ThemeContext.Provider>

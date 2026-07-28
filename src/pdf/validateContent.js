@@ -18,6 +18,7 @@ import yaml from 'js-yaml'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { PHOTO_EXTENSIONS } from './profilePhoto.js'
 import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
+import { createMeasurer, findUnsupportedGlyphs, describeUnsupportedGlyphFinding } from './measure.js'
 import { THEMES } from './themes/index.js'
 
 const Ajv2020 = Ajv2020Module.default ?? Ajv2020Module
@@ -144,11 +145,25 @@ function mapAjvErrors(errors, doc) {
 /**
  * Validate a cv-content directory. Returns { ok, errors, warnings, checked }.
  * Each finding: { file, path, message, suggestion?, code }.
+ *
+ * @param {object} opts
+ * @param {string} opts.contentDir
+ * @param {boolean} [opts.strict]
+ * @param {string} [opts.fontsDir]  absolute path to the Lato fonts directory
+ *   (same one render.js is given). When provided, powers two checks with
+ *   real font metrics instead of the char-width estimate: the page1-overflow
+ *   estimate (C2) and the unsupported-glyph scan (design doc G-a). Omit to
+ *   skip both real-measurement checks entirely — NOT to fall back to a loose
+ *   approximation of them, which would be noisier than useful now that
+ *   PAGE1_OVERFLOW_WARN_THRESHOLD is sized for accurate measurement (see
+ *   layout.js). Every real call site (`cvx validate`, the `validate_cv` MCP
+ *   tool) always has one available and passes it.
  */
-export function validateContent({ contentDir, strict = false } = {}) {
+export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
   const errors = []
   const warnings = []
   const checked = []
+  const measure = fontsDir && existsSync(fontsDir) ? createMeasurer(fontsDir) : undefined
   const add = (severity, file, code, f) =>
     (severity === 'error' ? errors : warnings).push({ file, code, path: f.path ?? '(root)', message: f.message, ...(f.suggestion ? { suggestion: f.suggestion } : {}) })
 
@@ -216,16 +231,37 @@ export function validateContent({ contentDir, strict = false } = {}) {
   }
 
   // Forced pagination that can't fit: the renderer clips overflow, so surface
-  // the estimate here where agents look first.
+  // the estimate here where agents look first. Uses real font metrics when
+  // `fontsDir` was given (see this function's docblock) — the same
+  // measurement `cvx build` packs against, so this warning and the actual
+  // render agree.
   const config = docs.config ?? {}
   if (config.page1ExperienceCount != null && Array.isArray(docs.experience)) {
     const theme = THEMES[config.theme] ?? THEMES.teal
-    const overflow = estimatePage1Overflow(docs.experience, Array.isArray(docs.summary) ? docs.summary : [], config, theme)
+    const overflow = estimatePage1Overflow(docs.experience, Array.isArray(docs.summary) ? docs.summary : [], config, theme, measure)
     if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
       add('warning', 'config.yaml', 'page1-overflow', {
         path: '/page1ExperienceCount',
-        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the tuned margin) — overflow is clipped at the page edge in the designed layout`,
+        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — overflow is clipped at the page edge in the designed layout`,
         suggestion: 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination',
+      })
+    }
+  }
+
+  // Unsupported glyphs (design doc G-a): the bundled Lato TTFs cover only a
+  // narrow Western-European-Latin subset (no Cyrillic, Greek, Vietnamese,
+  // Turkish ş/ğ, Czech/Romanian diacritics, or any non-Latin script) and CVX
+  // registers no fallback font — text using an unsupported character
+  // renders INVISIBLY today, silently. Only runs with real font metrics
+  // available (see this function's docblock); `config`/`keywords` are
+  // skipped by findUnsupportedGlyphs() itself (metadata/settings, not
+  // rendered text).
+  if (measure) {
+    for (const finding of findUnsupportedGlyphs(measure, docs)) {
+      add('warning', finding.file, 'unsupported-glyphs', {
+        path: finding.path,
+        message: describeUnsupportedGlyphFinding(finding),
+        suggestion: 'CVX bundles Lato only and registers no fallback font — provide/replace with a font that covers this script if this text must be visible',
       })
     }
   }
