@@ -13,12 +13,12 @@
 // metadata/body mismatch that gets a CV auto-rejected, not ranked higher.
 // ────────────────────────────────────────────────────────────────────────────
 
-const clean = (s) => String(s ?? '').trim()
+const clean = (/** @type {unknown} */ s) => String(s ?? '').trim()
 
 // Keywords go into a comma-joined field, so a keyword must not itself contain a
 // comma — otherwise a parser splitting on "," sees spurious fragments. Collapse
 // internal commas (and runs of whitespace) into single spaces.
-const sanitizeKeyword = (s) => clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+const sanitizeKeyword = (/** @type {string} */ s) => clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
 
 /**
  * Flatten a keyword source into a clean string array. Accepts:
@@ -27,7 +27,7 @@ const sanitizeKeyword = (s) => clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').
  *   - [{ Skills: ["a"] }]           (list of grouped maps)
  *   - "a"                           (single string)
  */
-function toList(value) {
+function toList(/** @type {import('./types.js').Keywords | undefined} */ value) {
   if (!value) return []
   if (Array.isArray(value)) {
     return value
@@ -51,10 +51,7 @@ function toList(value) {
  * Company names are deliberately NOT derived: they are low-signal as keywords
  * and mostly add noise.
  */
-/**
- * @param {Pick<import('./types.js').CVContent, 'competencies' | 'experience' | 'personal'>} content
- */
-function deriveFromContent({ competencies, experience, personal }) {
+function deriveFromContent(/** @type {{ competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial<import('./types.js').Personal> }} */ { competencies, experience, personal }) {
   const out = [...toList(competencies)]
 
   if (personal?.title) out.push(clean(personal.title))
@@ -70,7 +67,7 @@ function deriveFromContent({ competencies, experience, personal }) {
 }
 
 /** Case-insensitive dedupe that preserves first-seen order and casing. */
-function dedupe(list) {
+function dedupe(/** @type {string[]} */ list) {
   const seen = new Set()
   const result = []
   for (const item of list) {
@@ -86,12 +83,12 @@ function dedupe(list) {
 /**
  * Build the comma-separated keyword string for the PDF's Keywords metadata.
  *
- * @param {import('./types.js').CVContent} data    { keywords, competencies, experience, personal }
- * @param {import('./types.js').CVConfig} config  parsed config.yaml (reads config.atsKeywords)
+ * @param {{ keywords?: import('./types.js').Keywords, competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial<import('./types.js').Personal> }} [data]    { keywords, competencies, experience, personal }
+ * @param {import('./types.js').CVConfig} [config]  parsed config.yaml (reads config.atsKeywords)
  * @returns {string}       deduped, comma-joined keywords ("" when disabled/empty)
  */
 export function buildKeywords(data = {}, config = {}) {
-  const opts = config?.atsKeywords || {}
+  const opts = /** @type {import('./types.js').AtsKeywords} */ ((config && config.atsKeywords) || {})
   if (opts.enabled === false) return ''
 
   const manual = toList(data.keywords)
@@ -101,6 +98,6 @@ export function buildKeywords(data = {}, config = {}) {
   // ones that actually appear on the page (competencies + titles), avoiding the
   // metadata/body mismatch that curated-but-unverified terms could introduce.
   const merged = dedupe([...derived, ...manual].map(sanitizeKeyword).filter(Boolean))
-  const max = Number.isInteger(opts.max) && opts.max > 0 ? opts.max : merged.length
+  const max = Number.isInteger(opts.max) && /** @type {number} */ (opts.max) > 0 ? opts.max : merged.length
   return merged.slice(0, max).join(', ')
 }

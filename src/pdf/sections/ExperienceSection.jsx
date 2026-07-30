@@ -1,19 +1,22 @@
 // ── Experience section (main column) ────────────────────────────────────────
-import { StyleSheet, View } from '@react-pdf/renderer'
-import ExpItem from '../components/ExpItem.jsx'
-import SectionTitle from '../components/SectionTitle.jsx'
+import { View, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
+import SectionTitle from '../components/SectionTitle.jsx'
+import ExpItem from '../components/ExpItem.jsx'
 
-const makeStyles = (t) =>
-  StyleSheet.create({
-    divider: {
-      height: t.chrome.dividerHeight,
-      backgroundColor: t.palette.divider,
-      marginVertical: 16.5
-    }
-  })
+/** @param {import('../types.js').Theme} t */
+const makeStyles = (t) => StyleSheet.create({
+  divider: { height: t.chrome.dividerHeight, backgroundColor: t.palette.divider, marginVertical: 16.5 },
+})
 
-export default function ExperienceSection({ entries, continued = false }) {
+/**
+ * @param {{
+ *   data: import('../types.js').CVContent,
+ *   entries?: import('../types.js').ExperienceEntry[],
+ *   continued?: boolean,
+ * }} props
+ */
+export default function ExperienceSection({ data, entries, continued = false }) {
   const s = useStyles(makeStyles)
   const label = continued ? 'Experience (continued)' : 'Experience'
   if (!entries?.length) return null

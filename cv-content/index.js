@@ -12,12 +12,13 @@
 import { pickProfilePhoto } from '../src/pdf/profilePhoto.js'
 import { normalizeContent } from '../src/pdf/normalizeContent.js'
 
-// Eagerly import all YAML files in this directory
-const yamlModules = /** @type {Record<string, { default?: any }>} */ (
-  import.meta.glob('./*.yaml', { eager: true })
-)
+// Eagerly import all YAML files in this directory. `import.meta.glob` is a
+// Vite compile-time macro; ImportMeta doesn't type it, so we assert the shape.
+const yamlModules = (/** @type {{ glob: (pattern: string, options?: { eager?: boolean }) => Record<string, { default?: unknown }> }} */ (/** @type {unknown} */ (import.meta))).glob('./*.yaml', { eager: true })
 
+/** @type {Record<string, unknown>} */
 const content = {}
+/** @type {import('../src/pdf/types.js').CVConfig} */
 let config = {}
 
 for (const [path, mod] of Object.entries(yamlModules)) {
@@ -29,22 +30,20 @@ for (const [path, mod] of Object.entries(yamlModules)) {
   const data = normalizeContent(mod.default ?? mod)
 
   if (key === 'config') {
-    config = data
+    config = /** @type {import('../src/pdf/types.js').CVConfig} */ (data)
   } else {
     content[key] = data
   }
 }
 
 // Named exports for backward compatibility
-const { personal, summary, experience, achievements, education, competencies, referees, keywords } = content
+const { personal, summary, experience, achievements, education, competencies, referees, keywords } = /** @type {import('../src/pdf/types.js').CVContent} */ (/** @type {unknown} */ (content))
 
 // Profile photo — auto-detect the extension, matching the Node export path.
 // Any profile.<ext> in images/ is picked up; highest-precedence one wins.
-const photoModules = /** @type {Record<string, { default?: string }>} */ (
-  import.meta.glob('./images/profile.*', { eager: true })
-)
+const photoModules = (/** @type {{ glob: (pattern: string, options?: { eager?: boolean }) => Record<string, { default?: string }> }} */ (/** @type {unknown} */ (import.meta))).glob('./images/profile.*', { eager: true })
 const photoPath = pickProfilePhoto(Object.keys(photoModules))
-const profilePhoto = photoPath ? (photoModules[photoPath].default ?? null) : null
+const profilePhoto = /** @type {string | null} */ (photoPath ? (photoModules[photoPath].default ?? photoModules[photoPath]) : null)
 
 export {
   personal,

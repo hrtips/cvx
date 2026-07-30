@@ -17,10 +17,9 @@
 //
 // See https://reproducible-builds.org/docs/source-date-epoch/
 // ────────────────────────────────────────────────────────────────────────────
-
+import { createRequire } from 'node:module'
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 
 // The real mutable module object — ESM namespace imports of builtins are
@@ -41,9 +40,7 @@ export function resolveCreationDate(env = {}) {
 
   const seconds = Number(raw)
   if (!Number.isInteger(seconds) || seconds < 0) {
-    console.warn(
-      `Ignoring invalid SOURCE_DATE_EPOCH: "${raw}" (expected non-negative integer seconds)`
-    )
+    console.warn(`Ignoring invalid SOURCE_DATE_EPOCH: "${raw}" (expected non-negative integer seconds)`)
     return undefined
   }
 
@@ -80,20 +77,15 @@ export function makeDeflateSynchronous() {
     value: function createDeflateSync() {
       /** @type {Buffer[]} */
       const chunks = []
-      const shim = /** @type {import('node:events').EventEmitter & {
-        write(chunk: Buffer): boolean, end(chunk?: Buffer): void
-      }} */ (new EventEmitter())
-      shim.write = (chunk) => {
-        chunks.push(Buffer.from(chunk))
-        return true
-      }
+      const shim = /** @type {import('node:events').EventEmitter & { write: (chunk: Buffer | string) => boolean, end: (chunk?: Buffer | string) => void }} */ (new EventEmitter())
+      shim.write = (chunk) => { chunks.push(Buffer.from(chunk)); return true }
       shim.end = (chunk) => {
         if (chunk) chunks.push(Buffer.from(chunk))
         shim.emit('data', zlib.deflateSync(Buffer.concat(chunks)))
         shim.emit('end')
       }
       return shim
-    }
+    },
   })
 }
 
@@ -111,8 +103,8 @@ export function setupReproducibility(env = {}) {
     if (verifyPatchPoints() === false) {
       console.warn(
         '⚠ SOURCE_DATE_EPOCH is set, but @react-pdf/pdfkit internals have changed since this\n' +
-          '  version of cvx was tested — output may NOT be byte-identical across runs.\n' +
-          '  Please report this: https://github.com/hrtips/cvx/issues'
+        '  version of cvx was tested — output may NOT be byte-identical across runs.\n' +
+        '  Please report this: https://github.com/hrtips/cvx/issues'
       )
     }
     seedMathRandom(creationDate.getTime() / 1000)

@@ -3,6 +3,7 @@ import { View } from '@react-pdf/renderer'
 import BulletList from '../components/BulletList.jsx'
 import SectionTitle from '../components/SectionTitle.jsx'
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function SummarySection({ data }) {
   const { summary } = data
   if (!summary?.length) return null
