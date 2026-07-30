@@ -3,37 +3,36 @@
 // Layout configs reference sections by these string keys.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { createElement } from 'react'
 import { View } from '@react-pdf/renderer'
-
-import IdentityPhoto       from './IdentityPhoto.jsx'
-import IdentityCompact     from './IdentityCompact.jsx'
-import ContactSection      from './ContactSection.jsx'
+import { createElement } from 'react'
 import AchievementsSection from './AchievementsSection.jsx'
-import EducationSection    from './EducationSection.jsx'
 import CertificationsSection from './CertificationsSection.jsx'
-import PublicationsSection from './PublicationsSection.jsx'
-import LanguagesSection    from './LanguagesSection.jsx'
 import CompetenciesSection from './CompetenciesSection.jsx'
-import RefereesSection     from './RefereesSection.jsx'
-import SummarySection      from './SummarySection.jsx'
-import ExperienceSection   from './ExperienceSection.jsx'
-import HeaderATS           from './HeaderATS.jsx'
+import ContactSection from './ContactSection.jsx'
+import EducationSection from './EducationSection.jsx'
+import ExperienceSection from './ExperienceSection.jsx'
+import HeaderATS from './HeaderATS.jsx'
+import IdentityCompact from './IdentityCompact.jsx'
+import IdentityPhoto from './IdentityPhoto.jsx'
+import LanguagesSection from './LanguagesSection.jsx'
+import PublicationsSection from './PublicationsSection.jsx'
+import RefereesSection from './RefereesSection.jsx'
+import SummarySection from './SummarySection.jsx'
 
 export const SECTION_REGISTRY = {
-  'identity-photo':   IdentityPhoto,
+  'identity-photo': IdentityPhoto,
   'identity-compact': IdentityCompact,
-  'contact':          ContactSection,
-  'achievements':     AchievementsSection,
-  'education':        EducationSection,
-  'certifications':   CertificationsSection,
-  'publications':     PublicationsSection,
-  'languages':        LanguagesSection,
-  'competencies':     CompetenciesSection,
-  'referees':         RefereesSection,
-  'summary':          SummarySection,
-  'experience':       ExperienceSection,
-  'header-ats':       HeaderATS,
+  contact: ContactSection,
+  achievements: AchievementsSection,
+  education: EducationSection,
+  certifications: CertificationsSection,
+  publications: PublicationsSection,
+  languages: LanguagesSection,
+  competencies: CompetenciesSection,
+  referees: RefereesSection,
+  summary: SummarySection,
+  experience: ExperienceSection,
+  'header-ats': HeaderATS
 }
 
 /**
@@ -50,6 +49,11 @@ export const SECTION_REGISTRY = {
  * @param {object}   [extra]  Extra props (entries for experience)
  * @returns {React.ReactElement[]}
  */
+/**
+ * @param {string[]} keys
+ * @param {import('../types.js').CVContent} data
+ * @param {import('../types.js').SlotExtra} [extra]
+ */
 export function renderSlot(keys, data, extra = {}) {
   return keys.map((key, i) => {
     // Spacer: "spacer:27"
@@ -62,9 +66,8 @@ export function renderSlot(keys, data, extra = {}) {
     if (key === 'experience:continued') {
       return createElement(ExperienceSection, {
         key: `experience-cont-${i}`,
-        data,
         entries: extra.entries ?? [],
-        continued: true,
+        continued: true
       })
     }
 
@@ -72,9 +75,8 @@ export function renderSlot(keys, data, extra = {}) {
     if (key === 'experience') {
       return createElement(ExperienceSection, {
         key: `experience-${i}`,
-        data,
         entries: extra.entries ?? [],
-        continued: false,
+        continued: false
       })
     }
 

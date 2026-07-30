@@ -13,7 +13,9 @@ import { pickProfilePhoto } from '../src/pdf/profilePhoto.js'
 import { normalizeContent } from '../src/pdf/normalizeContent.js'
 
 // Eagerly import all YAML files in this directory
-const yamlModules = import.meta.glob('./*.yaml', { eager: true })
+const yamlModules = /** @type {Record<string, { default?: any }>} */ (
+  import.meta.glob('./*.yaml', { eager: true })
+)
 
 const content = {}
 let config = {}
@@ -38,9 +40,11 @@ const { personal, summary, experience, achievements, education, competencies, re
 
 // Profile photo — auto-detect the extension, matching the Node export path.
 // Any profile.<ext> in images/ is picked up; highest-precedence one wins.
-const photoModules = import.meta.glob('./images/profile.*', { eager: true })
+const photoModules = /** @type {Record<string, { default?: string }>} */ (
+  import.meta.glob('./images/profile.*', { eager: true })
+)
 const photoPath = pickProfilePhoto(Object.keys(photoModules))
-const profilePhoto = photoPath ? (photoModules[photoPath].default ?? photoModules[photoPath]) : null
+const profilePhoto = photoPath ? (photoModules[photoPath].default ?? null) : null
 
 export {
   personal,

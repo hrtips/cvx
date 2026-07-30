@@ -2,10 +2,11 @@
 // listing the directory (not by probing lowercase names with existsSync), so
 // uppercase extensions like profile.JPG resolve on case-sensitive filesystems
 // (Linux) exactly as they do in the browser path.
-import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
-import { join, basename } from 'path'
-import { tmpdir } from 'os'
+
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
 import { loadContent } from '../src/pdf/loadContent.js'
 
 const dirs = []

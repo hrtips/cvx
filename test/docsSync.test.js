@@ -2,10 +2,11 @@
 // human doc copies must keep restating it. If a key is added to the schema
 // without documenting it, this fails — the reverse (docs mention keys the
 // schema lacks) is caught by schema.test.js validating the shipped content.
-import { describe, it, expect } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const schema = JSON.parse(readFileSync(path.join(ROOT, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
@@ -16,7 +17,20 @@ const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8
 const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
 const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
 
-const CONTENT_DEFS = ['personal', 'summary', 'experience', 'education', 'certifications', 'publications', 'languages', 'competencies', 'achievements', 'referees', 'keywords', 'config']
+const CONTENT_DEFS = [
+  'personal',
+  'summary',
+  'experience',
+  'education',
+  'certifications',
+  'publications',
+  'languages',
+  'competencies',
+  'achievements',
+  'referees',
+  'keywords',
+  'config'
+]
 
 const keysOf = (def) => Object.keys(schema.$defs[def]?.properties ?? {})
 
@@ -36,8 +50,13 @@ describe('docs/cv-schema.md restates the schema', () => {
     languages: keysOf('languageEntry'),
     achievements: keysOf('achievementEntry'),
     referees: keysOf('refereeEntry'),
-    config: [...keysOf('config').filter((k) => k !== 'atsKeywords'), ...Object.keys(schema.$defs.config.properties.atsKeywords.properties).map((k) => `atsKeywords.${k}`)],
-    'bullet object': Object.keys(schema.$defs.bulletItem.oneOf[1].properties),
+    config: [
+      ...keysOf('config').filter((k) => k !== 'atsKeywords'),
+      ...Object.keys(schema.$defs.config.properties.atsKeywords.properties).map(
+        (k) => `atsKeywords.${k}`
+      )
+    ],
+    'bullet object': Object.keys(schema.$defs.bulletItem.oneOf[1].properties)
   }
   for (const [group, keys] of Object.entries(keyed)) {
     it(`documents every ${group} key`, () => {
@@ -125,13 +144,20 @@ describe('assistant entry path stays intact', () => {
 
   it('raw URLs referenced by the docs point at files that exist in the repo', () => {
     const all = readme + aiGuide + llms + cvSchemaDoc + skillMd
-    for (const [, p] of all.matchAll(/raw\.githubusercontent\.com\/hrtips\/cvx\/main\/([\w./-]+)/g)) {
+    for (const [, p] of all.matchAll(
+      /raw\.githubusercontent\.com\/hrtips\/cvx\/main\/([\w./-]+)/g
+    )) {
       expect(existsSync(path.join(ROOT, p)), `dangling raw URL: ${p}`).toBe(true)
     }
   })
 
   it('README anchors into ai-guide resolve to real headings', () => {
-    const slug = (h) => h.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/ /g, '-')
+    const slug = (h) =>
+      h
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/ /g, '-')
     const headings = [...aiGuide.matchAll(/^#+\s+(.+)$/gm)].map(([, h]) => slug(h))
     for (const [, a] of readme.matchAll(/docs\/ai-guide\.md#([\w-]+)/g)) {
       expect(headings, `dead anchor #${a}`).toContain(a)

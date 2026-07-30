@@ -10,11 +10,11 @@
 // Any new .yaml file dropped in cv-content/ is automatically picked up.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { readFileSync, readdirSync, existsSync } from 'fs'
-import { join, basename } from 'path'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { load } from 'js-yaml'
-import { pickProfilePhoto } from './profilePhoto.js'
 import { normalizeContent } from './normalizeContent.js'
+import { pickProfilePhoto } from './profilePhoto.js'
 
 /**
  * Load all YAML content from a directory.
@@ -26,7 +26,7 @@ import { normalizeContent } from './normalizeContent.js'
  *   - profilePhoto: path to profile image (if exists)
  */
 export function loadContent(contentDir) {
-  const files = readdirSync(contentDir).filter(f => f.endsWith('.yaml'))
+  const files = readdirSync(contentDir).filter((f) => f.endsWith('.yaml'))
 
   const config = {}
   const content = {}
@@ -50,7 +50,7 @@ export function loadContent(contentDir) {
   let profilePhoto = null
   const imgDir = join(contentDir, 'images')
   if (existsSync(imgDir)) {
-    const candidates = readdirSync(imgDir).filter(f => f.startsWith('profile.'))
+    const candidates = readdirSync(imgDir).filter((f) => f.startsWith('profile.'))
     const hit = pickProfilePhoto(candidates)
     if (hit) profilePhoto = join(imgDir, hit)
   }

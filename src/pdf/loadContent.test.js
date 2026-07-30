@@ -4,11 +4,12 @@
 // `.normalize('NFD')` from the precomposed form rather than hand-typed
 // Unicode escapes, so the fixture is self-verifying instead of relying on a
 // human counting combining-mark codepoints correctly.
-import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { afterEach, describe, expect, it } from 'vitest'
 import { loadContent } from './loadContent.js'
 import { createMeasurer, findUnsupportedGlyphs } from './measure.js'
 
@@ -49,7 +50,7 @@ describe('loadContent — NFC normalization', () => {
 
   it('recurses into arrays and nested objects (e.g. a bullet inside experience.yaml)', () => {
     const dir = contentDirWith({
-      'experience.yaml': `- role: Engineer\n  company: Acme\n  bullets:\n    - "Worked with ${NGUYEN_NFD} on a project."\n`,
+      'experience.yaml': `- role: Engineer\n  company: Acme\n  bullets:\n    - "Worked with ${NGUYEN_NFD} on a project."\n`
     })
     const { content } = loadContent(dir)
     expect(content.experience[0].bullets[0]).toBe('Worked with Nguyễn on a project.')

@@ -19,27 +19,39 @@
 //      reason in the title and a body that fails loudly if anyone removes
 //      `.todo` without actually implementing them; C3 is expected to
 //      implement-and-un-todo them once packSidebar() lands.
-import { describe, it, expect } from 'vitest'
+
 import { readFileSync } from 'node:fs'
-import { load } from 'js-yaml'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { load } from 'js-yaml'
+import { describe, expect, it } from 'vitest'
 import { packExperiences } from '../src/pdf/layout.js'
 import {
-  mainPlanFromPackResult, experienceBlockIds, summaryBlockIds, expBlockId,
+  expBlockId,
+  experienceBlockIds,
+  mainPlanFromPackResult,
+  summaryBlockIds
 } from './layout-harness/blocks.js'
-import { sidebarStructuralPlan, presentSidebarKeys } from './layout-harness/sidebarPlan.js'
-import {
-  flowIds, placedExactlyOnce, orderPreserved, invariant0, noOrphanHeading,
-  frontLoadHolds, noPageOverBudget, noEmptyColumn,
-} from './layout-harness/invariants.js'
 import { buildContent } from './layout-harness/contentSpecs.js'
 import { buildFixturePlan } from './layout-harness/fixtures.js'
+import {
+  flowIds,
+  frontLoadHolds,
+  invariant0,
+  noEmptyColumn,
+  noOrphanHeading,
+  noPageOverBudget,
+  orderPreserved,
+  placedExactlyOnce
+} from './layout-harness/invariants.js'
+import { presentSidebarKeys, sidebarStructuralPlan } from './layout-harness/sidebarPlan.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
 
-function readYaml(dir, file) { return load(readFileSync(path.join(dir, file), 'utf8')) }
+function readYaml(dir, file) {
+  return load(readFileSync(path.join(dir, file), 'utf8'))
+}
 
 // ── Tier 1: the ruler itself, on synthetic plans ────────────────────────────
 
@@ -139,7 +151,10 @@ describe('main-column plan (packExperiences really packs this — testable today
     const packed = packExperiences(content.experience, content.summary, content.config, undefined)
     const plan = mainPlanFromPackResult(packed, content.summary)
     const actual = flowIds(plan, 'main')
-    const expected = [...summaryBlockIds(content.summary), ...experienceBlockIds(content.experience)]
+    const expected = [
+      ...summaryBlockIds(content.summary),
+      ...experienceBlockIds(content.experience)
+    ]
 
     expect(invariant0(actual, expected).ok).toBe(true)
     expect(placedExactlyOnce(actual).ok).toBe(true)
@@ -149,8 +164,12 @@ describe('main-column plan (packExperiences really packs this — testable today
   it('does not collide when two entries share the same role+company (e.g. two separate stints) — regression for the expBlockId hardening', () => {
     const summary = ['A summary bullet.']
     const experience = [
-      { role: 'Engineer', company: 'Acme', bullets: ['First stint bullet one.', 'First stint bullet two.'] },
-      { role: 'Engineer', company: 'Acme', bullets: ['Second stint bullet one.'] },
+      {
+        role: 'Engineer',
+        company: 'Acme',
+        bullets: ['First stint bullet one.', 'First stint bullet two.']
+      },
+      { role: 'Engineer', company: 'Acme', bullets: ['Second stint bullet one.'] }
     ]
     const packed = packExperiences(experience, summary, {}, undefined)
     const plan = mainPlanFromPackResult(packed, summary)
@@ -182,7 +201,7 @@ describe('sidebar plan (structural / whole-section only — the engine does not 
       certifications: readYaml(TEMPLATE, 'certifications.yaml'),
       competencies: readYaml(TEMPLATE, 'competencies.yaml'),
       languages: readYaml(TEMPLATE, 'languages.yaml'),
-      publications: readYaml(TEMPLATE, 'publications.yaml'),
+      publications: readYaml(TEMPLATE, 'publications.yaml')
     }
     const sbPlan = sidebarStructuralPlan(packed.totalPages)
     const actual = [...new Set(flowIds(sbPlan, 'sidebar'))]
@@ -206,18 +225,26 @@ describe('sidebar plan (structural / whole-section only — the engine does not 
   // is — confirmed: these bodies are dead code today, by design, until C3
   // implements the real check and removes both `.todo` and the fail()).
   it.todo('every sidebar ITEM (not just whole sections) is placed exactly once — pending engine support (C3: packSidebar() does not exist; sections are never split at item boundaries, so there is no item-level plan to assert on)', () => {
-    expect.fail('implement the real item-level assertion when packSidebar() lands (C3) — do not un-todo without one')
+    expect.fail(
+      'implement the real item-level assertion when packSidebar() lands (C3) — do not un-todo without one'
+    )
   })
 
   it.todo('no sidebar section heading is orphaned by an item-level split — pending engine support (C3: sections cannot split at all today, so this failure mode literally cannot be exercised; the closest current risk, a WHOLE section overflowing onto an empty-main-column physical page, is bug (a), covered by the render oracle instead)', () => {
-    expect.fail('implement the real orphan-heading assertion when packSidebar() lands (C3) — do not un-todo without one')
+    expect.fail(
+      'implement the real orphan-heading assertion when packSidebar() lands (C3) — do not un-todo without one'
+    )
   })
 
   it.todo('the sidebar column front-loads across pages — pending engine support (C3: there is no per-page sidebar budget/fill at all today — sections are assigned to page-kinds statically, not measured, so a "fill ratio" cannot be computed)', () => {
-    expect.fail('implement the real front-load assertion when packSidebar() lands (C3) — do not un-todo without one')
+    expect.fail(
+      'implement the real front-load assertion when packSidebar() lands (C3) — do not un-todo without one'
+    )
   })
 
   it.todo('no page has an empty column beyond the deliberate residual (G1), assessed from the structural plan alone — pending engine support (C3: the structural plan is blind to *physical* page overflow — react-pdf silently continues a too-tall column onto extra physical pages the structural plan never sees; see renderOracle.js, which IS able to observe this today and is baseline-locked in layoutRenderOracle.test.js)', () => {
-    expect.fail('implement the real structural empty-column assertion when packSidebar() lands (C3) — do not un-todo without one')
+    expect.fail(
+      'implement the real structural empty-column assertion when packSidebar() lands (C3) — do not un-todo without one'
+    )
   })
 })

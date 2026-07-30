@@ -5,7 +5,7 @@
 // no RNG), which is what lets the render-oracle baseline stay stable.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { sentencesFor, bulletsFor } from './textPool.js'
+import { bulletsFor, sentencesFor } from './textPool.js'
 
 const LEVEL_COUNT = { absent: 0, one: 1, many: 8 }
 
@@ -21,7 +21,7 @@ function buildPersonal(spec) {
     email: 'jordan.rivera@example.com',
     linkedin: 'linkedin.com/in/jordanrivera',
     linkedinHref: 'https://www.linkedin.com/in/jordanrivera',
-    location: 'Springfield',
+    location: 'Springfield'
   }
   if (spec.extraLink) personal.links = [spec.extraLink]
   return personal
@@ -39,7 +39,7 @@ function buildExperienceEntry(i, spec) {
     company: `Company ${i}`,
     period: `20${10 + i} – 20${11 + i}`,
     description: sentencesFor(spec.textLength, `desc${i}`, 1)[0],
-    bullets: bulletsFor(spec.textLength, `exp${i}`, bulletsN),
+    bullets: bulletsFor(spec.textLength, `exp${i}`, bulletsN)
   }
 }
 
@@ -53,7 +53,9 @@ function buildExperience(spec) {
 function buildEducation(spec) {
   const n = spec.minimal ? 0 : (spec.educationCount ?? 3)
   return Array.from({ length: n }, (_, i) => ({
-    degree: `Degree ${i}`, institution: `Institution ${i}`, period: `19${90 + i} – 19${94 + i}`,
+    degree: `Degree ${i}`,
+    institution: `Institution ${i}`,
+    period: `19${90 + i} – 19${94 + i}`
   }))
 }
 
@@ -68,11 +70,33 @@ function buildCompetencies(spec) {
 // without a special case per section.
 
 const ITEM_BUILDERS = {
-  certifications: (n) => Array.from({ length: n }, (_, i) => ({ name: `Certification ${i}`, issuer: `Issuer ${i}`, year: `${2000 + i}` })),
-  publications:   (n) => Array.from({ length: n }, (_, i) => ({ title: `Publication ${i}`, venue: `Venue ${i}`, year: `${2000 + i}` })),
-  languages:      (n) => Array.from({ length: n }, (_, i) => ({ language: `Language ${i}`, proficiency: ['Native', 'Professional', 'Conversational', 'Basic'][i % 4] })),
-  referees:       (n) => Array.from({ length: n }, (_, i) => ({ name: `Referee ${i}`, title: `Title ${i}`, company: `Company ${i}`, email: `referee${i}@example.com`, phone: '+1 (555) 010-0200' })),
-  achievements:   (n) => Array.from({ length: n }, (_, i) => ({ year: `Award ${i}`, text: `— Example Body ${i}` })),
+  certifications: (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      name: `Certification ${i}`,
+      issuer: `Issuer ${i}`,
+      year: `${2000 + i}`
+    })),
+  publications: (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      title: `Publication ${i}`,
+      venue: `Venue ${i}`,
+      year: `${2000 + i}`
+    })),
+  languages: (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      language: `Language ${i}`,
+      proficiency: ['Native', 'Professional', 'Conversational', 'Basic'][i % 4]
+    })),
+  referees: (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      name: `Referee ${i}`,
+      title: `Title ${i}`,
+      company: `Company ${i}`,
+      email: `referee${i}@example.com`,
+      phone: '+1 (555) 010-0200'
+    })),
+  achievements: (n) =>
+    Array.from({ length: n }, (_, i) => ({ year: `Award ${i}`, text: `— Example Body ${i}` }))
 }
 
 export const SECTION_KEYS = Object.keys(ITEM_BUILDERS)
@@ -115,7 +139,7 @@ export function buildContent(spec) {
     personal: buildPersonal(spec),
     summary: buildSummary(spec),
     experience: buildExperience(spec),
-    config: buildConfig(spec),
+    config: buildConfig(spec)
   }
 
   const education = buildEducation(spec)

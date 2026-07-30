@@ -1,7 +1,7 @@
 // ── Summary section (main column) ───────────────────────────────────────────
 import { View } from '@react-pdf/renderer'
-import SectionTitle from '../components/SectionTitle.jsx'
 import BulletList from '../components/BulletList.jsx'
+import SectionTitle from '../components/SectionTitle.jsx'
 
 export default function SummarySection({ data }) {
   const { summary } = data

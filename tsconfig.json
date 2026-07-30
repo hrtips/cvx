@@ -4,7 +4,15 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": true,
-    "strict": false
-  }
+    "checkJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node", "vite/client"],
+    "strict": true
+  },
+  "include": ["src", "bin"],
+  "exclude": ["node_modules", "lib", "dist", "coverage"]
 }

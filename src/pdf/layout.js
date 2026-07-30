@@ -31,25 +31,32 @@ export function deriveMetrics(theme) {
   const t = theme ?? tealTheme
   const ty = t.typography
   const sp = t.spacing
-  const g  = t.geometry
+  const g = t.geometry
   const ch = t.chrome
 
-  const mainW   = g.pageWidth * (1 - g.sidebarFraction)
-  const innerW  = mainW - g.mainPad.left - g.mainPad.right
+  const mainW = g.pageWidth * (1 - g.sidebarFraction)
+  const innerW = mainW - g.mainPad.left - g.mainPad.right
   const bulletW = innerW - sp.bulletIndent
 
   return {
     // Page geometry
-    pageH: g.pageHeight, topBar: g.topBar,
-    mainPad: g.mainPad, contPad: g.contPad,
-    innerW, bulletW,
+    pageH: g.pageHeight,
+    topBar: g.topBar,
+    mainPad: g.mainPad,
+    contPad: g.contPad,
+    innerW,
+    bulletW,
     // Typography
     sectionTitleSize: ty.sectionTitle.size,
     sectionTitleLeading: ty.sectionTitle.leading,
-    roleSize: ty.role.size, roleLeading: ty.role.leading,
-    bodySize: ty.body.size, bodyLeading: ty.body.leading,
-    metaSize: ty.meta.size, metaLeading: ty.meta.leading,
-    descSize: ty.description.size, descLeading: ty.description.leading,
+    roleSize: ty.role.size,
+    roleLeading: ty.role.leading,
+    bodySize: ty.body.size,
+    bodyLeading: ty.body.leading,
+    metaSize: ty.meta.size,
+    metaLeading: ty.meta.leading,
+    descSize: ty.description.size,
+    descLeading: ty.description.leading,
     // Spacing
     sectionTitlePb: sp.sectionTitlePb,
     sectionBorderWidth: ch.sectionBorderWidth,
@@ -59,17 +66,22 @@ export function deriveMetrics(theme) {
     entryMb: sp.entryMb,
     entryMetaMt: sp.entryMetaMt,
     locationMb: sp.locationMb,
-    descMt: sp.descMt, descMb: sp.descMb,
-    progMt: sp.progMt, progMb: sp.progMb, progPy: sp.progPy,
+    descMt: sp.descMt,
+    descMb: sp.descMb,
+    progMt: sp.progMt,
+    progMb: sp.progMb,
+    progPy: sp.progPy,
     dividerHeight: ch.dividerHeight,
     dividerMargin: ch.dividerMargin,
     spacer: sp.spacer,
     safety: sp.safety,
-    cw: ty.charWidthFraction,
+    cw: ty.charWidthFraction
   }
 }
 
-function lh(pt, leading) { return pt * leading }
+function lh(pt, leading) {
+  return pt * leading
+}
 
 /**
  * Quantize a computed height/budget to hundredths of a point (design doc §0
@@ -115,7 +127,12 @@ function countLines(measure, text, pt, w, cw, opts) {
 }
 
 function calcTitleH(m) {
-  return lh(m.sectionTitleSize, m.sectionTitleLeading) + m.sectionTitlePb + m.sectionBorderWidth + m.sectionTitleMb
+  return (
+    lh(m.sectionTitleSize, m.sectionTitleLeading) +
+    m.sectionTitlePb +
+    m.sectionBorderWidth +
+    m.sectionTitleMb
+  )
 }
 
 function calcDividerH(m) {
@@ -132,10 +149,12 @@ const BODY_STYLE = { weight: 400, italic: false }
 const DESC_STYLE = { weight: 400, italic: true }
 
 export function summaryH(summary, m, measure) {
-  let h = calcTitleH(m) + m.descMt  // title + bullet list margin-top
+  let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
     const txt = typeof b === 'string' ? b : b.text
-    h += countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) * lh(m.bodySize, m.bodyLeading)
+    h +=
+      countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+      lh(m.bodySize, m.bodyLeading)
   }
   h += (summary.length - 1) * m.summaryBulletGap
   return quantize(h)
@@ -149,11 +168,13 @@ export function entryH(e, m, measure) {
       h += m.descMt
       for (const b of visible) {
         const txt = typeof b === 'string' ? b : b.text
-        h += countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) * lh(m.bodySize, m.bodyLeading)
+        h +=
+          countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+          lh(m.bodySize, m.bodyLeading)
       }
       h += (visible.length - 1) * m.bulletGap
     }
-    h += m.entryMb * (15 / 11)  // 11.25pt scaled from entryMb
+    h += m.entryMb * (15 / 11) // 11.25pt scaled from entryMb
     return quantize(h)
   }
 
@@ -174,11 +195,13 @@ export function entryH(e, m, measure) {
     h += m.descMt
     for (const b of visibleBullets) {
       const txt = typeof b === 'string' ? b : b.text
-      h += countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) * lh(m.bodySize, m.bodyLeading)
+      h +=
+        countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+        lh(m.bodySize, m.bodyLeading)
     }
     h += (visibleBullets.length - 1) * m.bulletGap
   }
-  h += m.entryMb * (15 / 11)  // 11.25pt
+  h += m.entryMb * (15 / 11) // 11.25pt
   return quantize(h)
 }
 
@@ -191,7 +214,7 @@ export function entryH(e, m, measure) {
  * that content loss, fold them into page 1. Identity slots are de-duplicated
  * (page 1's identity block wins) and order is preserved.
  *
- * @param {object} layout        active layout ({ first, continuation, last })
+ * @param {import('./types.js').NormalizedLayout} layout  active layout ({ first, continuation, last })
  * @param {boolean} isSinglePage true when there are no continuation pages
  * @returns {string[]} sidebar section keys for page 1
  */
@@ -199,10 +222,9 @@ export function resolveFirstSidebar(layout, isSinglePage) {
   const first = layout?.first?.sidebar ?? []
   if (!isSinglePage) return [...first]
 
-  const extra = [
-    ...(layout?.continuation?.sidebar ?? []),
-    ...(layout?.last?.sidebar ?? []),
-  ].filter((k) => !k.startsWith('identity-'))
+  const extra = [...(layout?.continuation?.sidebar ?? []), ...(layout?.last?.sidebar ?? [])].filter(
+    (k) => !k.startsWith('identity-')
+  )
 
   return [...new Set([...first, ...extra])]
 }
@@ -247,7 +269,7 @@ export const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
  * content really overflows, the renderer clips it at the page edge (the
  * template columns use minHeight, never shrink).
  *
- * @param {ReturnType<import('./measure.js').createMeasurer>} [measure]
+ * @param {ReturnType<typeof import('./measure.js').createMeasurer>} [measure]
  *   optional real-font measurer (render.js/validateContent.js inject one
  *   when they have `fontsDir`); omit for the char-width estimate.
  */
@@ -258,7 +280,8 @@ export function estimatePage1Overflow(experience, summary, config = {}, theme, m
   const m = deriveMetrics(theme)
   const entries = experience.slice(0, count).map((e, i) => {
     const isLast = i === count - 1
-    if (isLast && splitAt != null && splitAt < (e.bullets?.length ?? 0)) return { ...e, endBullet: splitAt }
+    if (isLast && splitAt != null && splitAt < (e.bullets?.length ?? 0))
+      return { ...e, endBullet: splitAt }
     return e
   })
 
@@ -267,32 +290,39 @@ export function estimatePage1Overflow(experience, summary, config = {}, theme, m
     used += entryH(e, m, measure) + (i > 0 ? calcDividerH(m) : 0)
   })
 
-  const budget = m.pageH - m.topBar - m.mainPad.top - m.mainPad.bottom
-    - summaryH(summary ?? [], m, measure) - m.spacer - calcTitleH(m) - m.safety
+  const budget =
+    m.pageH -
+    m.topBar -
+    m.mainPad.top -
+    m.mainPad.bottom -
+    summaryH(summary ?? [], m, measure) -
+    m.spacer -
+    calcTitleH(m) -
+    m.safety
 
   return Math.max(0, Math.round(quantize(used) - quantize(budget)))
 }
 
 /**
- * @param {ReturnType<import('./measure.js').createMeasurer>} [measure]
+ * @param {ReturnType<typeof import('./measure.js').createMeasurer>} [measure]
  *   optional real-font measurer — see estimatePage1Overflow's docblock.
  */
 export function packExperiences(experience, summary, config = {}, theme, measure) {
   const m = deriveMetrics(theme)
   const { page1ExperienceCount, page1SplitBullets } = config
 
-  const TITLE_H   = calcTitleH(m)
+  const TITLE_H = calcTitleH(m)
   const DIVIDER_H = calcDividerH(m)
   const BC = m.pageH - m.topBar - m.contPad.top - m.contPad.bottom - TITLE_H - m.safety
 
   // ── Config-driven explicit split ─────────────────────────────────────────
   if (page1ExperienceCount != null) {
-    const count   = page1ExperienceCount
+    const count = page1ExperienceCount
     const splitAt = page1SplitBullets ?? null
 
     const fullOnPage1 = experience.slice(0, count - 1)
-    const splitEntry  = experience[count - 1]
-    const afterPage1  = experience.slice(count)
+    const splitEntry = experience[count - 1]
+    const afterPage1 = experience.slice(count)
 
     let page1Experiences
     let continuationHead = []
@@ -329,15 +359,16 @@ export function packExperiences(experience, summary, config = {}, theme, measure
 
   // ── Automatic greedy bin-packing ─────────────────────────────────────────
   const sumH = summaryH(summary, m, measure)
-  const B1 = m.pageH - m.topBar - m.mainPad.top - m.mainPad.bottom - sumH - m.spacer - TITLE_H - m.safety
+  const B1 =
+    m.pageH - m.topBar - m.mainPad.top - m.mainPad.bottom - sumH - m.spacer - TITLE_H - m.safety
 
-  const pages   = []
+  const pages = []
   let remaining = [...experience]
-  let budget    = B1
+  let budget = B1
 
   while (remaining.length > 0) {
     const page = []
-    let used   = 0
+    let used = 0
     for (const e of remaining) {
       const eh = entryH(e, m, measure)
       const dh = page.length > 0 ? DIVIDER_H : 0
@@ -348,8 +379,12 @@ export function packExperiences(experience, summary, config = {}, theme, measure
     if (page.length === 0) page.push(remaining[0])
     pages.push(page)
     remaining = remaining.slice(page.length)
-    budget    = BC
+    budget = BC
   }
 
-  return { page1Experiences: pages[0] ?? [], continuationChunks: pages.slice(1), totalPages: pages.length }
+  return {
+    page1Experiences: pages[0] ?? [],
+    continuationChunks: pages.slice(1),
+    totalPages: pages.length
+  }
 }

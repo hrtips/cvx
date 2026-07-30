@@ -53,7 +53,7 @@ function normalizePage(page) {
   if (!page) return null
   const result = {}
   if (page.sidebar) result.sidebar = normalizeSlot(page.sidebar)
-  if (page.main)    result.main    = normalizeSlot(page.main)
+  if (page.main) result.main = normalizeSlot(page.main)
   return result
 }
 
@@ -68,13 +68,13 @@ function normalizePage(page) {
  */
 export function normalizeLayout(parsed) {
   const result = {
-    template: parsed.template ?? 'two-column',
+    template: parsed.template ?? 'two-column'
   }
 
   const pages = parsed.pages ?? parsed
-  if (pages.first)        result.first        = normalizePage(pages.first)
+  if (pages.first) result.first = normalizePage(pages.first)
   if (pages.continuation) result.continuation = normalizePage(pages.continuation)
-  if (pages.last)         result.last         = normalizePage(pages.last)
+  if (pages.last) result.last = normalizePage(pages.last)
 
   return result
 }

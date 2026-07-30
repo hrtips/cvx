@@ -9,12 +9,12 @@
  * (or will receive) cv-content/. MCP clients don't reliably set the server's
  * working directory, so agents should pass it explicitly.
  */
-import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join, resolve, basename } from 'path'
-import { validateContent } from '../pdf/validateContent.js'
+import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { renderCV } from '../pdf/render.js'
 import { discoverThemes } from '../pdf/themes/index.js'
+import { validateContent } from '../pdf/validateContent.js'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -27,16 +27,24 @@ function resolveFontsDir() {
   return existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts')
 }
 
+/** @param {{ dir?: string }} [args] */
 export async function getSchema({ dir } = {}) {
   const schema = JSON.parse(readFileSync(join(pkgRoot, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
-  const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
+  const themes = Object.keys(await discoverThemes()).map((name) => ({
+    name,
+    default: name === 'teal'
+  }))
 
   const layoutsDir = join(contentDirOf(dir), 'layouts')
   const builtIn = ['two-column', 'single-column']
   const names = new Set(builtIn)
-  const layouts = builtIn.map((name) => ({ name, default: name === 'two-column', source: 'built-in' }))
+  const layouts = builtIn.map((name) => ({
+    name,
+    default: name === 'two-column',
+    source: 'built-in'
+  }))
   if (existsSync(layoutsDir)) {
-    for (const f of readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml'))) {
+    for (const f of readdirSync(layoutsDir).filter((name) => name.endsWith('.yaml'))) {
       const name = basename(f, '.yaml')
       if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
       names.add(name)
@@ -45,10 +53,14 @@ export async function getSchema({ dir } = {}) {
   return { schemaVersion: 1, schema, themes, layouts }
 }
 
+/** @param {{ dir?: string }} [args] */
 export async function initCv({ dir } = {}) {
   const dest = contentDirOf(dir)
   if (existsSync(dest)) {
-    return { ok: false, error: { code: 'already-exists', message: `${dest} already exists — refusing to overwrite` } }
+    return {
+      ok: false,
+      error: { code: 'already-exists', message: `${dest} already exists — refusing to overwrite` }
+    }
   }
   cpSync(join(pkgRoot, 'template', 'cv-content'), dest, { recursive: true })
   return {
@@ -56,29 +68,51 @@ export async function initCv({ dir } = {}) {
     dest,
     nextSteps: [
       'Edit the YAML files in cv-content/ with real, truthful details (see AGENTS.md there)',
-      'Replace or delete cv-content/images/profile.jpg — it is the example person\'s photo; never ship it on a real CV',
+      "Replace or delete cv-content/images/profile.jpg — it is the example person's photo; never ship it on a real CV",
       'Ask the user for their photo (square, 400x400px+) — it cannot be generated; the CV renders fine without one',
-      'Run validate_cv after every edit, then build_pdf',
-    ],
+      'Run validate_cv after every edit, then build_pdf'
+    ]
   }
 }
 
+/** @param {{ dir?: string, strict?: boolean }} [args] */
 export async function validateCv({ dir, strict = true } = {}) {
-  const result = validateContent({ contentDir: contentDirOf(dir), strict, fontsDir: resolveFontsDir() })
-  return { ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked }
+  const result = validateContent({
+    contentDir: contentDirOf(dir),
+    strict,
+    fontsDir: resolveFontsDir()
+  })
+  return {
+    ok: result.ok,
+    schemaVersion: 1,
+    strict,
+    errors: result.errors,
+    warnings: result.warnings,
+    checked: result.checked
+  }
 }
 
+/** @param {{ dir?: string, ats?: boolean }} [args] */
 export async function buildPdf({ dir, ats = false } = {}) {
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: contentDirOf(dir),
     fontsDir: resolveFontsDir(),
     ats,
-    warn: (msg) => warnings.push(msg),
+    warn: (msg) => warnings.push(msg)
   })
   const path = join(workspace(dir), filename)
   writeFileSync(path, buffer)
-  return { ok: true, filename, path, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName, warnings }
+  return {
+    ok: true,
+    filename,
+    path,
+    bytes: buffer.byteLength,
+    ats,
+    theme: ats ? null : themeName,
+    layout: ats ? null : layoutName,
+    warnings
+  }
 }
 
 /**
@@ -94,25 +128,33 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        dir: { type: 'string', description: 'Absolute path of the workspace folder containing cv-content/. Defaults to the server working directory.' },
+        dir: {
+          type: 'string',
+          description:
+            'Absolute path of the workspace folder containing cv-content/. Defaults to the server working directory.'
+        }
       },
-      additionalProperties: false,
+      additionalProperties: false
     },
-    handler: getSchema,
+    handler: getSchema
   },
   {
     name: 'init_cv',
     title: 'Scaffold a starter cv-content/ folder',
     description:
-      'Creates cv-content/ with a complete example CV (Bruce Wayne) in the given workspace folder. Call when the user wants to start a CV and no cv-content/ exists. Refuses to overwrite an existing folder. After init, replace the example content with the user\'s real, truthful details — never invent facts.',
+      "Creates cv-content/ with a complete example CV (Bruce Wayne) in the given workspace folder. Call when the user wants to start a CV and no cv-content/ exists. Refuses to overwrite an existing folder. After init, replace the example content with the user's real, truthful details — never invent facts.",
     inputSchema: {
       type: 'object',
       properties: {
-        dir: { type: 'string', description: 'Absolute path of the workspace folder to scaffold into. Defaults to the server working directory.' },
+        dir: {
+          type: 'string',
+          description:
+            'Absolute path of the workspace folder to scaffold into. Defaults to the server working directory.'
+        }
       },
-      additionalProperties: false,
+      additionalProperties: false
     },
-    handler: initCv,
+    handler: initCv
   },
   {
     name: 'validate_cv',
@@ -122,12 +164,21 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        dir: { type: 'string', description: 'Absolute path of the workspace folder containing cv-content/. Defaults to the server working directory.' },
-        strict: { type: 'boolean', description: 'Treat warnings (e.g. unknown keys) as errors. Default true — recommended for agents.', default: true },
+        dir: {
+          type: 'string',
+          description:
+            'Absolute path of the workspace folder containing cv-content/. Defaults to the server working directory.'
+        },
+        strict: {
+          type: 'boolean',
+          description:
+            'Treat warnings (e.g. unknown keys) as errors. Default true — recommended for agents.',
+          default: true
+        }
       },
-      additionalProperties: false,
+      additionalProperties: false
     },
-    handler: validateCv,
+    handler: validateCv
   },
   {
     name: 'build_pdf',
@@ -137,11 +188,20 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        dir: { type: 'string', description: 'Absolute path of the workspace folder containing cv-content/. The PDF is written here. Defaults to the server working directory.' },
-        ats: { type: 'boolean', description: 'Build the ATS-safe single-column variant instead of the designed two-column CV.', default: false },
+        dir: {
+          type: 'string',
+          description:
+            'Absolute path of the workspace folder containing cv-content/. The PDF is written here. Defaults to the server working directory.'
+        },
+        ats: {
+          type: 'boolean',
+          description:
+            'Build the ATS-safe single-column variant instead of the designed two-column CV.',
+          default: false
+        }
       },
-      additionalProperties: false,
+      additionalProperties: false
     },
-    handler: buildPdf,
-  },
+    handler: buildPdf
+  }
 ]

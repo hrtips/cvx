@@ -25,8 +25,8 @@
 //      make separately).
 // ─────────────────────────────────────────────────────────────────────────
 
-import * as fontkit from 'fontkit'
 import path from 'node:path'
+import { openSync } from 'fontkit'
 
 // Mirrors fonts.js's registerFonts() weight table exactly: only 300 and 400
 // have a registered italic file; 500 aliases to the 400 (Regular) file and
@@ -43,7 +43,10 @@ function fontFileFor(weight, italic) {
 const WEIGHT_BUCKETS = [300, 400, 500, 600, 700]
 function nearestWeightBucket(weight) {
   if (!weight) return 400
-  return WEIGHT_BUCKETS.reduce((best, w) => (Math.abs(w - weight) < Math.abs(best - weight) ? w : best), 400)
+  return WEIGHT_BUCKETS.reduce(
+    (best, w) => (Math.abs(w - weight) < Math.abs(best - weight) ? w : best),
+    400
+  )
 }
 
 // Codepoints that are never "visibly missing" even without a glyph: ASCII
@@ -73,7 +76,7 @@ export function createMeasurer(fontsDir) {
 
   function fontFor(weight, italic) {
     const file = fontFileFor(weight, italic)
-    if (!fontCache.has(file)) fontCache.set(file, fontkit.openSync(path.join(fontsDir, file)))
+    if (!fontCache.has(file)) fontCache.set(file, openSync(path.join(fontsDir, file)))
     return fontCache.get(file)
   }
 
@@ -163,7 +166,11 @@ export function createMeasurer(fontsDir) {
  *   `path` is a JSON-Pointer relative to `file` (e.g. "/name", "/0/bullets/1"),
  *   matching the shape validateContent.js's other findings already use.
  */
-export function findUnsupportedGlyphs(measurer, contentBag, { skipKeys = ['config', 'profilePhoto', 'keywords'] } = {}) {
+export function findUnsupportedGlyphs(
+  measurer,
+  contentBag,
+  { skipKeys = ['config', 'profilePhoto', 'keywords'] } = {}
+) {
   const findings = []
 
   function walk(value, file, pointer) {
@@ -174,7 +181,9 @@ export function findUnsupportedGlyphs(measurer, contentBag, { skipKeys = ['confi
       return
     }
     if (Array.isArray(value)) {
-      value.forEach((v, i) => walk(v, file, `${pointer}/${i}`))
+      value.forEach((v, i) => {
+        walk(v, file, `${pointer}/${i}`)
+      })
       return
     }
     if (typeof value === 'object') {

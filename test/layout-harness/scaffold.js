@@ -4,11 +4,11 @@
 // trivially unit-testable.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { dump } from 'js-yaml'
 
 export const ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))))
@@ -54,7 +54,11 @@ export function mkFixtureDir(id) {
 export function cleanupFixtureDirs() {
   const dirs = createdDirs.splice(0, createdDirs.length)
   for (const dir of dirs) {
-    try { rmSync(dir, { recursive: true, force: true }) } catch { /* best-effort — never fail a test run on cleanup */ }
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {
+      /* best-effort — never fail a test run on cleanup */
+    }
   }
 }
 
@@ -79,10 +83,19 @@ export function runCli(dir, args, { env } = {}) {
     // runner's own stderr) — our fixtures deliberately omit cv-content/
     // layouts/, so every run logs a harmless "layout not found, using
     // built-in default" warning that would otherwise spam `npm test` output.
-    const stdout = execFileSync('node', [CLI, ...args], { cwd: dir, encoding: 'utf8', env: env ?? process.env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const stdout = execFileSync('node', [CLI, ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: env ?? process.env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
     return { code: 0, stdout }
   } catch (e) {
-    return { code: e.status ?? 1, stdout: e.stdout?.toString() ?? '', stderr: e.stderr?.toString() ?? '' }
+    return {
+      code: e.status ?? 1,
+      stdout: e.stdout?.toString() ?? '',
+      stderr: e.stderr?.toString() ?? ''
+    }
   }
 }
 
@@ -119,21 +132,38 @@ export function runCli(dir, args, { env } = {}) {
  */
 export function buildAll(dir, { env } = {}) {
   const designed = runCli(dir, ['build', '--json'], { env })
-  if (designed.code !== 0) return { code: designed.code, result: null, stdout: designed.stdout, stderr: designed.stderr }
+  if (designed.code !== 0)
+    return { code: designed.code, result: null, stdout: designed.stdout, stderr: designed.stderr }
   const ats = runCli(dir, ['build', '--ats', '--json'], { env })
-  if (ats.code !== 0) return { code: ats.code, result: null, stdout: ats.stdout, stderr: ats.stderr }
+  if (ats.code !== 0)
+    return { code: ats.code, result: null, stdout: ats.stdout, stderr: ats.stderr }
 
   let designedResult, atsResult
   try {
     designedResult = JSON.parse(designed.stdout)
     atsResult = JSON.parse(ats.stdout)
   } catch {
-    return { code: 1, result: null, stdout: `${designed.stdout}\n${ats.stdout}`, stderr: 'failed to parse build --json stdout' }
+    return {
+      code: 1,
+      result: null,
+      stdout: `${designed.stdout}\n${ats.stdout}`,
+      stderr: 'failed to parse build --json stdout'
+    }
   }
   if (!designedResult.ok || !atsResult.ok) {
-    return { code: 1, result: { ok: false, outputs: [designedResult, atsResult] }, stdout: '', stderr: '' }
+    return {
+      code: 1,
+      result: { ok: false, outputs: [designedResult, atsResult] },
+      stdout: '',
+      stderr: ''
+    }
   }
-  return { code: 0, result: { ok: true, all: true, outputs: [designedResult, atsResult] }, stdout: '', stderr: '' }
+  return {
+    code: 0,
+    result: { ok: true, all: true, outputs: [designedResult, atsResult] },
+    stdout: '',
+    stderr: ''
+  }
 }
 
 function numericSuffix(filename) {

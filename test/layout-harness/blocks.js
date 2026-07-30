@@ -54,7 +54,7 @@ export function experienceBlockIds(entries) {
 function fragmentBlockIds(e, canonicalIndex) {
   const id = expBlockId(canonicalIndex, e)
   const start = e.startBullet ?? 0
-  const end = e.endBullet ?? (e.bullets?.length ?? 0)
+  const end = e.endBullet ?? e.bullets?.length ?? 0
   const bulletIds = []
   for (let i = start; i < end; i++) bulletIds.push(`${id}::bullet:${i}`)
   return e.isContinuation ? bulletIds : [`${id}::head`, ...bulletIds]
@@ -82,11 +82,13 @@ export function mainPlanFromPackResult({ page1Experiences, continuationChunks },
     return fragmentBlockIds(e, canonicalIndex)
   }
 
-  const pages = [{
-    index: 0,
-    main: [...summaryBlockIds(summary), ...page1Experiences.flatMap(nextFragmentIds)],
-    sidebar: [],
-  }]
+  const pages = [
+    {
+      index: 0,
+      main: [...summaryBlockIds(summary), ...page1Experiences.flatMap(nextFragmentIds)],
+      sidebar: []
+    }
+  ]
   continuationChunks.forEach((chunk, i) => {
     pages.push({ index: i + 1, main: chunk.flatMap(nextFragmentIds), sidebar: [] })
   })

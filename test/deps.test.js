@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 
 // Regression guard for R4: the Node export path imports `js-yaml` directly,
 // while the browser/Vite path parses YAML through `@rollup/plugin-yaml`, which
@@ -23,7 +23,9 @@ describe('js-yaml alignment across content-loading paths (R4)', () => {
     // The plugin either nests its own copy or dedupes to the top-level one.
     let pluginMajor
     try {
-      pluginMajor = major(versionOf('node_modules/@rollup/plugin-yaml/node_modules/js-yaml/package.json'))
+      pluginMajor = major(
+        versionOf('node_modules/@rollup/plugin-yaml/node_modules/js-yaml/package.json')
+      )
     } catch {
       pluginMajor = appMajor // no nested copy → deduped to the top-level js-yaml
     }

@@ -51,6 +51,9 @@ function toList(value) {
  * Company names are deliberately NOT derived: they are low-signal as keywords
  * and mostly add noise.
  */
+/**
+ * @param {Pick<import('./types.js').CVContent, 'competencies' | 'experience' | 'personal'>} content
+ */
 function deriveFromContent({ competencies, experience, personal }) {
   const out = [...toList(competencies)]
 
@@ -83,12 +86,12 @@ function dedupe(list) {
 /**
  * Build the comma-separated keyword string for the PDF's Keywords metadata.
  *
- * @param {object} data    { keywords, competencies, experience, personal }
- * @param {object} config  parsed config.yaml (reads config.atsKeywords)
+ * @param {import('./types.js').CVContent} data    { keywords, competencies, experience, personal }
+ * @param {import('./types.js').CVConfig} config  parsed config.yaml (reads config.atsKeywords)
  * @returns {string}       deduped, comma-joined keywords ("" when disabled/empty)
  */
 export function buildKeywords(data = {}, config = {}) {
-  const opts = (config && config.atsKeywords) || {}
+  const opts = config?.atsKeywords || {}
   if (opts.enabled === false) return ''
 
   const manual = toList(data.keywords)

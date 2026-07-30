@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "plugins": ["react", "react-hooks", "import", "vitest"],
+  "categories": {
+    "correctness": "deny",
+    "suspicious": "deny"
+  },
+  "rules": {
+    "no-unused-vars": "off",
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/rules-of-hooks": "error",
+    "vitest/no-focused-tests": "error",
+    "vitest/warn-todo": "off",
+    "vitest/valid-title": "off",
+    "no-underscore-dangle": ["error", { "allow": ["__dir", "require_", "_discovered", "_hasPdftoppm"] }]
+  },
+  "ignorePatterns": ["dist/**", "lib/**", "coverage/**", "node_modules/**", "**/*.d.ts"]
+}

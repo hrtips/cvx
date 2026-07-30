@@ -1,30 +1,50 @@
-import { View, Text, Link, StyleSheet } from '@react-pdf/renderer'
-import { useStyles } from '../ThemeContext.jsx'
+import { Link, StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
+import { useStyles } from '../ThemeContext.jsx'
 
-const makeStyles = (t) => StyleSheet.create({
-  divider: { height: t.chrome.dividerHeight, backgroundColor: t.palette.divider, marginVertical: t.spacing.sectionGap },
-  name:    { fontSize: t.typography.refName.size, fontWeight: t.typography.refName.weight, color: t.palette.textDark },
-  title:   { fontSize: t.typography.refDetail.size, color: t.palette.textBody, marginTop: 0.75 },
-  company: { fontSize: t.typography.refContact.size, color: t.palette.textBody },
-  contact: { marginTop: t.spacing.descMt },
-  row:     { flexDirection: 'row', alignItems: 'center', marginTop: t.spacing.entryMetaMt },
-  label:   { fontSize: 7, color: t.palette.textMuted, width: 9 },
-  value:   { fontSize: t.typography.refContact.size, color: t.palette.textContact },
-  link:    { fontSize: t.typography.refContact.size, color: t.palette.textContact, textDecoration: 'none' },
-  empty:   { fontSize: t.typography.meta.size, fontStyle: 'italic', color: t.palette.textMuted },
-})
+const makeStyles = (t) =>
+  StyleSheet.create({
+    divider: {
+      height: t.chrome.dividerHeight,
+      backgroundColor: t.palette.divider,
+      marginVertical: t.spacing.sectionGap
+    },
+    name: {
+      fontSize: t.typography.refName.size,
+      fontWeight: t.typography.refName.weight,
+      color: t.palette.textDark
+    },
+    title: { fontSize: t.typography.refDetail.size, color: t.palette.textBody, marginTop: 0.75 },
+    company: { fontSize: t.typography.refContact.size, color: t.palette.textBody },
+    contact: { marginTop: t.spacing.descMt },
+    row: { flexDirection: 'row', alignItems: 'center', marginTop: t.spacing.entryMetaMt },
+    label: { fontSize: 7, color: t.palette.textMuted, width: 9 },
+    value: { fontSize: t.typography.refContact.size, color: t.palette.textContact },
+    link: {
+      fontSize: t.typography.refContact.size,
+      color: t.palette.textContact,
+      textDecoration: 'none'
+    },
+    empty: { fontSize: t.typography.meta.size, fontStyle: 'italic', color: t.palette.textMuted }
+  })
 
 function Referee({ r, s }) {
   return (
     <View>
       <Text style={s.name}>{r.name}</Text>
-      {r.title && <Text style={s.title}>{r.title}{r.company ? `, ${r.company}` : ''}</Text>}
+      {r.title && (
+        <Text style={s.title}>
+          {r.title}
+          {r.company ? `, ${r.company}` : ''}
+        </Text>
+      )}
       <View style={s.contact}>
         {r.email && (
           <View style={s.row}>
             <Text style={s.label}>@</Text>
-            <Link src={`mailto:${r.email}`} style={s.link}>{r.email}</Link>
+            <Link src={`mailto:${r.email}`} style={s.link}>
+              {r.email}
+            </Link>
           </View>
         )}
         {r.phone && (
