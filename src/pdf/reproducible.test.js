@@ -28,11 +28,11 @@ describe('resolveCreationDate (SOURCE_DATE_EPOCH)', () => {
   it('pins the date to the given epoch seconds', () => {
     const d = resolveCreationDate({ SOURCE_DATE_EPOCH: '1700000000' })
     expect(d).toBeInstanceOf(Date)
-    expect(d.getTime()).toBe(1700000000 * 1000)
+    expect(/** @type {Date} */ (d).getTime()).toBe(1700000000 * 1000)
   })
 
   it('accepts epoch zero', () => {
-    expect(resolveCreationDate({ SOURCE_DATE_EPOCH: '0' }).getTime()).toBe(0)
+    expect(/** @type {Date} */ (resolveCreationDate({ SOURCE_DATE_EPOCH: '0' })).getTime()).toBe(0)
   })
 
   it('rejects non-integer or negative values with a warning', () => {
@@ -71,9 +71,10 @@ describe('makeDeflateSynchronous', () => {
 
     makeDeflateSynchronous()
     const shim = zlib.createDeflate()
+    /** @type {Buffer[]} */
     const out = []
     let ended = false
-    shim.on('data', c => out.push(c))
+    shim.on('data', (/** @type {Buffer} */ c) => out.push(c))
     shim.on('end', () => { ended = true })
     shim.write(input.subarray(0, 100))
     shim.end(input.subarray(100))
@@ -102,7 +103,7 @@ describe('setupReproducibility', () => {
 
   it('seeds the RNG and swaps deflate when SOURCE_DATE_EPOCH is set', () => {
     const { creationDate } = setupReproducibility({ SOURCE_DATE_EPOCH: '1700000000' })
-    expect(creationDate.getTime()).toBe(1700000000 * 1000)
+    expect(/** @type {Date} */ (creationDate).getTime()).toBe(1700000000 * 1000)
     expect(Math.random).not.toBe(realRandom)
     expect(zlib.createDeflate).not.toBe(realCreateDeflate)
   })

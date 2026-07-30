@@ -1,6 +1,7 @@
 import { View, Text, Link, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   list: { marginTop: t.spacing.descMt },
   item: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -9,12 +10,13 @@ const makeStyles = (t) => StyleSheet.create({
   link: { color: t.palette.textDark, textDecoration: 'underline' },
 })
 
+/** @param {{ items: import('../types.js').BulletItem[], gap?: number }} props */
 export default function BulletList({ items, gap = 4.5 }) {
   const s = useStyles(makeStyles)
   return (
     <View style={s.list}>
       {items.map((item, i) => (
-        <View key={i} style={[s.item, i > 0 && { marginTop: gap }]}>
+        <View key={i} style={/** @type {import('@react-pdf/types').Style[]} */ ([s.item, i > 0 && { marginTop: gap }])}>
           <Text style={s.dash}>–</Text>
           <Text style={s.text}>
             {typeof item === 'string' ? item : (

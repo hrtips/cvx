@@ -2,6 +2,7 @@ import { View, Text, Link, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 import SectionTitle from '../components/SectionTitle.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   divider: { height: t.chrome.dividerHeight, backgroundColor: t.palette.divider, marginVertical: t.spacing.sectionGap },
   name:    { fontSize: t.typography.refName.size, fontWeight: t.typography.refName.weight, color: t.palette.textDark },
@@ -15,6 +16,7 @@ const makeStyles = (t) => StyleSheet.create({
   empty:   { fontSize: t.typography.meta.size, fontStyle: 'italic', color: t.palette.textMuted },
 })
 
+/** @param {{ r: import('../types.js').RefereeEntry, s: ReturnType<typeof makeStyles> }} props */
 function Referee({ r, s }) {
   return (
     <View>
@@ -38,17 +40,18 @@ function Referee({ r, s }) {
   )
 }
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function RefereesSection({ data }) {
   const s = useStyles(makeStyles)
   const { referees } = data
   return (
     <View>
       <SectionTitle variant="sidebar">Referees</SectionTitle>
-      {referees?.length > 0 ? (
-        referees.map((r, i) => (
+      {/** @type {import('../types.js').RefereeEntry[]} */ (referees)?.length > 0 ? (
+        /** @type {import('../types.js').RefereeEntry[]} */ (referees).map((r, i) => (
           <View key={r.name}>
             <Referee r={r} s={s} />
-            {i < referees.length - 1 && <View style={s.divider} />}
+            {i < /** @type {import('../types.js').RefereeEntry[]} */ (referees).length - 1 && <View style={s.divider} />}
           </View>
         ))
       ) : (

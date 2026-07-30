@@ -75,8 +75,9 @@ export function makeDeflateSynchronous() {
   Object.defineProperty(zlib, 'createDeflate', {
     configurable: true,
     value: function createDeflateSync() {
+      /** @type {Buffer[]} */
       const chunks = []
-      const shim = new EventEmitter()
+      const shim = /** @type {import('node:events').EventEmitter & { write: (chunk: Buffer | string) => boolean, end: (chunk?: Buffer | string) => void }} */ (new EventEmitter())
       shim.write = (chunk) => { chunks.push(Buffer.from(chunk)); return true }
       shim.end = (chunk) => {
         if (chunk) chunks.push(Buffer.from(chunk))

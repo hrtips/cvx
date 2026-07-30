@@ -18,8 +18,8 @@ import { discoverThemes } from '../pdf/themes/index.js'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-const workspace = (dir) => resolve(dir ?? process.cwd())
-const contentDirOf = (dir) => join(workspace(dir), 'cv-content')
+const workspace = (/** @type {string | undefined} */ dir) => resolve(dir ?? process.cwd())
+const contentDirOf = (/** @type {string | undefined} */ dir) => join(workspace(dir), 'cv-content')
 
 // lib/fonts in the published package; src/fonts in a repo checkout pre-build.
 function resolveFontsDir() {
@@ -27,7 +27,7 @@ function resolveFontsDir() {
   return existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts')
 }
 
-export async function getSchema({ dir } = {}) {
+export async function getSchema(/** @type {{ dir?: string }} */ { dir } = {}) {
   const schema = JSON.parse(readFileSync(join(pkgRoot, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
   const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
 
@@ -45,7 +45,7 @@ export async function getSchema({ dir } = {}) {
   return { schemaVersion: 1, schema, themes, layouts }
 }
 
-export async function initCv({ dir } = {}) {
+export async function initCv(/** @type {{ dir?: string }} */ { dir } = {}) {
   const dest = contentDirOf(dir)
   if (existsSync(dest)) {
     return { ok: false, error: { code: 'already-exists', message: `${dest} already exists — refusing to overwrite` } }
@@ -63,12 +63,13 @@ export async function initCv({ dir } = {}) {
   }
 }
 
-export async function validateCv({ dir, strict = true } = {}) {
+export async function validateCv(/** @type {{ dir?: string, strict?: boolean }} */ { dir, strict = true } = {}) {
   const result = validateContent({ contentDir: contentDirOf(dir), strict, fontsDir: resolveFontsDir() })
   return { ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked }
 }
 
-export async function buildPdf({ dir, ats = false } = {}) {
+export async function buildPdf(/** @type {{ dir?: string, ats?: boolean }} */ { dir, ats = false } = {}) {
+  /** @type {string[]} */
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: contentDirOf(dir),

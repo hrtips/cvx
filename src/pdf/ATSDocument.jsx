@@ -13,6 +13,7 @@ import { useMemo } from 'react'
 
 const M = 42  // page margin ≈ 14.8mm
 
+/** @param {import('./types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   page:        { fontFamily: t.typography.fontFamily, backgroundColor: t.palette.white, paddingHorizontal: M, paddingTop: M, paddingBottom: M },
 
@@ -64,6 +65,7 @@ const makeStyles = (t) => StyleSheet.create({
   refGap:      { height: 7 },
 })
 
+/** @param {import('./types.js').RenderContent} props */
 function ATSContent({ personal, summary, experience, achievements, education, certifications, publications, languages, competencies, referees, profilePhoto }) {
   const theme = useTheme()
   const s = useMemo(() => makeStyles(theme), [theme])
@@ -113,9 +115,9 @@ function ATSContent({ personal, summary, experience, achievements, education, ce
                 <Text style={s.period}>{e.period}</Text>
               </View>
               {e.description && <Text style={s.desc}>{e.description}</Text>}
-              {e.progression?.length > 0 && (
+              {/** @type {import('./types.js').ProgressionStep[]} */ (e.progression)?.length > 0 && (
                 <View style={s.progBlock}>
-                  {e.progression.map((p) => (
+                  {/** @type {import('./types.js').ProgressionStep[]} */ (e.progression).map((p) => (
                     <View key={p.title} style={s.progRow}>
                       <Text style={s.progTitle}>{p.title}</Text>
                       <Text style={s.progPeriod}>{p.period}</Text>
@@ -230,6 +232,13 @@ function ATSContent({ personal, summary, experience, achievements, education, ce
   )
 }
 
+/**
+ * @param {import('./types.js').RenderContent & {
+ *   theme?: import('./types.js').Theme,
+ *   config?: import('./types.js').CVConfig,
+ *   creationDate?: Date,
+ * }} props
+ */
 export default function ATSDocument({
   personal, summary, experience, achievements,
   education, certifications, publications, languages,

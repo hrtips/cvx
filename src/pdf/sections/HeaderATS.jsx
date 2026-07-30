@@ -1,6 +1,7 @@
 import { View, Text, Image, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   headerRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 },
   headerText:  { flex: 1, paddingRight: 12 },
@@ -10,6 +11,7 @@ const makeStyles = (t) => StyleSheet.create({
   photo:       { width: t.chrome.atsPhotoSize, height: t.chrome.atsPhotoSize, objectFit: 'cover', borderRadius: t.chrome.atsPhotoBorderRadius },
 })
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function HeaderATS({ data }) {
   const s = useStyles(makeStyles)
   const { personal, profilePhoto } = data

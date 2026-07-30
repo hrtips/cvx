@@ -54,7 +54,7 @@ function App() {
   return (
     <div style={{ background: '#c8c8c8', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0' }}>
       <iframe
-        src={instance.url}
+        src={/** @type {string} */ (instance.url)}
         style={{ width: '794px', minHeight: '1123px', border: 'none', boxShadow: '0 6px 32px rgba(0,0,0,0.22)' }}
         title="CV Preview"
       />
@@ -62,4 +62,4 @@ function App() {
   )
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+createRoot(/** @type {HTMLElement} */ (document.getElementById('root'))).render(<App />)

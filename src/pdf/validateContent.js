@@ -21,7 +21,7 @@ import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.j
 import { createMeasurer, findUnsupportedGlyphs, describeUnsupportedGlyphFinding } from './measure.js'
 import { THEMES } from './themes/index.js'
 
-const Ajv2020 = Ajv2020Module.default ?? Ajv2020Module
+const Ajv2020 = /** @type {any} */ (Ajv2020Module).default ?? Ajv2020Module
 
 const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'schema', 'v1', 'cvx.schema.json')
 const BUILT_IN_THEMES = ['teal', 'coral', 'mono']
@@ -30,8 +30,18 @@ const BUILT_IN_LAYOUTS = ['two-column', 'single-column']
 // crashes on a missing list, and personal.name drives the filename).
 const REQUIRED_FILES = ['personal', 'summary', 'experience']
 
-let ajv, canonicalSchema
-function getValidator(def) {
+/**
+ * @typedef {{ path?: string, message: string, suggestion?: string }} RawFinding
+ * @typedef {{ path: string, message: string, suggestion?: string, unknownKey?: boolean, keyword?: string }} MapFinding
+ * @typedef {{ file: string, code: string, path: string, message: string, suggestion?: string }} Finding
+ * @typedef {{ mark: { line: number }, reason?: string, message?: string }} YamlErr
+ */
+
+/** @type {any} */
+let ajv
+/** @type {any} */
+let canonicalSchema
+function getValidator(/** @type {string} */ def) {
   if (!ajv) {
     canonicalSchema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))
     ajv = new Ajv2020({ allErrors: true, verbose: true })
@@ -42,7 +52,7 @@ function getValidator(def) {
     ?? ajv.compile({ $ref: `${canonicalSchema.$id}#/$defs/${def}` })
 }
 
-function levenshtein(a, b) {
+function levenshtein(/** @type {string} */ a, /** @type {string} */ b) {
   const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
   for (let j = 1; j <= b.length; j++) m[0][j] = j
   for (let i = 1; i <= a.length; i++)
@@ -51,7 +61,7 @@ function levenshtein(a, b) {
   return m[a.length][b.length]
 }
 
-function didYouMean(word, candidates) {
+function didYouMean(/** @type {string} */ word, /** @type {string[]} */ candidates) {
   let best = null, bestDist = Infinity
   for (const c of candidates) {
     const d = levenshtein(word.toLowerCase(), c.toLowerCase())
@@ -60,7 +70,7 @@ function didYouMean(word, candidates) {
   return bestDist <= Math.max(2, Math.floor(word.length / 3)) ? best : null
 }
 
-const jsonType = (v) =>
+const jsonType = (/** @type {unknown} */ v) =>
   v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v
 
 /**
@@ -70,8 +80,9 @@ const jsonType = (v) =>
  * "missing text", not "must be string"); if no branch matches, emit one
  * summary error from the subschema description.
  */
-function mapAjvErrors(errors, doc) {
+function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
   const oneOfPaths = new Set(errors.filter((e) => e.keyword === 'oneOf').map((e) => e.instancePath))
+  /** @type {MapFinding[]} */
   const findings = []
   const seen = new Set()
 
@@ -79,11 +90,12 @@ function mapAjvErrors(errors, doc) {
     const container = [...oneOfPaths].find((p) => err.instancePath.startsWith(p))
     if (container !== undefined && err.keyword !== 'oneOf') {
       // Branch error inside a oneOf: keep only if its branch type matches the instance.
-      const instance = container.split('/').slice(1).reduce((v, k) => v?.[k === '' ? undefined : k], doc)
+      const instance = container.split('/').slice(1).reduce((/** @type {any} */ v, /** @type {string} */ k) => v?.[/** @type {any} */ (k === '' ? undefined : k)], doc)
       const branchType = err.parentSchema?.type ?? err.schema?.type
       if (err.instancePath === container && err.keyword === 'type' && err.params.type !== jsonType(instance)) continue
     }
 
+    /** @type {MapFinding} */
     let finding
     switch (err.keyword) {
       case 'required':
@@ -102,7 +114,7 @@ function mapAjvErrors(errors, doc) {
       }
       case 'enum': {
         const allowed = err.params.allowedValues
-        const value = err.instancePath.split('/').slice(1).reduce((v, k) => v?.[k], doc)
+        const value = err.instancePath.split('/').slice(1).reduce((/** @type {any} */ v, /** @type {string} */ k) => v?.[k], doc)
         const guess = typeof value === 'string' ? didYouMean(value, allowed) : null
         finding = {
           path: err.instancePath || '(root)',
@@ -159,12 +171,15 @@ function mapAjvErrors(errors, doc) {
  *   layout.js). Every real call site (`cvx validate`, the `validate_cv` MCP
  *   tool) always has one available and passes it.
  */
-export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
+export function validateContent({ contentDir, strict = false, fontsDir } = /** @type {import('./types.js').ValidateOptions} */ ({})) {
+  /** @type {Finding[]} */
   const errors = []
+  /** @type {Finding[]} */
   const warnings = []
+  /** @type {string[]} */
   const checked = []
   const measure = fontsDir && existsSync(fontsDir) ? createMeasurer(fontsDir) : undefined
-  const add = (severity, file, code, f) =>
+  const add = (/** @type {'error'|'warning'} */ severity, /** @type {string} */ file, /** @type {string} */ code, /** @type {RawFinding} */ f) =>
     (severity === 'error' ? errors : warnings).push({ file, code, path: f.path ?? '(root)', message: f.message, ...(f.suggestion ? { suggestion: f.suggestion } : {}) })
 
   if (!existsSync(contentDir)) {
@@ -177,6 +192,7 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
 
   getValidator('personal') // force schema load
   const knownDefs = Object.keys(canonicalSchema.$defs)
+  /** @type {Record<string, unknown>} */
   const docs = {}
   const files = readdirSync(contentDir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
 
@@ -195,8 +211,8 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
       doc = yaml.load(readFileSync(join(contentDir, file), 'utf8'))
     } catch (e) {
       add('error', file, 'yaml-parse', {
-        path: e.mark ? `line ${e.mark.line + 1}` : '(root)',
-        message: `YAML parse error: ${e.reason ?? e.message}`,
+        path: /** @type {YamlErr} */ (e).mark ? `line ${/** @type {YamlErr} */ (e).mark.line + 1}` : '(root)',
+        message: `YAML parse error: ${/** @type {YamlErr} */ (e).reason ?? /** @type {YamlErr} */ (e).message}`,
       })
       continue
     }
@@ -235,9 +251,9 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
   // `fontsDir` was given (see this function's docblock) — the same
   // measurement `cvx build` packs against, so this warning and the actual
   // render agree.
-  const config = docs.config ?? {}
+  const config = /** @type {import('./types.js').CVConfig} */ (docs.config ?? {})
   if (config.page1ExperienceCount != null && Array.isArray(docs.experience)) {
-    const theme = THEMES[config.theme] ?? THEMES.teal
+    const theme = THEMES[/** @type {string} */ (config.theme)] ?? THEMES.teal
     const overflow = estimatePage1Overflow(docs.experience, Array.isArray(docs.summary) ? docs.summary : [], config, theme, measure)
     if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
       add('warning', 'config.yaml', 'page1-overflow', {
@@ -288,8 +304,8 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
       doc = yaml.load(readFileSync(join(layoutsDir, `${name}.yaml`), 'utf8'))
     } catch (e) {
       add('error', file, 'yaml-parse', {
-        path: e.mark ? `line ${e.mark.line + 1}` : '(root)',
-        message: `YAML parse error: ${e.reason ?? e.message}`,
+        path: /** @type {YamlErr} */ (e).mark ? `line ${/** @type {YamlErr} */ (e).mark.line + 1}` : '(root)',
+        message: `YAML parse error: ${/** @type {YamlErr} */ (e).reason ?? /** @type {YamlErr} */ (e).message}`,
       })
       continue
     }

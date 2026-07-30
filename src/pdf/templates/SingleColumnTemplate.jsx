@@ -1,6 +1,7 @@
 import { Page, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   page: {
     fontFamily: t.typography.fontFamily,
@@ -11,6 +12,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
 })
 
+/** @param {{ mainSlot?: import('react').ReactNode }} props */
 export default function SingleColumnTemplate({ mainSlot }) {
   const s = useStyles(makeStyles)
   return (

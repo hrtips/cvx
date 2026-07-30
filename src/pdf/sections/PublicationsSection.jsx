@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 import SectionTitle from '../components/SectionTitle.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   wrap:  { marginBottom: t.spacing.sectionGap },
   item:  { marginBottom: 12 },
@@ -9,6 +10,7 @@ const makeStyles = (t) => StyleSheet.create({
   meta:  { fontSize: t.typography.institution.size, color: t.palette.textBody, marginTop: t.spacing.entryMetaMt, paddingLeft: t.spacing.itemPl },
 })
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function PublicationsSection({ data }) {
   const s = useStyles(makeStyles)
   if (!data.publications?.length) return null

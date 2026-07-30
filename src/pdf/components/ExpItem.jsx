@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 import BulletList from './BulletList.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   wrap:        { marginBottom: t.spacing.entryMb },
   role:        { fontSize: t.typography.role.size, fontWeight: t.typography.role.weight, color: t.palette.textDark, lineHeight: t.typography.role.leading },
@@ -18,6 +19,7 @@ const makeStyles = (t) => StyleSheet.create({
   progPeriod:  { fontSize: t.typography.caption.size, color: t.palette.textMuted },
 })
 
+/** @param {import('../types.js').ExperienceEntry} props */
 export default function ExpItem({
   role, company, period, location, description, progression, bullets,
   startBullet = 0, endBullet, isContinuation = false,
@@ -45,9 +47,9 @@ export default function ExpItem({
       </View>
       {location && <Text style={s.location}>{location}</Text>}
       {description && <Text style={s.desc}>{description}</Text>}
-      {progression?.length > 0 && (
+      {/** @type {import('../types.js').ProgressionStep[]} */ (progression)?.length > 0 && (
         <View style={s.progBlock}>
-          {progression.map((p) => (
+          {/** @type {import('../types.js').ProgressionStep[]} */ (progression).map((p) => (
             <View key={p.title} style={s.progRow}>
               <Text style={s.progTitle}>{p.title}</Text>
               <Text style={s.progPeriod}>{p.period}</Text>

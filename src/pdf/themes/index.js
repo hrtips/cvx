@@ -17,6 +17,7 @@ import { tealTheme }  from './teal.js'
 import { coralTheme } from './coral.js'
 import { monoTheme }  from './mono.js'
 
+/** @type {Record<string, import('../types.js').Theme>} */
 const STATIC_THEMES = {
   teal:  tealTheme,
   coral: coralTheme,
@@ -26,6 +27,8 @@ const STATIC_THEMES = {
 /**
  * Discover themes dynamically by scanning the themes directory.
  * Falls back to static imports if fs scanning fails (e.g., in browser).
+ *
+ * @type {Record<string, import('../types.js').Theme> | null}
  */
 let _discovered = null
 

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   identity:    { backgroundColor: t.palette.accent, paddingLeft: t.chrome.identityPl, paddingRight: t.chrome.identityPr, paddingVertical: t.chrome.identityPt, alignItems: 'center' },
   name:        { fontSize: t.typography.name.size, fontWeight: t.typography.name.weight, color: t.palette.white, lineHeight: 1.2, letterSpacing: t.typography.name.spacing, textAlign: 'center' },
@@ -9,6 +10,7 @@ const makeStyles = (t) => StyleSheet.create({
   companyText: { fontSize: t.typography.company.size, fontWeight: t.typography.company.weight, color: t.palette.accentTextTertiary, marginTop: t.spacing.entryMetaMt, textAlign: 'center' },
 })
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function IdentityCompact({ data }) {
   const s = useStyles(makeStyles)
   const { personal } = data

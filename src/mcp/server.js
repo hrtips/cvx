@@ -44,11 +44,11 @@ export async function runMcpServer() {
       const result = await tool.handler(request.params.arguments ?? {})
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        isError: result?.ok === false,
+        isError: /** @type {{ ok?: boolean }} */ (result)?.ok === false,
       }
     } catch (err) {
       return {
-        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: { code: 'tool-failed', message: err.message } }) }],
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: { code: 'tool-failed', message: /** @type {Error} */ (err).message } }) }],
         isError: true,
       }
     }

@@ -50,9 +50,9 @@ Exit codes: 0 ok · 2 validation failed · 3 render failed · 64 usage error
 Edit the YAML files in cv-content/ and re-run "cvx build".
 Docs: https://github.com/hrtips/cvx#readme`
 
-const emit = (obj) => console.log(JSON.stringify(obj, null, 2))
+const emit = (/** @type {unknown} */ obj) => console.log(JSON.stringify(obj, null, 2))
 
-async function init({ json }) {
+async function init(/** @type {{ json?: boolean }} */ { json }) {
   const dest = join(process.cwd(), 'cv-content')
   if (existsSync(dest)) {
     if (json) emit({ command: 'init', ok: false, error: { code: 'already-exists', message: 'cv-content/ already exists here — refusing to overwrite' } })
@@ -73,9 +73,9 @@ Next steps:
   }
 }
 
-async function validate({ strict, json }) {
+async function validate(/** @type {{ strict?: boolean, json?: boolean }} */ { strict, json }) {
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const result = validateContent({ contentDir: join(process.cwd(), 'cv-content'), strict, fontsDir: join(pkgRoot, 'lib', 'fonts') })
+  const result = validateContent(/** @type {import('../src/pdf/types.js').ValidateOptions} */ ({ contentDir: join(process.cwd(), 'cv-content'), strict, fontsDir: join(pkgRoot, 'lib', 'fonts') }))
 
   if (json) {
     emit({ command: 'validate', ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked })
@@ -101,7 +101,7 @@ async function validate({ strict, json }) {
   process.exit(result.ok ? EXIT.ok : EXIT.validation)
 }
 
-async function list({ kind, json }) {
+async function list(/** @type {{ kind?: string, json?: boolean }} */ { kind, json }) {
   const { discoverThemes } = await import('../lib/pdf/themes/index.js')
   const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
 
@@ -148,8 +148,8 @@ const MCP_CLIENTS = {
   },
 }
 
-async function mcpInit({ client, json }) {
-  const target = MCP_CLIENTS[client]
+async function mcpInit(/** @type {{ client?: string, json?: boolean }} */ { client, json }) {
+  const target = MCP_CLIENTS[/** @type {keyof typeof MCP_CLIENTS} */ (client)]
   if (!target) {
     const msg = `unknown client: ${client ?? '(none)'} (expected ${Object.keys(MCP_CLIENTS).join(', ')})`
     if (json) emit({ command: 'mcp-init', ok: false, error: { code: 'unknown-client', message: msg } })
@@ -158,6 +158,7 @@ async function mcpInit({ client, json }) {
   }
   const file = target.file()
   // Merge into an existing config rather than clobbering other servers.
+  /** @type {Record<string, any>} */
   let config = {}
   if (existsSync(file)) {
     try {
@@ -176,8 +177,9 @@ async function mcpInit({ client, json }) {
   else console.log(`✅ Added the cvx MCP server (pinned to ${version}) to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up. Re-run mcp init after upgrading cvx.`)
 }
 
-async function build({ ats, json }) {
+async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
+  /** @type {string[]} */
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
@@ -204,10 +206,10 @@ async function build({ ats, json }) {
 // correct on screen but extract as garbled text, breaking exactly the ATS
 // parsers it exists for. Separate processes keep every PDF's text layer clean
 // (regression-guarded by the layout harness's content oracle).
-async function buildAll({ json }) {
+async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const vr = validateContent({ contentDir, strict: false, fontsDir: join(pkgRoot, 'lib', 'fonts') })
+  const vr = validateContent(/** @type {import('../src/pdf/types.js').ValidateOptions} */ ({ contentDir, strict: false, fontsDir: join(pkgRoot, 'lib', 'fonts') }))
   if (!vr.ok) {
     if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'validation-failed', message: 'validation failed — fix errors before building' }, errors: vr.errors, warnings: vr.warnings })
     else {
@@ -227,8 +229,8 @@ async function buildAll({ json }) {
         { cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
       res = JSON.parse(stdout)
     } catch (err) {
-      if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'render-failed', message: `${label} variant failed: ${err.message}` } })
-      else console.error(`Build failed for the ${label} variant: ${err.message}`)
+      if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'render-failed', message: `${label} variant failed: ${/** @type {Error} */ (err).message}` } })
+      else console.error(`Build failed for the ${label} variant: ${/** @type {Error} */ (err).message}`)
       process.exit(EXIT.render)
     }
     if (!res?.ok) {
@@ -297,7 +299,7 @@ try {
   }
 } catch (err) {
   const code = command === 'build' ? EXIT.render : EXIT.usage
-  if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: err.message } })
-  else console.error(err.message)
+  if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: /** @type {Error} */ (err).message } })
+  else console.error(/** @type {Error} */ (err).message)
   process.exit(code)
 }

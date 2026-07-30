@@ -46,9 +46,9 @@ export const SECTION_REGISTRY = {
  *   "spacer:27"            → renders a spacer View
  *
  * @param {string[]} keys   Slot keys from layout config
- * @param {object}   data   Full CV data bag
- * @param {object}   [extra]  Extra props (entries for experience)
- * @returns {React.ReactElement[]}
+ * @param {import('../types.js').CVContent} data   Full CV data bag
+ * @param {import('../types.js').SlotExtra} [extra]  Extra props (entries for experience)
+ * @returns {Array<import('react').ReactElement | null>}
  */
 export function renderSlot(keys, data, extra = {}) {
   return keys.map((key, i) => {
@@ -79,7 +79,7 @@ export function renderSlot(keys, data, extra = {}) {
     }
 
     // Standard section
-    const Component = SECTION_REGISTRY[key]
+    const Component = SECTION_REGISTRY[/** @type {keyof typeof SECTION_REGISTRY} */ (key)]
     if (!Component) {
       console.warn(`[section-registry] Unknown section key: "${key}"`)
       return null

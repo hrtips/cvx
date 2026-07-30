@@ -33,7 +33,7 @@ import path from 'node:path'
 // 600 aliases to the 700 (Bold) file — there is no separate 500 or 600
 // weight TTF. A measurer that didn't mirror this would silently measure
 // against a font file @react-pdf/renderer would never actually pick.
-function fontFileFor(weight, italic) {
+function fontFileFor(/** @type {number} */ weight, /** @type {boolean} */ italic) {
   const w = nearestWeightBucket(weight)
   if (w === 300) return italic ? 'Lato-LightItalic.ttf' : 'Lato-Light.ttf'
   if (w >= 600) return italic ? 'Lato-BoldItalic.ttf' : 'Lato-Bold.ttf' // 600 has no own file — aliases to Bold, same as fonts.js
@@ -41,7 +41,7 @@ function fontFileFor(weight, italic) {
 }
 
 const WEIGHT_BUCKETS = [300, 400, 500, 600, 700]
-function nearestWeightBucket(weight) {
+function nearestWeightBucket(/** @type {number} */ weight) {
   if (!weight) return 400
   return WEIGHT_BUCKETS.reduce((best, w) => (Math.abs(w - weight) < Math.abs(best - weight) ? w : best), 400)
 }
@@ -49,7 +49,7 @@ function nearestWeightBucket(weight) {
 // Codepoints that are never "visibly missing" even without a glyph: ASCII
 // control characters, and zero-width Unicode formatting characters (joiners,
 // BOM) that legitimately have no visible glyph in ANY font.
-function isSkippableCodePoint(cp) {
+function isSkippableCodePoint(/** @type {number} */ cp) {
   return cp <= 0x1f || (cp >= 0x200b && cp <= 0x200f) || cp === 0xfeff
 }
 
@@ -71,14 +71,14 @@ export function createMeasurer(fontsDir) {
   const fontCache = new Map()
   const widthCache = new Map()
 
-  function fontFor(weight, italic) {
+  function fontFor(/** @type {number} */ weight, /** @type {boolean} */ italic) {
     const file = fontFileFor(weight, italic)
     if (!fontCache.has(file)) fontCache.set(file, fontkit.openSync(path.join(fontsDir, file)))
     return fontCache.get(file)
   }
 
   /** Advance width, in pt, of `text` set at `size`pt in the given weight/style. Empty string -> 0. */
-  function widthOf(text, size, { weight = 400, italic = false } = {}) {
+  function widthOf(/** @type {string} */ text, /** @type {number} */ size, /** @type {{weight?: number, italic?: boolean}} */ { weight = 400, italic = false } = {}) {
     if (!text) return 0
     const key = `${weight}|${italic}|${size}|${text}`
     const cached = widthCache.get(key)
@@ -99,7 +99,7 @@ export function createMeasurer(fontsDir) {
    * @react-pdf's real line breaker treats an unbreakable run with
    * hyphenation disabled.
    */
-  function lineCount(text, size, maxWidth, opts = {}) {
+  function lineCount(/** @type {string} */ text, /** @type {number} */ size, /** @type {number} */ maxWidth, /** @type {{weight?: number, italic?: boolean}} */ opts = {}) {
     if (!text) return 1
     const words = text.split(/\s+/).filter(Boolean)
     if (words.length === 0) return 1
@@ -132,12 +132,12 @@ export function createMeasurer(fontsDir) {
    * always checks against the upright Regular file regardless of what
    * weight/style the text will actually render in.
    */
-  function unsupportedChars(text) {
+  function unsupportedChars(/** @type {string} */ text) {
     if (!text) return []
     const font = fontFor(400, false)
     const seen = new Set()
     for (const ch of text) {
-      const codePoint = ch.codePointAt(0)
+      const codePoint = /** @type {number} */ (ch.codePointAt(0))
       if (isSkippableCodePoint(codePoint)) continue
       if (!font.hasGlyphForCodePoint(codePoint)) seen.add(ch)
     }
@@ -158,15 +158,16 @@ export function createMeasurer(fontsDir) {
  * consequence.
  *
  * @param {ReturnType<typeof createMeasurer>} measurer
- * @param {Record<string, unknown>} contentBag
+ * @param {object} contentBag
  * @returns {{ file: string, path: string, text: string, chars: string[] }[]}
  *   `path` is a JSON-Pointer relative to `file` (e.g. "/name", "/0/bullets/1"),
  *   matching the shape validateContent.js's other findings already use.
  */
 export function findUnsupportedGlyphs(measurer, contentBag, { skipKeys = ['config', 'profilePhoto', 'keywords'] } = {}) {
+  /** @type {{ file: string, path: string, text: string, chars: string[] }[]} */
   const findings = []
 
-  function walk(value, file, pointer) {
+  function walk(/** @type {unknown} */ value, /** @type {string} */ file, /** @type {string} */ pointer) {
     if (value == null) return
     if (typeof value === 'string') {
       const chars = measurer.unsupportedChars(value)
@@ -190,7 +191,7 @@ export function findUnsupportedGlyphs(measurer, contentBag, { skipKeys = ['confi
 }
 
 /** One-line, human-readable description of a findUnsupportedGlyphs() finding — shared wording for render.js's warn() and validateContent.js's finding message. */
-export function describeUnsupportedGlyphFinding({ chars }) {
+export function describeUnsupportedGlyphFinding(/** @type {{ chars: string[] }} */ { chars }) {
   const preview = chars.slice(0, 8).join('')
   const more = chars.length > 8 ? '…' : ''
   return `contains character(s) the bundled font can't render (${preview}${more}) — they will be invisible in the PDF.`

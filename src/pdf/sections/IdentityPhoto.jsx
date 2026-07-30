@@ -1,6 +1,7 @@
 import { View, Text, Image, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   identity:    { backgroundColor: t.palette.accent, overflow: 'hidden' },
   nameBlock:   { alignItems: 'center', paddingLeft: t.chrome.identityPl, paddingRight: t.chrome.identityPr, paddingTop: t.chrome.identityPt, paddingBottom: t.chrome.identityPb },
@@ -12,6 +13,7 @@ const makeStyles = (t) => StyleSheet.create({
   photo:       { width: '100%', height: t.chrome.photoHeight, objectFit: 'cover', borderRadius: t.chrome.photoBorderRadius },
 })
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function IdentityPhoto({ data }) {
   const s = useStyles(makeStyles)
   const { personal, profilePhoto } = data

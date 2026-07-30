@@ -46,10 +46,12 @@ for (const [srcDir, libDir] of TREES) {
       target: 'node18',
     })
     const rewritten = code.replace(/(from\s*["'][^"']+)\.jsx(["'])/g, '$1.js$2')
+    // lib/ is a generated build artifact; TS type-checking targets src/ only.
+    const emitted = `// @ts-nocheck\n${rewritten}`
 
     const out = join(libDir, relative(srcDir, file)).replace(/\.jsx$/, '.js')
     mkdirSync(dirname(out), { recursive: true })
-    writeFileSync(out, rewritten)
+    writeFileSync(out, emitted)
     count++
   }
 }

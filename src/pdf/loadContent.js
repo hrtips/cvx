@@ -20,7 +20,7 @@ import { normalizeContent } from './normalizeContent.js'
  * Load all YAML content from a directory.
  *
  * @param {string} contentDir  Absolute path to cv-content/
- * @returns {{ config, content, profilePhoto }}
+ * @returns {{ config: import('./types.js').CVConfig, content: import('./types.js').CVContent, profilePhoto: string | null }}
  *   - config: parsed config.yaml
  *   - content: { personal, summary, experience, ... } — all other YAML files
  *   - profilePhoto: path to profile image (if exists)
@@ -28,7 +28,9 @@ import { normalizeContent } from './normalizeContent.js'
 export function loadContent(contentDir) {
   const files = readdirSync(contentDir).filter(f => f.endsWith('.yaml'))
 
+  /** @type {import('./types.js').CVConfig} */
   const config = {}
+  /** @type {Record<string, unknown>} */
   const content = {}
 
   for (const file of files) {
@@ -47,6 +49,7 @@ export function loadContent(contentDir) {
   // Profile photo — list the directory and let the shared picker choose, so
   // uppercase extensions (profile.JPG) work on case-sensitive filesystems and
   // precedence stays identical to the browser path (cv-content/index.js).
+  /** @type {string | null} */
   let profilePhoto = null
   const imgDir = join(contentDir, 'images')
   if (existsSync(imgDir)) {
@@ -55,5 +58,5 @@ export function loadContent(contentDir) {
     if (hit) profilePhoto = join(imgDir, hit)
   }
 
-  return { config, content, profilePhoto }
+  return { config, content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (content)), profilePhoto }
 }

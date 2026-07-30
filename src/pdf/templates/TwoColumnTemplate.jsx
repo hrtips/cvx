@@ -1,6 +1,7 @@
 import { Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => {
   const g = t.geometry
   const bodyH = g.pageHeight - g.topBar
@@ -27,6 +28,15 @@ const makeStyles = (t) => {
   })
 }
 
+/**
+ * @param {{
+ *   sidebarSlot?: import('react').ReactNode,
+ *   mainSlot?: import('react').ReactNode,
+ *   pageNum: number,
+ *   totalPages: number,
+ *   isFirst?: boolean,
+ * }} props
+ */
 export default function TwoColumnTemplate({ sidebarSlot, mainSlot, pageNum, totalPages, isFirst = false }) {
   const s = useStyles(makeStyles)
   return (

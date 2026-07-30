@@ -1,6 +1,7 @@
 import { Text, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => StyleSheet.create({
   main: {
     fontSize: t.typography.sectionTitle.size, fontWeight: t.typography.sectionTitle.weight, fontFamily: t.typography.fontFamily,
@@ -18,6 +19,7 @@ const makeStyles = (t) => StyleSheet.create({
   },
 })
 
+/** @param {{ children?: import('react').ReactNode, variant?: string }} props */
 export default function SectionTitle({ children, variant = 'main' }) {
   const s = useStyles(makeStyles)
   return <Text style={variant === 'sidebar' ? s.sidebar : s.main}>{children}</Text>

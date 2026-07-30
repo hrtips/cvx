@@ -42,6 +42,7 @@ const SINGLE_COLUMN_LAYOUT = {
   },
 }
 
+/** @type {Record<string, import('./types.js').NormalizedLayout>} */
 const LAYOUTS = {
   'two-column':    TWO_COLUMN_LAYOUT,
   'single-column': SINGLE_COLUMN_LAYOUT,
@@ -49,6 +50,7 @@ const LAYOUTS = {
 
 // ── Default themes per layout ───────────────────────────────────────────────
 
+/** @type {Record<string, import('./types.js').Theme>} */
 const LAYOUT_DEFAULT_THEME = {
   'two-column':    tealTheme,
   'single-column': monoTheme,
@@ -56,6 +58,11 @@ const LAYOUT_DEFAULT_THEME = {
 
 // ── Sidebar builder ─────────────────────────────────────────────────────────
 
+/**
+ * @param {string[]} keys
+ * @param {import('./types.js').CVContent} data
+ * @param {import('./types.js').Theme} theme
+ */
 function buildSidebar(keys, data, theme) {
   const identityKeys = keys.filter(k => k.startsWith('identity-'))
   const contentKeys  = keys.filter(k => !k.startsWith('identity-'))
@@ -86,6 +93,15 @@ function buildSidebar(keys, data, theme) {
 
 // ── Two-column renderer ─────────────────────────────────────────────────────
 
+/**
+ * @param {{
+ *   data: import('./types.js').CVContent,
+ *   activeLayout: import('./types.js').ResolvedLayout,
+ *   activeTheme: import('./types.js').Theme,
+ *   packing: import('./types.js').CVConfig,
+ *   measure?: import('./types.js').Measurer,
+ * }} props
+ */
 function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }) {
   const { page1Experiences, continuationChunks, totalPages } =
     packExperiences(data.experience, data.summary, packing, activeTheme, measure)
@@ -94,6 +110,7 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }
   // (education, competencies, referees) into page 1 so they never silently drop.
   const firstSidebar = resolveFirstSidebar(activeLayout, continuationChunks.length === 0)
 
+  /** @param {number} pageIndex */
   function contLayout(pageIndex) {
     const isFirst = pageIndex === 0
     const isLast  = pageIndex === continuationChunks.length - 1
@@ -136,6 +153,12 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }
 
 // ── Single-column renderer ──────────────────────────────────────────────────
 
+/**
+ * @param {{
+ *   data: import('./types.js').CVContent,
+ *   activeLayout: import('./types.js').ResolvedLayout,
+ * }} props
+ */
 function SingleColumnDocument({ data, activeLayout }) {
   return (
     <SingleColumnTemplate
@@ -146,6 +169,15 @@ function SingleColumnDocument({ data, activeLayout }) {
 
 // ── Main document ───────────────────────────────────────────────────────────
 
+/**
+ * @param {import('./types.js').CVContent & {
+ *   config?: import('./types.js').CVConfig,
+ *   theme?: import('./types.js').Theme,
+ *   layout?: import('./types.js').NormalizedLayout,
+ *   creationDate?: Date,
+ *   measure?: import('./types.js').Measurer,
+ * }} props
+ */
 export default function CVDocument({
   personal, summary, experience, achievements,
   education, certifications, publications, languages,
@@ -153,7 +185,7 @@ export default function CVDocument({
   theme, layout, creationDate, measure,
 }) {
   const layoutName   = config?.layout ?? 'two-column'
-  const activeLayout = layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
+  const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT)
   const activeTheme  = theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
 
   const packing = {

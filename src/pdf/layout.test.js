@@ -32,7 +32,7 @@ describe('resolveFirstSidebar (R1)', () => {
 
 describe('packExperiences', () => {
   const summary = ['A short summary.']
-  const exp = (n) => Array.from({ length: n }, (_, i) => ({ role: `R${i}`, company: `C${i}`, period: 'p', bullets: ['b'] }))
+  const exp = (/** @type {number} */ n) => Array.from({ length: n }, (_, i) => ({ role: `R${i}`, company: `C${i}`, period: 'p', bullets: ['b'] }))
 
   it('keeps a short CV on a single page (continuationChunks empty)', () => {
     const r = packExperiences(exp(1), summary, {}, undefined)
