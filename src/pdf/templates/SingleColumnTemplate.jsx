@@ -2,15 +2,16 @@ import { Page, StyleSheet } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 
 /** @param {import('../types.js').Theme} t */
-const makeStyles = (t) => StyleSheet.create({
-  page: {
-    fontFamily: t.typography.fontFamily,
-    backgroundColor: t.palette.white,
-    paddingHorizontal: t.geometry.singleColumnMargin,
-    paddingTop: t.geometry.singleColumnMargin,
-    paddingBottom: t.geometry.singleColumnMargin,
-  },
-})
+const makeStyles = (t) =>
+  StyleSheet.create({
+    page: {
+      fontFamily: t.typography.fontFamily,
+      backgroundColor: t.palette.white,
+      paddingHorizontal: t.geometry.singleColumnMargin,
+      paddingTop: t.geometry.singleColumnMargin,
+      paddingBottom: t.geometry.singleColumnMargin
+    }
+  })
 
 /** @param {{ mainSlot?: import('react').ReactNode }} props */
 export default function SingleColumnTemplate({ mainSlot }) {

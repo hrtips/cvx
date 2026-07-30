@@ -4,14 +4,14 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { Document, View } from '@react-pdf/renderer'
-import { ThemeContext } from './ThemeContext.jsx'
-import { tealTheme } from './themes/teal.js'
-import { monoTheme } from './themes/mono.js'
-import { packExperiences, resolveFirstSidebar } from './layout.js'
 import { buildKeywords } from './keywords.js'
+import { packExperiences, resolveFirstSidebar } from './layout.js'
 import { renderSlot } from './sections/registry.js'
-import TwoColumnTemplate from './templates/TwoColumnTemplate.jsx'
+import { ThemeContext } from './ThemeContext.jsx'
 import SingleColumnTemplate from './templates/SingleColumnTemplate.jsx'
+import TwoColumnTemplate from './templates/TwoColumnTemplate.jsx'
+import { monoTheme } from './themes/mono.js'
+import { tealTheme } from './themes/teal.js'
 
 // ── Default layout configs ──────────────────────────────────────────────────
 // TWO_COLUMN_LAYOUT is exported (in addition to the default export below)
@@ -23,37 +23,55 @@ export const TWO_COLUMN_LAYOUT = {
   template: 'two-column',
   first: {
     sidebar: ['identity-photo', 'contact', 'achievements'],
-    main:    ['summary', 'spacer:27', 'experience'],
+    main: ['summary', 'spacer:27', 'experience']
   },
   continuation: {
-    sidebar: ['identity-compact', 'education', 'certifications', 'competencies', 'languages', 'publications'],
-    main:    ['experience:continued'],
+    sidebar: [
+      'identity-compact',
+      'education',
+      'certifications',
+      'competencies',
+      'languages',
+      'publications'
+    ],
+    main: ['experience:continued']
   },
   last: {
     sidebar: ['identity-compact', 'referees'],
-    main:    ['experience:continued'],
-  },
+    main: ['experience:continued']
+  }
 }
 
 const SINGLE_COLUMN_LAYOUT = {
   template: 'single-column',
   first: {
-    main: ['header-ats', 'summary', 'experience', 'education', 'certifications', 'publications', 'competencies', 'languages', 'achievements', 'referees'],
-  },
+    main: [
+      'header-ats',
+      'summary',
+      'experience',
+      'education',
+      'certifications',
+      'publications',
+      'competencies',
+      'languages',
+      'achievements',
+      'referees'
+    ]
+  }
 }
 
 /** @type {Record<string, import('./types.js').NormalizedLayout>} */
 const LAYOUTS = {
-  'two-column':    TWO_COLUMN_LAYOUT,
-  'single-column': SINGLE_COLUMN_LAYOUT,
+  'two-column': TWO_COLUMN_LAYOUT,
+  'single-column': SINGLE_COLUMN_LAYOUT
 }
 
 // ── Default themes per layout ───────────────────────────────────────────────
 
 /** @type {Record<string, import('./types.js').Theme>} */
 const LAYOUT_DEFAULT_THEME = {
-  'two-column':    tealTheme,
-  'single-column': monoTheme,
+  'two-column': tealTheme,
+  'single-column': monoTheme
 }
 
 // ── Sidebar builder ─────────────────────────────────────────────────────────
@@ -64,21 +82,29 @@ const LAYOUT_DEFAULT_THEME = {
  * @param {import('./types.js').Theme} theme
  */
 function buildSidebar(keys, data, theme) {
-  const identityKeys = keys.filter(k => k.startsWith('identity-'))
-  const contentKeys  = keys.filter(k => !k.startsWith('identity-'))
+  const identityKeys = keys.filter((k) => k.startsWith('identity-'))
+  const contentKeys = keys.filter((k) => !k.startsWith('identity-'))
   const g = theme.geometry.sidebarPad
 
   const dividerStyle = {
     height: theme.chrome.dividerHeight,
     backgroundColor: theme.palette.divider,
-    marginBottom: theme.spacing.sectionGap,
+    marginBottom: theme.spacing.sectionGap
   }
 
   return (
     <View style={{ flex: 1 }}>
       {renderSlot(identityKeys, data)}
       {contentKeys.length > 0 && (
-        <View style={{ flex: 1, paddingTop: g.top, paddingLeft: g.left, paddingRight: g.right, paddingBottom: g.bottom }}>
+        <View
+          style={{
+            flex: 1,
+            paddingTop: g.top,
+            paddingLeft: g.left,
+            paddingRight: g.right,
+            paddingBottom: g.bottom
+          }}
+        >
           {contentKeys.map((key, i) => (
             <View key={key}>
               {i > 0 && <View style={dividerStyle} />}
@@ -103,8 +129,13 @@ function buildSidebar(keys, data, theme) {
  * }} props
  */
 function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }) {
-  const { page1Experiences, continuationChunks, totalPages } =
-    packExperiences(data.experience, data.summary, packing, activeTheme, measure)
+  const { page1Experiences, continuationChunks, totalPages } = packExperiences(
+    data.experience,
+    data.summary,
+    packing,
+    activeTheme,
+    measure
+  )
 
   // On a single-page CV, fold the continuation/last sidebar sections
   // (education, competencies, referees) into page 1 so they never silently drop.
@@ -113,7 +144,7 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }
   /** @param {number} pageIndex */
   function contLayout(pageIndex) {
     const isFirst = pageIndex === 0
-    const isLast  = pageIndex === continuationChunks.length - 1
+    const isLast = pageIndex === continuationChunks.length - 1
     const cont = activeLayout.continuation
     const last = activeLayout.last
 
@@ -137,9 +168,12 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }
       />
       {continuationChunks.map((chunk, i) => {
         const pg = contLayout(i)
+        // Continuation pages are identified by their page number — that ordinal
+        // IS the stable identity, not a positional proxy for one.
+        const pageKey = `page-${i + 2}`
         return (
           <TwoColumnTemplate
-            key={i}
+            key={pageKey}
             pageNum={i + 2}
             totalPages={totalPages}
             sidebarSlot={buildSidebar(pg.sidebar, data, activeTheme)}
@@ -179,21 +213,49 @@ function SingleColumnDocument({ data, activeLayout }) {
  * }} props
  */
 export default function CVDocument({
-  personal, summary, experience, achievements,
-  education, certifications, publications, languages,
-  competencies, referees, keywords, profilePhoto, config,
-  theme, layout, creationDate, measure,
+  personal,
+  summary,
+  experience,
+  achievements,
+  education,
+  certifications,
+  publications,
+  languages,
+  competencies,
+  referees,
+  keywords,
+  profilePhoto,
+  config,
+  theme,
+  layout,
+  creationDate,
+  measure
 }) {
-  const layoutName   = config?.layout ?? 'two-column'
-  const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT)
-  const activeTheme  = theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  const layoutName = config?.layout ?? 'two-column'
+  const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (
+    layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
+  )
+  const activeTheme =
+    theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
 
   const packing = {
     page1ExperienceCount: config?.page1ExperienceCount ?? null,
-    page1SplitBullets:    config?.page1SplitBullets ?? null,
+    page1SplitBullets: config?.page1SplitBullets ?? null
   }
 
-  const data = { personal, summary, experience, achievements, education, certifications, publications, languages, competencies, referees, profilePhoto }
+  const data = {
+    personal,
+    summary,
+    experience,
+    achievements,
+    education,
+    certifications,
+    publications,
+    languages,
+    competencies,
+    referees,
+    profilePhoto
+  }
 
   const isSingleColumn = (activeLayout.template ?? layoutName) === 'single-column'
 
@@ -212,10 +274,17 @@ export default function CVDocument({
         language="en"
         creationDate={creationDate}
       >
-        {isSingleColumn
-          ? <SingleColumnDocument data={data} activeLayout={activeLayout} />
-          : <TwoColumnDocument data={data} activeLayout={activeLayout} activeTheme={activeTheme} packing={packing} measure={measure} />
-        }
+        {isSingleColumn ? (
+          <SingleColumnDocument data={data} activeLayout={activeLayout} />
+        ) : (
+          <TwoColumnDocument
+            data={data}
+            activeLayout={activeLayout}
+            activeTheme={activeTheme}
+            packing={packing}
+            measure={measure}
+          />
+        )}
       </Document>
     </ThemeContext.Provider>
   )

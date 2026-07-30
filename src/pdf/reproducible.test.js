@@ -1,6 +1,12 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createRequire } from 'node:module'
-import { resolveCreationDate, seedMathRandom, setupReproducibility, makeDeflateSynchronous, verifyPatchPoints } from './reproducible.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  makeDeflateSynchronous,
+  resolveCreationDate,
+  seedMathRandom,
+  setupReproducibility,
+  verifyPatchPoints
+} from './reproducible.js'
 
 // Same mutable module object the implementation patches (ESM namespace
 // imports of builtins are frozen under Vitest).
@@ -75,7 +81,9 @@ describe('makeDeflateSynchronous', () => {
     const out = []
     let ended = false
     shim.on('data', (/** @type {Buffer} */ c) => out.push(c))
-    shim.on('end', () => { ended = true })
+    shim.on('end', () => {
+      ended = true
+    })
     shim.write(input.subarray(0, 100))
     shim.end(input.subarray(100))
 

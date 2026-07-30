@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { buildKeywords } from './keywords.js'
 
 // Convenience: build and split back into a keyword array.
-const kw = (/** @type {Parameters<typeof buildKeywords>[0]} */ data, /** @type {Parameters<typeof buildKeywords>[1]} */ config) => buildKeywords(data, config).split(', ').filter(Boolean)
+const kw = (
+  /** @type {Parameters<typeof buildKeywords>[0]} */ data,
+  /** @type {Parameters<typeof buildKeywords>[1]} */ config
+) => buildKeywords(data, config).split(', ').filter(Boolean)
 
 describe('buildKeywords', () => {
   it('returns "" when there is no content', () => {

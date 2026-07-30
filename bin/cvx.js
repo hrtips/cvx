@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process'
 /**
  * cvx — config-driven CV generator.
  *
@@ -15,12 +16,11 @@
  *     logs and warnings go to stderr. Errors become { ok: false, error: {...} }.
  *   - every command is non-interactive.
  */
-import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync, mkdirSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import { homedir } from 'os'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { execFileSync } from 'node:child_process'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
@@ -55,7 +55,15 @@ const emit = (/** @type {unknown} */ obj) => console.log(JSON.stringify(obj, nul
 async function init(/** @type {{ json?: boolean }} */ { json }) {
   const dest = join(process.cwd(), 'cv-content')
   if (existsSync(dest)) {
-    if (json) emit({ command: 'init', ok: false, error: { code: 'already-exists', message: 'cv-content/ already exists here — refusing to overwrite' } })
+    if (json)
+      emit({
+        command: 'init',
+        ok: false,
+        error: {
+          code: 'already-exists',
+          message: 'cv-content/ already exists here — refusing to overwrite'
+        }
+      })
     else console.error(`cv-content/ already exists here — refusing to overwrite.`)
     process.exit(EXIT.usage)
   }
@@ -75,14 +83,31 @@ Next steps:
 
 async function validate(/** @type {{ strict?: boolean, json?: boolean }} */ { strict, json }) {
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const result = validateContent(/** @type {import('../src/pdf/types.js').ValidateOptions} */ ({ contentDir: join(process.cwd(), 'cv-content'), strict, fontsDir: join(pkgRoot, 'lib', 'fonts') }))
+  const result = validateContent(
+    /** @type {import('../src/pdf/types.js').ValidateOptions} */ ({
+      contentDir: join(process.cwd(), 'cv-content'),
+      strict,
+      fontsDir: join(pkgRoot, 'lib', 'fonts')
+    })
+  )
 
   if (json) {
-    emit({ command: 'validate', ok: result.ok, schemaVersion: 1, strict, errors: result.errors, warnings: result.warnings, checked: result.checked })
+    emit({
+      command: 'validate',
+      ok: result.ok,
+      schemaVersion: 1,
+      strict,
+      errors: result.errors,
+      warnings: result.warnings,
+      checked: result.checked
+    })
   } else {
     const byFile = new Map()
-    for (const [sev, list] of [['error', result.errors], ['warning', result.warnings]])
-      for (const f of list) {
+    for (const [sev, items] of [
+      ['error', result.errors],
+      ['warning', result.warnings]
+    ])
+      for (const f of items) {
         if (!byFile.has(f.file)) byFile.set(f.file, [])
         byFile.get(f.file).push({ sev, ...f })
       }
@@ -91,33 +116,51 @@ async function validate(/** @type {{ strict?: boolean, json?: boolean }} */ { st
       for (const f of findings) {
         const mark = f.sev === 'error' ? '✖' : '⚠'
         const where = f.path && f.path !== '(root)' ? `${f.path}: ` : ''
-        console.log(`  ${mark} ${where}${f.message}${f.suggestion ? `\n      ↳ ${f.suggestion}` : ''}`)
+        console.log(
+          `  ${mark} ${where}${f.message}${f.suggestion ? `\n      ↳ ${f.suggestion}` : ''}`
+        )
       }
     }
-    const e = result.errors.length, w = result.warnings.length
-    if (e === 0 && w === 0) console.log(`✅ cv-content/ is valid (${result.checked.length} files checked)`)
-    else console.log(`\n${e ? '✖' : '⚠'} ${e} error${e === 1 ? '' : 's'}, ${w} warning${w === 1 ? '' : 's'}${!strict && w ? '  (use --strict to treat warnings as errors)' : ''}`)
+    const e = result.errors.length,
+      w = result.warnings.length
+    if (e === 0 && w === 0)
+      console.log(`✅ cv-content/ is valid (${result.checked.length} files checked)`)
+    else
+      console.log(
+        `\n${e ? '✖' : '⚠'} ${e} error${e === 1 ? '' : 's'}, ${w} warning${w === 1 ? '' : 's'}${!strict && w ? '  (use --strict to treat warnings as errors)' : ''}`
+      )
   }
   process.exit(result.ok ? EXIT.ok : EXIT.validation)
 }
 
 async function list(/** @type {{ kind?: string, json?: boolean }} */ { kind, json }) {
   const { discoverThemes } = await import('../lib/pdf/themes/index.js')
-  const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
+  const themes = Object.keys(await discoverThemes()).map((name) => ({
+    name,
+    default: name === 'teal'
+  }))
 
   const layoutsDir = join(process.cwd(), 'cv-content', 'layouts')
   const builtIn = ['two-column', 'single-column']
   const names = new Set(builtIn)
-  const layouts = builtIn.map((name) => ({ name, default: name === 'two-column', source: 'built-in' }))
+  const layouts = builtIn.map((name) => ({
+    name,
+    default: name === 'two-column',
+    source: 'built-in'
+  }))
   if (existsSync(layoutsDir)) {
-    for (const f of readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml'))) {
+    for (const f of readdirSync(layoutsDir).filter((name) => name.endsWith('.yaml'))) {
       const name = f.replace(/\.yaml$/, '')
       if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
       names.add(name)
     }
   }
 
-  const result = { command: 'list', ...((!kind || kind === 'themes') && { themes }), ...((!kind || kind === 'layouts') && { layouts }) }
+  const result = {
+    command: 'list',
+    ...((!kind || kind === 'themes') && { themes }),
+    ...((!kind || kind === 'layouts') && { layouts })
+  }
   if (json) return emit(result)
   if (result.themes) {
     console.log('Themes (config.yaml → theme):')
@@ -125,7 +168,10 @@ async function list(/** @type {{ kind?: string, json?: boolean }} */ { kind, jso
   }
   if (result.layouts) {
     console.log('Layouts (config.yaml → layout):')
-    for (const l of result.layouts) console.log(`  ${l.name}${l.default ? '   (default)' : ''}${l.source === 'built-in' ? '' : `   [${l.source}]`}`)
+    for (const l of result.layouts)
+      console.log(
+        `  ${l.name}${l.default ? '   (default)' : ''}${l.source === 'built-in' ? '' : `   [${l.source}]`}`
+      )
   }
 }
 
@@ -134,26 +180,54 @@ async function list(/** @type {{ kind?: string, json?: boolean }} */ { kind, jso
 // actually launch the canary instead of resolving `latest`.
 const MCP_ENTRY = { command: 'npx', args: ['-y', `@hrtips/cvx@${version}`, 'mcp'] }
 const MCP_CLIENTS = {
-  claude:           { file: () => join(process.cwd(), '.mcp.json'),            root: 'mcpServers', entry: { type: 'stdio', ...MCP_ENTRY } },
-  cursor:           { file: () => join(process.cwd(), '.cursor', 'mcp.json'),  root: 'mcpServers', entry: MCP_ENTRY },
-  vscode:           { file: () => join(process.cwd(), '.vscode', 'mcp.json'),  root: 'servers',    entry: { type: 'stdio', ...MCP_ENTRY } },
+  claude: {
+    file: () => join(process.cwd(), '.mcp.json'),
+    root: 'mcpServers',
+    entry: { type: 'stdio', ...MCP_ENTRY }
+  },
+  cursor: {
+    file: () => join(process.cwd(), '.cursor', 'mcp.json'),
+    root: 'mcpServers',
+    entry: MCP_ENTRY
+  },
+  vscode: {
+    file: () => join(process.cwd(), '.vscode', 'mcp.json'),
+    root: 'servers',
+    entry: { type: 'stdio', ...MCP_ENTRY }
+  },
   'claude-desktop': {
     file: () => {
-      if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
-      if (process.platform === 'win32') return join(process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json')
+      if (process.platform === 'darwin')
+        return join(
+          homedir(),
+          'Library',
+          'Application Support',
+          'Claude',
+          'claude_desktop_config.json'
+        )
+      if (process.platform === 'win32')
+        return join(
+          process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'),
+          'Claude',
+          'claude_desktop_config.json'
+        )
       return join(homedir(), '.config', 'claude-desktop', 'claude_desktop_config.json')
     },
     root: 'mcpServers',
-    entry: MCP_ENTRY,
-  },
+    entry: MCP_ENTRY
+  }
 }
 
 async function mcpInit(/** @type {{ client?: string, json?: boolean }} */ { client, json }) {
   const target = MCP_CLIENTS[/** @type {keyof typeof MCP_CLIENTS} */ (client)]
   if (!target) {
     const msg = `unknown client: ${client ?? '(none)'} (expected ${Object.keys(MCP_CLIENTS).join(', ')})`
-    if (json) emit({ command: 'mcp-init', ok: false, error: { code: 'unknown-client', message: msg } })
-    else console.error(`Unknown client: ${client ?? '(none)'} — use --client ${Object.keys(MCP_CLIENTS).join('|')}`)
+    if (json)
+      emit({ command: 'mcp-init', ok: false, error: { code: 'unknown-client', message: msg } })
+    else
+      console.error(
+        `Unknown client: ${client ?? '(none)'} — use --client ${Object.keys(MCP_CLIENTS).join('|')}`
+      )
     process.exit(EXIT.usage)
   }
   const file = target.file()
@@ -165,16 +239,20 @@ async function mcpInit(/** @type {{ client?: string, json?: boolean }} */ { clie
       config = JSON.parse(readFileSync(file, 'utf8'))
     } catch {
       const msg = `${file} exists but is not valid JSON — fix it manually, then re-run`
-      if (json) emit({ command: 'mcp-init', ok: false, error: { code: 'invalid-config', message: msg } })
+      if (json)
+        emit({ command: 'mcp-init', ok: false, error: { code: 'invalid-config', message: msg } })
       else console.error(msg)
       process.exit(EXIT.usage)
     }
   }
   config[target.root] = { ...config[target.root], cvx: target.entry }
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, JSON.stringify(config, null, 2) + '\n')
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`)
   if (json) emit({ command: 'mcp-init', ok: true, client, file, version })
-  else console.log(`✅ Added the cvx MCP server (pinned to ${version}) to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up. Re-run mcp init after upgrading cvx.`)
+  else
+    console.log(
+      `✅ Added the cvx MCP server (pinned to ${version}) to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up. Re-run mcp init after upgrading cvx.`
+    )
 }
 
 async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, json }) {
@@ -183,13 +261,25 @@ async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, jso
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
-    fontsDir:   join(pkgRoot, 'lib', 'fonts'),
+    fontsDir: join(pkgRoot, 'lib', 'fonts'),
     ats,
-    warn: (msg) => { warnings.push(msg); console.error(`⚠ ${msg}`) },
+    warn: (msg) => {
+      warnings.push(msg)
+      console.error(`⚠ ${msg}`)
+    }
   })
   writeFileSync(join(process.cwd(), filename), buffer)
   if (json) {
-    emit({ command: 'build', ok: true, filename, bytes: buffer.byteLength, ats, theme: ats ? null : themeName, layout: ats ? null : layoutName, warnings })
+    emit({
+      command: 'build',
+      ok: true,
+      filename,
+      bytes: buffer.byteLength,
+      ats,
+      theme: ats ? null : themeName,
+      layout: ats ? null : layoutName,
+      warnings
+    })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
     console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)
@@ -209,12 +299,32 @@ async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, jso
 async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
-  const vr = validateContent(/** @type {import('../src/pdf/types.js').ValidateOptions} */ ({ contentDir, strict: false, fontsDir: join(pkgRoot, 'lib', 'fonts') }))
+  const vr = validateContent(
+    /** @type {import('../src/pdf/types.js').ValidateOptions} */ ({
+      contentDir,
+      strict: false,
+      fontsDir: join(pkgRoot, 'lib', 'fonts')
+    })
+  )
   if (!vr.ok) {
-    if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'validation-failed', message: 'validation failed — fix errors before building' }, errors: vr.errors, warnings: vr.warnings })
+    if (json)
+      emit({
+        command: 'build',
+        all: true,
+        ok: false,
+        error: {
+          code: 'validation-failed',
+          message: 'validation failed — fix errors before building'
+        },
+        errors: vr.errors,
+        warnings: vr.warnings
+      })
     else {
       console.error('✖ validation failed — fix these before building:')
-      for (const f of vr.errors) console.error(`  ✖ cv-content/${f.file ?? ''}${f.path && f.path !== '(root)' ? ` ${f.path}:` : ''} ${f.message}`)
+      for (const f of vr.errors)
+        console.error(
+          `  ✖ cv-content/${f.file ?? ''}${f.path && f.path !== '(root)' ? ` ${f.path}:` : ''} ${f.message}`
+        )
     }
     process.exit(EXIT.validation)
   }
@@ -225,21 +335,52 @@ async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
     const label = ats ? 'ATS' : 'designed'
     let res
     try {
-      const stdout = execFileSync(process.execPath, [cliPath, 'build', ...(ats ? ['--ats'] : []), '--json'],
-        { cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
+      const stdout = execFileSync(
+        process.execPath,
+        [cliPath, 'build', ...(ats ? ['--ats'] : []), '--json'],
+        { cwd: process.cwd(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
+      )
       res = JSON.parse(stdout)
     } catch (err) {
-      if (json) emit({ command: 'build', all: true, ok: false, error: { code: 'render-failed', message: `${label} variant failed: ${/** @type {Error} */ (err).message}` } })
-      else console.error(`Build failed for the ${label} variant: ${/** @type {Error} */ (err).message}`)
+      if (json)
+        emit({
+          command: 'build',
+          all: true,
+          ok: false,
+          error: {
+            code: 'render-failed',
+            message: `${label} variant failed: ${/** @type {Error} */ (err).message}`
+          }
+        })
+      else
+        console.error(
+          `Build failed for the ${label} variant: ${/** @type {Error} */ (err).message}`
+        )
       process.exit(EXIT.render)
     }
     if (!res?.ok) {
-      if (json) emit({ command: 'build', all: true, ok: false, error: res?.error ?? { code: 'render-failed', message: `${label} variant failed` } })
+      if (json)
+        emit({
+          command: 'build',
+          all: true,
+          ok: false,
+          error: res?.error ?? { code: 'render-failed', message: `${label} variant failed` }
+        })
       else console.error(`Build failed for the ${label} variant.`)
       process.exit(EXIT.render)
     }
-    outputs.push({ filename: res.filename, bytes: res.bytes, ats, theme: res.theme, layout: res.layout, warnings: res.warnings ?? [] })
-    if (!json) console.log(`✅ ${res.filename}  (${(res.bytes / 1024).toFixed(0)} KB, ${ats ? 'ATS' : `theme: ${res.theme}, layout: ${res.layout}`})`)
+    outputs.push({
+      filename: res.filename,
+      bytes: res.bytes,
+      ats,
+      theme: res.theme,
+      layout: res.layout,
+      warnings: res.warnings ?? []
+    })
+    if (!json)
+      console.log(
+        `✅ ${res.filename}  (${(res.bytes / 1024).toFixed(0)} KB, ${ats ? 'ATS' : `theme: ${res.theme}, layout: ${res.layout}`})`
+      )
   }
   if (json) emit({ command: 'build', all: true, ok: true, outputs })
 }
@@ -249,15 +390,15 @@ let jsonMode = false
 try {
   const { values, positionals } = parseArgs({
     options: {
-      ats:     { type: 'boolean', default: false },
-      all:     { type: 'boolean', default: false },
-      strict:  { type: 'boolean', default: false },
-      json:    { type: 'boolean', default: false },
-      client:  { type: 'string' },
-      help:    { type: 'boolean', short: 'h', default: false },
-      version: { type: 'boolean', short: 'v', default: false },
+      ats: { type: 'boolean', default: false },
+      all: { type: 'boolean', default: false },
+      strict: { type: 'boolean', default: false },
+      json: { type: 'boolean', default: false },
+      client: { type: 'string' },
+      help: { type: 'boolean', short: 'h', default: false },
+      version: { type: 'boolean', short: 'v', default: false }
     },
-    allowPositionals: true,
+    allowPositionals: true
   })
   command = positionals[0] ?? null
   jsonMode = values.json
@@ -273,7 +414,15 @@ try {
   } else if (command === 'list') {
     const kind = positionals[1]
     if (kind && !['themes', 'layouts'].includes(kind)) {
-      if (jsonMode) emit({ command: 'list', ok: false, error: { code: 'unknown-list-kind', message: `unknown list kind: ${kind} (expected themes or layouts)` } })
+      if (jsonMode)
+        emit({
+          command: 'list',
+          ok: false,
+          error: {
+            code: 'unknown-list-kind',
+            message: `unknown list kind: ${kind} (expected themes or layouts)`
+          }
+        })
       else console.error(`Unknown list kind: ${kind} (expected themes or layouts)`)
       process.exit(EXIT.usage)
     }
@@ -285,7 +434,15 @@ try {
       const { runMcpServer } = await import('../lib/mcp/server.js')
       await runMcpServer()
     } else {
-      if (jsonMode) emit({ command: 'mcp', ok: false, error: { code: 'unknown-subcommand', message: `unknown mcp subcommand: ${positionals[1]}` } })
+      if (jsonMode)
+        emit({
+          command: 'mcp',
+          ok: false,
+          error: {
+            code: 'unknown-subcommand',
+            message: `unknown mcp subcommand: ${positionals[1]}`
+          }
+        })
       else console.error(`Unknown mcp subcommand: ${positionals[1]} (expected "init" or nothing)`)
       process.exit(EXIT.usage)
     }
@@ -293,13 +450,26 @@ try {
     if (values.all) await buildAll(values)
     else await build(values)
   } else {
-    if (jsonMode) emit({ command, ok: false, error: { code: 'unknown-command', message: `unknown command: ${command}` } })
+    if (jsonMode)
+      emit({
+        command,
+        ok: false,
+        error: { code: 'unknown-command', message: `unknown command: ${command}` }
+      })
     else console.error(`Unknown command: ${command}\n\n${HELP}`)
     process.exit(EXIT.usage)
   }
 } catch (err) {
   const code = command === 'build' ? EXIT.render : EXIT.usage
-  if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: /** @type {Error} */ (err).message } })
+  if (jsonMode)
+    emit({
+      command,
+      ok: false,
+      error: {
+        code: command === 'build' ? 'render-failed' : 'usage',
+        message: /** @type {Error} */ (err).message
+      }
+    })
   else console.error(/** @type {Error} */ (err).message)
   process.exit(code)
 }

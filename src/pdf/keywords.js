@@ -18,7 +18,8 @@ const clean = (/** @type {unknown} */ s) => String(s ?? '').trim()
 // Keywords go into a comma-joined field, so a keyword must not itself contain a
 // comma — otherwise a parser splitting on "," sees spurious fragments. Collapse
 // internal commas (and runs of whitespace) into single spaces.
-const sanitizeKeyword = (/** @type {string} */ s) => clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+const sanitizeKeyword = (/** @type {string} */ s) =>
+  clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
 
 /**
  * Flatten a keyword source into a clean string array. Accepts:
@@ -51,7 +52,13 @@ function toList(/** @type {import('./types.js').Keywords | undefined} */ value) 
  * Company names are deliberately NOT derived: they are low-signal as keywords
  * and mostly add noise.
  */
-function deriveFromContent(/** @type {{ competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial<import('./types.js').Personal> }} */ { competencies, experience, personal }) {
+function deriveFromContent(
+  /** @type {{ competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial<import('./types.js').Personal> }} */ {
+    competencies,
+    experience,
+    personal
+  }
+) {
   const out = [...toList(competencies)]
 
   if (personal?.title) out.push(clean(personal.title))
@@ -88,7 +95,7 @@ function dedupe(/** @type {string[]} */ list) {
  * @returns {string}       deduped, comma-joined keywords ("" when disabled/empty)
  */
 export function buildKeywords(data = {}, config = {}) {
-  const opts = /** @type {import('./types.js').AtsKeywords} */ ((config && config.atsKeywords) || {})
+  const opts = /** @type {import('./types.js').AtsKeywords} */ (config?.atsKeywords || {})
   if (opts.enabled === false) return ''
 
   const manual = toList(data.keywords)
@@ -98,6 +105,7 @@ export function buildKeywords(data = {}, config = {}) {
   // ones that actually appear on the page (competencies + titles), avoiding the
   // metadata/body mismatch that curated-but-unverified terms could introduce.
   const merged = dedupe([...derived, ...manual].map(sanitizeKeyword).filter(Boolean))
-  const max = Number.isInteger(opts.max) && /** @type {number} */ (opts.max) > 0 ? opts.max : merged.length
+  const max =
+    Number.isInteger(opts.max) && /** @type {number} */ (opts.max) > 0 ? opts.max : merged.length
   return merged.slice(0, max).join(', ')
 }

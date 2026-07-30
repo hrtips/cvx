@@ -1,22 +1,31 @@
 // ── Experience section (main column) ────────────────────────────────────────
-import { View, StyleSheet } from '@react-pdf/renderer'
-import { useStyles } from '../ThemeContext.jsx'
-import SectionTitle from '../components/SectionTitle.jsx'
+import { StyleSheet, View } from '@react-pdf/renderer'
 import ExpItem from '../components/ExpItem.jsx'
+import SectionTitle from '../components/SectionTitle.jsx'
+import { useStyles } from '../ThemeContext.jsx'
 
 /** @param {import('../types.js').Theme} t */
-const makeStyles = (t) => StyleSheet.create({
-  divider: { height: t.chrome.dividerHeight, backgroundColor: t.palette.divider, marginVertical: 16.5 },
-})
+const makeStyles = (t) =>
+  StyleSheet.create({
+    divider: {
+      height: t.chrome.dividerHeight,
+      backgroundColor: t.palette.divider,
+      marginVertical: 16.5
+    }
+  })
 
 /**
+ * `data` is accepted (the generic slot renderer passes it to every section)
+ * but unused here — this section reads only `entries`. Declared in the type,
+ * not destructured, so the section-registry union stays homogeneous.
+ *
  * @param {{
- *   data: import('../types.js').CVContent,
+ *   data?: import('../types.js').CVContent,
  *   entries?: import('../types.js').ExperienceEntry[],
  *   continued?: boolean,
  * }} props
  */
-export default function ExperienceSection({ data, entries, continued = false }) {
+export default function ExperienceSection({ entries, continued = false }) {
   const s = useStyles(makeStyles)
   const label = continued ? 'Experience (continued)' : 'Experience'
   if (!entries?.length) return null

@@ -58,5 +58,9 @@ export function loadContent(contentDir) {
     if (hit) profilePhoto = join(imgDir, hit)
   }
 
-  return { config, content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (content)), profilePhoto }
+  return {
+    config,
+    content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (content)),
+    profilePhoto
+  }
 }

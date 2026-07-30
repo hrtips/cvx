@@ -5,28 +5,36 @@
 // produce identical output.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { readdirSync, readFileSync, existsSync } from 'fs'
-import { join, basename } from 'path'
-import { load } from 'js-yaml'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { renderToBuffer } from '@react-pdf/renderer'
+import { load } from 'js-yaml'
 import { createElement } from 'react'
+import ATSDocument from './ATSDocument.jsx'
+import CVDocument from './CVDocument.jsx'
 import { registerFonts } from './fonts.js'
-import { setupReproducibility } from './reproducible.js'
+import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
 import { loadContent } from './loadContent.js'
 import { normalizeLayout } from './loadLayout.js'
+import {
+  createMeasurer,
+  describeUnsupportedGlyphFinding,
+  findUnsupportedGlyphs
+} from './measure.js'
+import { setupReproducibility } from './reproducible.js'
 import { discoverThemes } from './themes/index.js'
-import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
-import { createMeasurer, findUnsupportedGlyphs, describeUnsupportedGlyphFinding } from './measure.js'
-import CVDocument from './CVDocument.jsx'
-import ATSDocument from './ATSDocument.jsx'
 
 /** Discover layouts from <contentDir>/layouts/*.yaml, keyed by filename. */
 export function discoverLayouts(/** @type {string} */ layoutsDir) {
   /** @type {Record<string, import('./types.js').NormalizedLayout>} */
   const layouts = {}
   if (!existsSync(layoutsDir)) return layouts
-  for (const file of readdirSync(layoutsDir).filter(f => f.endsWith('.yaml'))) {
-    layouts[basename(file, '.yaml')] = normalizeLayout(/** @type {import('./types.js').RawLayout} */ (load(readFileSync(join(layoutsDir, file), 'utf-8'))))
+  for (const file of readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml'))) {
+    layouts[basename(file, '.yaml')] = normalizeLayout(
+      /** @type {import('./types.js').RawLayout} */ (
+        load(readFileSync(join(layoutsDir, file), 'utf-8'))
+      )
+    )
   }
   return layouts
 }
@@ -43,24 +51,33 @@ function deriveFilename(/** @type {string | undefined} */ name, /** @type {strin
  * failing is not a reason to fail an entire build — fall back to
  * layout.js's isomorphic char-width estimate and warn once instead.
  */
-function tryCreateMeasurer(/** @type {string} */ fontsDir, /** @type {(msg: string) => void} */ warn) {
+function tryCreateMeasurer(
+  /** @type {string} */ fontsDir,
+  /** @type {(msg: string) => void} */ warn
+) {
   try {
     return createMeasurer(fontsDir)
   } catch (err) {
-    warn(`Could not load real font metrics from ${fontsDir} (${/** @type {Error} */ (err).message}) — falling back to the approximate char-width estimator for pagination.`)
+    warn(
+      `Could not load real font metrics from ${fontsDir} (${/** @type {Error} */ (err).message}) — falling back to the approximate char-width estimator for pagination.`
+    )
     return undefined
   }
 }
 
 /** Warn about any text CVX will render invisibly (no glyph in the bundled font) — see measure.js's module docblock (design doc G-a). */
-function warnAboutUnsupportedGlyphs(/** @type {import('./types.js').Measurer | undefined} */ measure, /** @type {import('./types.js').CVContent} */ content, /** @type {(msg: string) => void} */ warn) {
+function warnAboutUnsupportedGlyphs(
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {import('./types.js').CVContent} */ content,
+  /** @type {(msg: string) => void} */ warn
+) {
   if (!measure) return
   for (const finding of findUnsupportedGlyphs(measure, content)) {
     const where = finding.path === '(root)' ? finding.file : `${finding.file}${finding.path}`
     warn(
       `${where} ${describeUnsupportedGlyphFinding(finding)} ` +
-      `CVX bundles Lato only (Western-European Latin coverage) and registers no fallback font — ` +
-      `provide/replace with a font that covers this script if this text must be visible.`
+        `CVX bundles Lato only (Western-European Latin coverage) and registers no fallback font — ` +
+        `provide/replace with a font that covers this script if this text must be visible.`
     )
   }
 }
@@ -76,7 +93,13 @@ function warnAboutUnsupportedGlyphs(/** @type {import('./types.js').Measurer | u
  * @param {(msg: string) => void} [opts.warn]
  * @returns {Promise<{buffer: Buffer, filename: string, themeName: string|null, layoutName: string|null}>}
  */
-export async function renderCV({ contentDir, fontsDir, ats = false, env = process.env, warn = console.warn }) {
+export async function renderCV({
+  contentDir,
+  fontsDir,
+  ats = false,
+  env = process.env,
+  warn = console.warn
+}) {
   if (!existsSync(contentDir)) {
     throw new Error(`Content directory not found: ${contentDir}\nRun "cvx init" to scaffold one.`)
   }
@@ -94,38 +117,74 @@ export async function renderCV({ contentDir, fontsDir, ats = false, env = proces
 
   if (ats) {
     const buffer = await renderToBuffer(
-      /** @type {Parameters<typeof renderToBuffer>[0]} */ (createElement(ATSDocument, /** @type {Parameters<typeof ATSDocument>[0]} */ ({ ...content, profilePhoto, config, creationDate })))
+      /** @type {Parameters<typeof renderToBuffer>[0]} */ (
+        createElement(
+          ATSDocument,
+          /** @type {Parameters<typeof ATSDocument>[0]} */ ({
+            ...content,
+            profilePhoto,
+            config,
+            creationDate
+          })
+        )
+      )
     )
-    return { buffer, filename: deriveFilename(content.personal?.name, '-ats'), themeName: null, layoutName: null }
+    return {
+      buffer,
+      filename: deriveFilename(content.personal?.name, '-ats'),
+      themeName: null,
+      layoutName: null
+    }
   }
 
-  const themes     = await discoverThemes()
-  const layouts    = discoverLayouts(join(contentDir, 'layouts'))
-  const themeName  = config.theme  ?? 'teal'
+  const themes = await discoverThemes()
+  const layouts = discoverLayouts(join(contentDir, 'layouts'))
+  const themeName = config.theme ?? 'teal'
   const layoutName = config.layout ?? 'two-column'
 
-  const theme  = themes[themeName]
+  const theme = themes[themeName]
   const layout = layouts[layoutName] ?? undefined
 
   if (!theme) {
     throw new Error(`Unknown theme "${themeName}". Available: ${Object.keys(themes).join(', ')}`)
   }
   if (layoutName && !layout) {
-    warn(`Layout "${layoutName}" not found in ${join(contentDir, 'layouts')}. Using built-in default.`)
+    warn(
+      `Layout "${layoutName}" not found in ${join(contentDir, 'layouts')}. Using built-in default.`
+    )
   }
 
-  const overflow = estimatePage1Overflow(content.experience ?? [], content.summary ?? [], config, theme, measure)
+  const overflow = estimatePage1Overflow(
+    content.experience ?? [],
+    content.summary ?? [],
+    config,
+    theme,
+    measure
+  )
   if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
     warn(
       `page1ExperienceCount: ${config.page1ExperienceCount} likely does not fit on page 1 ` +
-      `(estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — ` +
-      `overflowing content is clipped at the page edge. Check the rendered page 1; ` +
-      `reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination.`
+        `(estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — ` +
+        `overflowing content is clipped at the page edge. Check the rendered page 1; ` +
+        `reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination.`
     )
   }
 
   const buffer = await renderToBuffer(
-    /** @type {Parameters<typeof renderToBuffer>[0]} */ (createElement(CVDocument, /** @type {Parameters<typeof CVDocument>[0]} */ ({ ...content, profilePhoto, config, theme, layout, creationDate, measure })))
+    /** @type {Parameters<typeof renderToBuffer>[0]} */ (
+      createElement(
+        CVDocument,
+        /** @type {Parameters<typeof CVDocument>[0]} */ ({
+          ...content,
+          profilePhoto,
+          config,
+          theme,
+          layout,
+          creationDate,
+          measure
+        })
+      )
+    )
   )
   const suffix = layoutName === 'single-column' ? '-ats' : ''
   return { buffer, filename: deriveFilename(content.personal?.name, suffix), themeName, layoutName }

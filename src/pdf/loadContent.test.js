@@ -18,7 +18,8 @@ const FONTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 
 /** @type {string[]} */
 const dirsToClean = []
 afterEach(() => {
-  while (dirsToClean.length) rmSync(/** @type {string} */ (dirsToClean.pop()), { recursive: true, force: true })
+  while (dirsToClean.length)
+    rmSync(/** @type {string} */ (dirsToClean.pop()), { recursive: true, force: true })
 })
 
 function contentDirWith(/** @type {Record<string, string>} */ files) {
@@ -54,7 +55,9 @@ describe('loadContent — NFC normalization', () => {
       'experience.yaml': `- role: Engineer\n  company: Acme\n  bullets:\n    - "Worked with ${NGUYEN_NFD} on a project."\n`
     })
     const { content } = loadContent(dir)
-    expect(/** @type {import('./types.js').BulletItem[]} */ (content.experience[0].bullets)[0]).toBe('Worked with Nguyễn on a project.')
+    expect(
+      /** @type {import('./types.js').BulletItem[]} */ (content.experience[0].bullets)[0]
+    ).toBe('Worked with Nguyễn on a project.')
   })
 
   it('fixes the false-positive glyph warning for accented text Lato DOES support', () => {
