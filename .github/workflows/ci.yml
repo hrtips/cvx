@@ -159,3 +159,63 @@ jobs:
           echo "run1: $H1"
           echo "run2: $H2"
           test "$H1" = "$H2"
+
+  # ── Hostile quality gate: zero-warning lint, strict types, per-file 90%
+  #    coverage, dead-code, and package-publish correctness. One fixed leg
+  #    (ubuntu/Node 22) — this is a determinism gate, not a matrix.
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+      # poppler-utils: the C0 layout harness rasterizes/extracts PDFs; the
+      # coverage run exercises it, so it needs the same canonical env as `test`.
+      - name: Install poppler-utils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+      - run: npm ci
+      - run: npm run build:lib
+      - name: Lint — oxlint + biome (zero warnings)
+        run: npm run lint
+      - name: Type-check — tsc --noEmit (checkJs + strict)
+        run: npm run typecheck
+      - name: Coverage — per-file ≥90% (Vitest v8)
+        run: npm run test:cov
+      - name: Dead code / unused deps — knip
+        run: npm run knip
+      - name: Package correctness — publint + arethetypeswrong
+        run: |
+          npm run publint
+          npm run attw
+
+  # ── Supply-chain + workflow security. Tools are installed at pinned
+  #    versions via the runner's preinstalled go/pipx (no extra actions to
+  #    trust); zizmor's own config lives at .github/zizmor.yml.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # gitleaks scans the full history
+      - name: Install pinned security tools
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.4.0
+          pipx install zizmor==1.28.0
+          curl -sSLo /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: actionlint — workflow correctness
+        run: actionlint
+      - name: zizmor — workflow security
+        run: zizmor .github/workflows/
+      - name: gitleaks — secret scan
+        run: gitleaks detect --no-banner --redact
+      - name: osv-scanner — dependency CVEs
+        run: osv-scanner scan --lockfile=package-lock.json

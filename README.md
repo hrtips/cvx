@@ -457,6 +457,21 @@ npm test
 
 Unit tests cover the pure logic modules — keyword building, page packing, sidebar resolution, reproducibility helpers, and the profile-photo picker. Tests live next to the code they cover (`src/pdf/*.test.js`) plus `test/` for cross-cutting checks. CI runs the suite on Linux and macOS across Node 20/22/24 (plus Windows on Node 22), then packs the tarball and exercises the installed CLI end-to-end, including a byte-identical reproducibility gate.
 
+## Quality gates
+
+The build is deliberately hostile — a change lands only if it clears every gate below with **zero warnings**. Run them all locally with `npm run check` (lint + types + coverage + dead-code); CI enforces them in the `quality` and `security` jobs.
+
+| Gate | Command | Enforces |
+|---|---|---|
+| Lint + format | `npm run lint` | [Oxlint](https://oxc.rs) (fast correctness/`suspicious`, incl. `rules-of-hooks`, `no-focused-tests`) **+** [Biome](https://biomejs.dev) (format, imports, deeper lint) — zero warnings |
+| Types | `npm run typecheck` | `tsc --noEmit` with `checkJs` + full `strict` over the JS/JSX sources (types via JSDoc + `src/pdf/types.d.ts`, derived from the JSON schema) |
+| Coverage | `npm run test:cov` | [Vitest](https://vitest.dev) v8, **per-file ≥ 90%** lines/functions/statements, ≥ 85% branches — no global averaging |
+| Dead code | `npm run knip` | no unused files, exports, or dependencies |
+| Package | `npm run publint` · `npm run attw` | [publint](https://publint.dev) packaging + [arethetypeswrong](https://arethetypeswrong.github.io) resolution |
+| Supply chain | `security` CI job | [actionlint](https://github.com/rhysd/actionlint) · [zizmor](https://docs.zizmor.sh) (SHA-pinned actions, least-privilege) · [gitleaks](https://gitleaks.io) · [osv-scanner](https://google.github.io/osv-scanner/) |
+
+Formatting/lint autofix: `npm run lint:fix`. GitHub Actions are pinned to commit SHAs and kept current by Dependabot.
+
 ## Reproducible builds
 
 Set [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/docs/source-date-epoch/) (seconds since the Unix epoch) to make PDF output byte-identical run after run — useful for CI checks and for verifying that a content change is the *only* thing that changed:
