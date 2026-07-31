@@ -16,7 +16,16 @@ import { TOOLS } from './tools.js'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-export async function runMcpServer() {
+/**
+ * Run the cvx MCP server on `transport`.
+ *
+ * @param {import('@modelcontextprotocol/sdk/shared/transport.js').Transport} [transport]
+ *   defaults to a fresh stdio transport (the production/CLI path). The
+ *   parameter exists so the server can be driven in-process over an in-memory
+ *   transport by the test suite; passing nothing preserves the original
+ *   stdio behavior exactly.
+ */
+export async function runMcpServer(transport = new StdioServerTransport()) {
   const { version } = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8'))
 
   const server = new Server(
@@ -54,7 +63,6 @@ export async function runMcpServer() {
     }
   })
 
-  const transport = new StdioServerTransport()
   await server.connect(transport)
   console.error(`cvx mcp v${version} — stdio server ready (tools: ${TOOLS.map((t) => t.name).join(', ')})`)
 }

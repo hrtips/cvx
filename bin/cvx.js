@@ -14,9 +14,16 @@
  *   - with --json, stdout carries exactly one JSON object (the result);
  *     logs and warnings go to stderr. Errors become { ok: false, error: {...} }.
  *   - every command is non-interactive.
+ *
+ * Structure: the top-level command dispatch lives in `main(argv)` and only runs
+ * when this file is executed directly (the run-as-main guard at the bottom).
+ * Importing this module — e.g. from the test suite — does NOT run the dispatch,
+ * so each command function can be driven in-process. This is a pure refactor:
+ * the exit-code contract, the one-JSON-object-on-stdout contract, and every
+ * command's observable behavior are unchanged.
  */
-import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync, mkdirSync } from 'fs'
-import { fileURLToPath } from 'url'
+import { existsSync, cpSync, writeFileSync, readFileSync, readdirSync, mkdirSync, realpathSync } from 'fs'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { dirname, join } from 'path'
 import { homedir } from 'os'
 import { parseArgs } from 'node:util'
@@ -52,7 +59,7 @@ Docs: https://github.com/hrtips/cvx#readme`
 
 const emit = (obj) => console.log(JSON.stringify(obj, null, 2))
 
-async function init({ json }) {
+export async function init({ json }) {
   const dest = join(process.cwd(), 'cv-content')
   if (existsSync(dest)) {
     if (json) emit({ command: 'init', ok: false, error: { code: 'already-exists', message: 'cv-content/ already exists here — refusing to overwrite' } })
@@ -73,7 +80,7 @@ Next steps:
   }
 }
 
-async function validate({ strict, json }) {
+export async function validate({ strict, json }) {
   const { validateContent } = await import('../lib/pdf/validateContent.js')
   const result = validateContent({ contentDir: join(process.cwd(), 'cv-content'), strict, fontsDir: join(pkgRoot, 'lib', 'fonts') })
 
@@ -101,7 +108,7 @@ async function validate({ strict, json }) {
   process.exit(result.ok ? EXIT.ok : EXIT.validation)
 }
 
-async function list({ kind, json }) {
+export async function list({ kind, json }) {
   const { discoverThemes } = await import('../lib/pdf/themes/index.js')
   const themes = Object.keys(await discoverThemes()).map((name) => ({ name, default: name === 'teal' }))
 
@@ -148,7 +155,7 @@ const MCP_CLIENTS = {
   },
 }
 
-async function mcpInit({ client, json }) {
+export async function mcpInit({ client, json }) {
   const target = MCP_CLIENTS[client]
   if (!target) {
     const msg = `unknown client: ${client ?? '(none)'} (expected ${Object.keys(MCP_CLIENTS).join(', ')})`
@@ -176,7 +183,7 @@ async function mcpInit({ client, json }) {
   else console.log(`✅ Added the cvx MCP server (pinned to ${version}) to ${file}\n   Restart ${client === 'claude-desktop' ? 'Claude Desktop' : client} to pick it up. Re-run mcp init after upgrading cvx.`)
 }
 
-async function build({ ats, json }) {
+export async function build({ ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const warnings = []
   const { buffer, filename, themeName, layoutName } = await renderCV({
@@ -204,7 +211,7 @@ async function build({ ats, json }) {
 // correct on screen but extract as garbled text, breaking exactly the ATS
 // parsers it exists for. Separate processes keep every PDF's text layer clean
 // (regression-guarded by the layout harness's content oracle).
-async function buildAll({ json }) {
+export async function buildAll({ json }) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
   const vr = validateContent({ contentDir, strict: false, fontsDir: join(pkgRoot, 'lib', 'fonts') })
@@ -242,62 +249,88 @@ async function buildAll({ json }) {
   if (json) emit({ command: 'build', all: true, ok: true, outputs })
 }
 
-let command = null
-let jsonMode = false
-try {
-  const { values, positionals } = parseArgs({
-    options: {
-      ats:     { type: 'boolean', default: false },
-      all:     { type: 'boolean', default: false },
-      strict:  { type: 'boolean', default: false },
-      json:    { type: 'boolean', default: false },
-      client:  { type: 'string' },
-      help:    { type: 'boolean', short: 'h', default: false },
-      version: { type: 'boolean', short: 'v', default: false },
-    },
-    allowPositionals: true,
-  })
-  command = positionals[0] ?? null
-  jsonMode = values.json
+/**
+ * Parse argv and dispatch to a command. Run only when this file is the process
+ * entry point (see the run-as-main guard below); tests import the command
+ * functions and this `main` directly.
+ *
+ * @param {string[]} [argv]  full process argv (defaults to process.argv)
+ */
+export async function main(argv = process.argv) {
+  let command = null
+  let jsonMode = false
+  try {
+    const { values, positionals } = parseArgs({
+      args: argv.slice(2),
+      options: {
+        ats:     { type: 'boolean', default: false },
+        all:     { type: 'boolean', default: false },
+        strict:  { type: 'boolean', default: false },
+        json:    { type: 'boolean', default: false },
+        client:  { type: 'string' },
+        help:    { type: 'boolean', short: 'h', default: false },
+        version: { type: 'boolean', short: 'v', default: false },
+      },
+      allowPositionals: true,
+    })
+    command = positionals[0] ?? null
+    jsonMode = values.json
 
-  if (values.version) {
-    console.log(version)
-  } else if (values.help || positionals.length === 0) {
-    console.log(HELP)
-  } else if (command === 'init') {
-    await init(values)
-  } else if (command === 'validate') {
-    await validate(values)
-  } else if (command === 'list') {
-    const kind = positionals[1]
-    if (kind && !['themes', 'layouts'].includes(kind)) {
-      if (jsonMode) emit({ command: 'list', ok: false, error: { code: 'unknown-list-kind', message: `unknown list kind: ${kind} (expected themes or layouts)` } })
-      else console.error(`Unknown list kind: ${kind} (expected themes or layouts)`)
-      process.exit(EXIT.usage)
-    }
-    await list({ kind, json: values.json })
-  } else if (command === 'mcp') {
-    if (positionals[1] === 'init') {
-      await mcpInit({ client: values.client, json: values.json })
-    } else if (positionals[1] === undefined) {
-      const { runMcpServer } = await import('../lib/mcp/server.js')
-      await runMcpServer()
+    if (values.version) {
+      console.log(version)
+    } else if (values.help || positionals.length === 0) {
+      console.log(HELP)
+    } else if (command === 'init') {
+      await init(values)
+    } else if (command === 'validate') {
+      await validate(values)
+    } else if (command === 'list') {
+      const kind = positionals[1]
+      if (kind && !['themes', 'layouts'].includes(kind)) {
+        if (jsonMode) emit({ command: 'list', ok: false, error: { code: 'unknown-list-kind', message: `unknown list kind: ${kind} (expected themes or layouts)` } })
+        else console.error(`Unknown list kind: ${kind} (expected themes or layouts)`)
+        process.exit(EXIT.usage)
+      }
+      await list({ kind, json: values.json })
+    } else if (command === 'mcp') {
+      if (positionals[1] === 'init') {
+        await mcpInit({ client: values.client, json: values.json })
+      } else if (positionals[1] === undefined) {
+        const { runMcpServer } = await import('../lib/mcp/server.js')
+        await runMcpServer()
+      } else {
+        if (jsonMode) emit({ command: 'mcp', ok: false, error: { code: 'unknown-subcommand', message: `unknown mcp subcommand: ${positionals[1]}` } })
+        else console.error(`Unknown mcp subcommand: ${positionals[1]} (expected "init" or nothing)`)
+        process.exit(EXIT.usage)
+      }
+    } else if (command === 'build') {
+      if (values.all) await buildAll(values)
+      else await build(values)
     } else {
-      if (jsonMode) emit({ command: 'mcp', ok: false, error: { code: 'unknown-subcommand', message: `unknown mcp subcommand: ${positionals[1]}` } })
-      else console.error(`Unknown mcp subcommand: ${positionals[1]} (expected "init" or nothing)`)
+      if (jsonMode) emit({ command, ok: false, error: { code: 'unknown-command', message: `unknown command: ${command}` } })
+      else console.error(`Unknown command: ${command}\n\n${HELP}`)
       process.exit(EXIT.usage)
     }
-  } else if (command === 'build') {
-    if (values.all) await buildAll(values)
-    else await build(values)
-  } else {
-    if (jsonMode) emit({ command, ok: false, error: { code: 'unknown-command', message: `unknown command: ${command}` } })
-    else console.error(`Unknown command: ${command}\n\n${HELP}`)
-    process.exit(EXIT.usage)
+  } catch (err) {
+    const code = command === 'build' ? EXIT.render : EXIT.usage
+    if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: err.message } })
+    else console.error(err.message)
+    process.exit(code)
   }
-} catch (err) {
-  const code = command === 'build' ? EXIT.render : EXIT.usage
-  if (jsonMode) emit({ command, ok: false, error: { code: command === 'build' ? 'render-failed' : 'usage', message: err.message } })
-  else console.error(err.message)
-  process.exit(code)
 }
+
+// Run-as-main guard: only dispatch when executed directly (`node bin/cvx.js …`
+// or via the `cvx` bin symlink), never on plain import. `import.meta.url` is
+// realpath-resolved by Node, so we realpath argv[1] too — otherwise invocation
+// through the npm-created `cvx` symlink would not match and the CLI would do
+// nothing. buildAll re-invokes this same file per variant, so the guard must
+// keep firing in those child processes.
+function isRunAsMain() {
+  try {
+    return Boolean(process.argv[1]) && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href
+  } catch {
+    return false
+  }
+}
+
+if (isRunAsMain()) main(process.argv)
