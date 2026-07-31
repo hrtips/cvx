@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.11% </span>
+                <span class="strong">94.28% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>32/34</span>
+                <span class='fraction'>33/35</span>
             </div>
         
             
@@ -166,7 +166,15 @@
 <a name='L101'></a><a href='#L101'>101</a>
 <a name='L102'></a><a href='#L102'>102</a>
 <a name='L103'></a><a href='#L103'>103</a>
-<a name='L104'></a><a href='#L104'>104</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -186,6 +194,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">53x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -211,6 +220,12 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -266,6 +281,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -284,12 +300,13 @@
 // metadata/body mismatch that gets a CV auto-rejected, not ranked higher.
 // ────────────────────────────────────────────────────────────────────────────
 &nbsp;
-const clean = (s) =&gt; String(s ?? <span class="branch-1 cbranch-no" title="branch not covered" >'')</span>.trim()
+const clean = (/** @type {unknown} */ s) =&gt; String(s ?? <span class="branch-1 cbranch-no" title="branch not covered" >'')</span>.trim()
 &nbsp;
 // Keywords go into a comma-joined field, so a keyword must not itself contain a
 // comma — otherwise a parser splitting on "," sees spurious fragments. Collapse
 // internal commas (and runs of whitespace) into single spaces.
-const sanitizeKeyword = (s) =&gt; clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+const sanitizeKeyword = (/** @type {string} */ s) =&gt;
+  clean(s).replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
 &nbsp;
 /**
  * Flatten a keyword source into a clean string array. Accepts:
@@ -298,7 +315,7 @@ const sanitizeKeyword = (s) =&gt; clean(s).replace(/,/g, ' ').replace(/\s+/g, ' 
  *   - [{ Skills: ["a"] }]           (list of grouped maps)
  *   - "a"                           (single string)
  */
-function toList(value) {
+function toList(/** @type {import('./types.js').Keywords | undefined} */ value) {
   if (!value) return []
   if (Array.isArray(value)) {
     return value
@@ -322,7 +339,13 @@ function toList(value) {
  * Company names are deliberately NOT derived: they are low-signal as keywords
  * and mostly add noise.
  */
-function deriveFromContent({ competencies, experience, personal }) {
+function deriveFromContent(
+  /** @type {{ competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial&lt;import('./types.js').Personal&gt; }} */ {
+    competencies,
+    experience,
+    personal
+  }
+) {
   const out = [...toList(competencies)]
 &nbsp;
   if (personal?.title) out.push(clean(personal.title))
@@ -338,7 +361,7 @@ function deriveFromContent({ competencies, experience, personal }) {
 }
 &nbsp;
 /** Case-insensitive dedupe that preserves first-seen order and casing. */
-function dedupe(list) {
+function dedupe(/** @type {string[]} */ list) {
   const seen = new Set()
   const result = []
   for (const item of list) {
@@ -354,12 +377,12 @@ function dedupe(list) {
 /**
  * Build the comma-separated keyword string for the PDF's Keywords metadata.
  *
- * @param {object} data    { keywords, competencies, experience, personal }
- * @param {object} config  parsed config.yaml (reads config.atsKeywords)
+ * @param {{ keywords?: import('./types.js').Keywords, competencies?: string[], experience?: import('./types.js').ExperienceEntry[], personal?: Partial&lt;import('./types.js').Personal&gt; }} [data]    { keywords, competencies, experience, personal }
+ * @param {import('./types.js').CVConfig} [config]  parsed config.yaml (reads config.atsKeywords)
  * @returns {string}       deduped, comma-joined keywords ("" when disabled/empty)
  */
 export function buildKeywords(data = {}, config = {}) {
-  const opts = config?.atsKeywords || {}
+  const opts = /** @type {import('./types.js').AtsKeywords} */ (config?.atsKeywords || {})
   if (opts.enabled === false) return ''
 &nbsp;
   const manual = toList(data.keywords)
@@ -369,7 +392,8 @@ export function buildKeywords(data = {}, config = {}) {
   // ones that actually appear on the page (competencies + titles), avoiding the
   // metadata/body mismatch that curated-but-unverified terms could introduce.
   const merged = dedupe([...derived, ...manual].map(sanitizeKeyword).filter(Boolean))
-  const max = Number.isInteger(opts.max) &amp;&amp; opts.max &gt; 0 ? opts.max : merged.length
+  const max =
+    Number.isInteger(opts.max) &amp;&amp; /** @type {number} */ (opts.max) &gt; 0 ? opts.max : merged.length
   return merged.slice(0, max).join(', ')
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -379,7 +403,7 @@ export function buildKeywords(data = {}, config = {}) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-30T17:25:47.755Z
+                at 2026-07-31T01:43:33.586Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

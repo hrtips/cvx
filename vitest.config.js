@@ -2,13 +2,16 @@
 // build file) so the "hostile" per-file coverage gate lives on its own.
 // Vitest resolves this file ahead of vite.config.js and we merge the vite
 // plugins (react, yaml) back in so test transforms match the real build.
-import { defineConfig, mergeConfig } from 'vitest/config'
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.js'
 
 export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // Never discover tests inside git worktrees (subagents create them under
+      // .claude/worktrees/); they duplicate the suite and break coverage counts.
+      exclude: [...configDefaults.exclude, '.claude/**', '**/.claude/**'],
       coverage: {
         provider: 'v8',
         // Coverage universe = shipped runtime only. src/main.jsx is the browser

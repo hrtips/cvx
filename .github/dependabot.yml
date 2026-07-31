@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Keep SHA-pinned actions current (Dependabot rewrites the pin + version comment).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  # npm devDependencies (runtime deps are few and pinned via package-lock).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development

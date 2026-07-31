@@ -39,7 +39,10 @@
     "format": "biome format --write src bin test scripts *.js",
     "format:check": "biome format src bin test scripts *.js",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run test:cov"
+    "knip": "knip",
+    "publint": "publint --strict",
+    "attw": "attw --pack .",
+    "check": "npm run lint && npm run typecheck && npm run test:cov && npm run knip"
   },
   "type": "module",
   "engines": {
@@ -55,6 +58,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.5.6",
+    "@react-pdf/types": "^2.11.1",
     "@rollup/plugin-yaml": "^5.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.1.2",
@@ -79,8 +83,5 @@
     "js-yaml": "^4.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
-  },
-  "overrides": {
-    "fontkit": "$fontkit"
   }
 }

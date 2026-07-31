@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/5</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -114,11 +114,26 @@
 <a name='L49'></a><a href='#L49'>49</a>
 <a name='L50'></a><a href='#L50'>50</a>
 <a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -144,6 +159,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -168,6 +194,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Link, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { useStyles } from '../ThemeContext.jsx'
 &nbsp;
+/** @param {import('../types.js').Theme} t */
 const makeStyles = (t) =&gt;
   StyleSheet.create({
     list: { marginTop: t.spacing.descMt },
@@ -188,31 +215,43 @@ const makeStyles = (t) =&gt;
     link: { color: t.palette.textDark, textDecoration: 'underline' }
   })
 &nbsp;
+/** @param {{ items: import('../types.js').BulletItem[], gap?: number }} props */
 export default function BulletList({ items, gap = 4.5 }) {
   const s = useStyles(makeStyles)
   return (
     &lt;View style={s.list}&gt;
-      {items.map((item, i) =&gt; (
-        // biome-ignore lint/suspicious/noArrayIndexKey: bullet items may repeat; index is the stable identity for this single-shot render
-        &lt;View key={i} style={[s.item, i &gt; 0 &amp;&amp; { marginTop: gap }]}&gt;
-          &lt;Text style={s.dash}&gt;–&lt;/Text&gt;
-          &lt;Text style={s.text}&gt;
-            {typeof item === 'string' ? (
-              item
-            ) : (
-<span class="branch-1 cbranch-no" title="branch not covered" >              &lt;&gt;</span>
-                {item.text ?? ''}
-                {item.link ? (
-                  &lt;Link src={item.link.href} style={s.link}&gt;
-                    {item.link.label}
-                  &lt;/Link&gt;
-                ) : null}
-                {item.suffix ?? ''}
-              &lt;/&gt;
-            )}
-          &lt;/Text&gt;
-        &lt;/View&gt;
-      ))}
+      {items.map((item, i) =&gt; {
+        // Bullets have no identity beyond position; the ordinal IS the key.
+        const itemKey = `bullet-${i}`
+        return (
+          &lt;View
+            key={itemKey}
+            style={
+              /** @type {import('@react-pdf/types').Style[]} */ ([
+                s.item,
+                i &gt; 0 &amp;&amp; { marginTop: gap }
+              ])
+            }
+          &gt;
+            &lt;Text style={s.dash}&gt;–&lt;/Text&gt;
+            &lt;Text style={s.text}&gt;
+              {typeof item === 'string' ? (
+                item
+              ) : (
+<span class="branch-1 cbranch-no" title="branch not covered" >                &lt;&gt;</span>
+                  {item.text ?? ''}
+                  {item.link ? (
+                    &lt;Link src={item.link.href} style={s.link}&gt;
+                      {item.link.label}
+                    &lt;/Link&gt;
+                  ) : null}
+                  {item.suffix ?? ''}
+                &lt;/&gt;
+              )}
+            &lt;/Text&gt;
+          &lt;/View&gt;
+        )
+      })}
     &lt;/View&gt;
   )
 }
@@ -223,7 +262,7 @@ export default function BulletList({ items, gap = 4.5 }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-30T17:25:47.737Z
+                at 2026-07-31T01:43:33.568Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -48,6 +48,14 @@ targets are grounded in real numbers. Regenerate any figure with the commands sh
 errors immediately. The loose gate is then ~33 real fixes. Strict adds ~530 implicit-any
 JSDoc annotations — the mechanical bulk, ratcheted flag-by-flag in Phase 3.
 
+**Outcome (Phase 3 done):** `tsc --noEmit` with `checkJs` + full `strict` → **0 errors**.
+Type model authored at `src/pdf/types.d.ts` (derived from the JSON schema) + a minimal
+`src/pdf/fontkit.d.ts` ambient decl (fontkit ships no types). `lib/` is `@ts-nocheck`
+(generated transform of src; bin loads it at runtime). `src/main.jsx` stays IN the gate.
+Byte-identical reproducibility held throughout (JSDoc/cast changes are runtime-inert) —
+final PDF hash unchanged from baseline. Explicit `any` used only for genuinely-dynamic
+ajv error data and arbitrary user JSON (never on public params with a knowable shape).
+
 ## Existing suite (must stay green throughout)
 
 18 test files, 209 passing + 4 todo, ~16s.

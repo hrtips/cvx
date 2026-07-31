@@ -269,7 +269,21 @@
 <a name='L204'></a><a href='#L204'>204</a>
 <a name='L205'></a><a href='#L205'>205</a>
 <a name='L206'></a><a href='#L206'>206</a>
-<a name='L207'></a><a href='#L207'>207</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -353,6 +367,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1738x</span>
 <span class="cline-any cline-yes">1738x</span>
 <span class="cline-any cline-yes">1738x</span>
@@ -362,6 +380,11 @@
 <span class="cline-any cline-yes">834x</span>
 <span class="cline-any cline-yes">834x</span>
 <span class="cline-any cline-yes">834x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -442,7 +465,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1649x</span>
@@ -510,7 +538,7 @@ import { openSync } from 'fontkit'
 // 600 aliases to the 700 (Bold) file — there is no separate 500 or 600
 // weight TTF. A measurer that didn't mirror this would silently measure
 // against a font file @react-pdf/renderer would never actually pick.
-function fontFileFor(weight, italic) {
+function fontFileFor(/** @type {number} */ weight, /** @type {boolean} */ italic) {
   const w = nearestWeightBucket(weight)
   <span class="missing-if-branch" title="if path not taken" >I</span>if (w === 300) <span class="cstat-no" title="statement not covered" >return italic ? 'Lato-LightItalic.ttf' : 'Lato-Light.ttf'</span>
   if (w &gt;= 600) return italic ? <span class="branch-0 cbranch-no" title="branch not covered" >'Lato-BoldItalic.ttf' : '</span>Lato-Bold.ttf' // 600 has no own file — aliases to Bold, same as fonts.js
@@ -518,7 +546,7 @@ function fontFileFor(weight, italic) {
 }
 &nbsp;
 const WEIGHT_BUCKETS = [300, 400, 500, 600, 700]
-function nearestWeightBucket(weight) {
+function nearestWeightBucket(/** @type {number} */ weight) {
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!weight) <span class="cstat-no" title="statement not covered" >return 400</span>
   return WEIGHT_BUCKETS.reduce(
     (best, w) =&gt; (Math.abs(w - weight) &lt; Math.abs(best - weight) ? w : best),
@@ -529,7 +557,7 @@ function nearestWeightBucket(weight) {
 // Codepoints that are never "visibly missing" even without a glyph: ASCII
 // control characters, and zero-width Unicode formatting characters (joiners,
 // BOM) that legitimately have no visible glyph in ANY font.
-function isSkippableCodePoint(cp) {
+function isSkippableCodePoint(/** @type {number} */ cp) {
   return cp &lt;= 0x1f || (cp &gt;= 0x200b &amp;&amp; cp &lt;= 0x200f) || cp === 0xfeff
 }
 &nbsp;
@@ -551,14 +579,18 @@ export function createMeasurer(fontsDir) {
   const fontCache = new Map()
   const widthCache = new Map()
 &nbsp;
-  function fontFor(weight, italic) {
+  function fontFor(/** @type {number} */ weight, /** @type {boolean} */ italic) {
     const file = fontFileFor(weight, italic)
     if (!fontCache.has(file)) fontCache.set(file, openSync(path.join(fontsDir, file)))
     return fontCache.get(file)
   }
 &nbsp;
   /** Advance width, in pt, of `text` set at `size`pt in the given weight/style. Empty string -&gt; 0. */
-  function widthOf(text, size, { weight = 400, italic = false } = {}) {
+  function widthOf(
+    /** @type {string} */ text,
+    /** @type {number} */ size,
+    /** @type {{weight?: number, italic?: boolean}} */ { weight = 400, italic = false } = {}
+  ) {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!text) <span class="cstat-no" title="statement not covered" >return 0</span>
     const key = `${weight}|${italic}|${size}|${text}`
     const cached = widthCache.get(key)
@@ -579,7 +611,12 @@ export function createMeasurer(fontsDir) {
    * @react-pdf's real line breaker treats an unbreakable run with
    * hyphenation disabled.
    */
-  function lineCount(text, size, maxWidth, opts = {}) {
+  function lineCount(
+    /** @type {string} */ text,
+    /** @type {number} */ size,
+    /** @type {number} */ maxWidth,
+    /** @type {{weight?: number, italic?: boolean}} */ opts = {}
+  ) {
     if (!text) return 1
     const words = text.split(/\s+/).filter(Boolean)
     if (words.length === 0) return 1
@@ -612,12 +649,12 @@ export function createMeasurer(fontsDir) {
    * always checks against the upright Regular file regardless of what
    * weight/style the text will actually render in.
    */
-  function unsupportedChars(text) {
+  function unsupportedChars(/** @type {string} */ text) {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!text) <span class="cstat-no" title="statement not covered" >return []</span>
     const font = fontFor(400, false)
     const seen = new Set()
     for (const ch of text) {
-      const codePoint = ch.codePointAt(0)
+      const codePoint = /** @type {number} */ (ch.codePointAt(0))
       if (isSkippableCodePoint(codePoint)) continue
       if (!font.hasGlyphForCodePoint(codePoint)) seen.add(ch)
     }
@@ -638,7 +675,7 @@ export function createMeasurer(fontsDir) {
  * consequence.
  *
  * @param {ReturnType&lt;typeof createMeasurer&gt;} measurer
- * @param {Record&lt;string, unknown&gt;} contentBag
+ * @param {object} contentBag
  * @returns {{ file: string, path: string, text: string, chars: string[] }[]}
  *   `path` is a JSON-Pointer relative to `file` (e.g. "/name", "/0/bullets/1"),
  *   matching the shape validateContent.js's other findings already use.
@@ -648,9 +685,14 @@ export function findUnsupportedGlyphs(
   contentBag,
   { skipKeys = ['config', 'profilePhoto', 'keywords'] } = {}
 ) {
+  /** @type {{ file: string, path: string, text: string, chars: string[] }[]} */
   const findings = []
 &nbsp;
-  function walk(value, file, pointer) {
+  function walk(
+    /** @type {unknown} */ value,
+    /** @type {string} */ file,
+    /** @type {string} */ pointer
+  ) {
     <span class="missing-if-branch" title="if path not taken" >I</span>if (value == null) <span class="cstat-no" title="statement not covered" >return</span>
     if (typeof value === 'string') {
       const chars = measurer.unsupportedChars(value)
@@ -676,7 +718,7 @@ export function findUnsupportedGlyphs(
 }
 &nbsp;
 /** One-line, human-readable description of a findUnsupportedGlyphs() finding — shared wording for render.js's warn() and validateContent.js's finding message. */
-export function describeUnsupportedGlyphFinding({ chars }) {
+export function describeUnsupportedGlyphFinding(/** @type {{ chars: string[] }} */ { chars }) {
   const preview = chars.slice(0, 8).join('')
   const more = chars.length &gt; 8 ? '…' : ''
   return `contains character(s) the bundled font can't render (${preview}${more}) — they will be invisible in the PDF.`
@@ -688,7 +730,7 @@ export function describeUnsupportedGlyphFinding({ chars }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-30T17:25:47.737Z
+                at 2026-07-31T01:43:33.568Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
