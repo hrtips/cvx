@@ -2,17 +2,21 @@
 // Client on one end, runMcpServer() on the other. Exercises the initialize
 // handshake, tools/list, and tools/call (success, tool-level error, unknown
 // tool, and a handler that throws) — covering server.js without touching stdio.
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { mkdtempSync, rmSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { runMcpServer } from './server.js'
 
 const RENDER_TIMEOUT = 30000
+/** @type {import('@modelcontextprotocol/sdk/client/index.js').Client} */
 let client
+/** @type {import('vitest').MockInstance} */
 let consoleErr
+/** @type {string[]} */
 const dirs = []
 
 function freshDir() {
@@ -21,7 +25,7 @@ function freshDir() {
   return d
 }
 
-const parse = (res) => JSON.parse(res.content[0].text)
+const parse = (/** @type {any} */ res) => JSON.parse(res.content[0].text)
 
 beforeAll(async () => {
   // The server logs a human-facing "ready" banner to stderr on connect.
@@ -67,21 +71,29 @@ describe('tools/call', () => {
     expect(parse(again)).toMatchObject({ ok: false, error: { code: 'already-exists' } })
   })
 
-  it('validate_cv returns ok for a scaffolded folder', async () => {
-    const dir = freshDir()
-    await client.callTool({ name: 'init_cv', arguments: { dir } })
-    const res = await client.callTool({ name: 'validate_cv', arguments: { dir, strict: true } })
-    expect(res.isError).toBeFalsy()
-    expect(parse(res)).toMatchObject({ ok: true, schemaVersion: 1 })
-  }, RENDER_TIMEOUT)
+  it(
+    'validate_cv returns ok for a scaffolded folder',
+    async () => {
+      const dir = freshDir()
+      await client.callTool({ name: 'init_cv', arguments: { dir } })
+      const res = await client.callTool({ name: 'validate_cv', arguments: { dir, strict: true } })
+      expect(res.isError).toBeFalsy()
+      expect(parse(res)).toMatchObject({ ok: true, schemaVersion: 1 })
+    },
+    RENDER_TIMEOUT
+  )
 
-  it('build_pdf renders a PDF for a scaffolded folder', async () => {
-    const dir = freshDir()
-    await client.callTool({ name: 'init_cv', arguments: { dir } })
-    const res = await client.callTool({ name: 'build_pdf', arguments: { dir } })
-    expect(res.isError).toBeFalsy()
-    expect(parse(res)).toMatchObject({ ok: true, filename: 'bruce-wayne.pdf' })
-  }, RENDER_TIMEOUT)
+  it(
+    'build_pdf renders a PDF for a scaffolded folder',
+    async () => {
+      const dir = freshDir()
+      await client.callTool({ name: 'init_cv', arguments: { dir } })
+      const res = await client.callTool({ name: 'build_pdf', arguments: { dir } })
+      expect(res.isError).toBeFalsy()
+      expect(parse(res)).toMatchObject({ ok: true, filename: 'bruce-wayne.pdf' })
+    },
+    RENDER_TIMEOUT
+  )
 
   it('reports an unknown tool as an error result', async () => {
     const res = await client.callTool({ name: 'does_not_exist' })

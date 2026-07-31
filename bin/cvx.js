@@ -493,7 +493,7 @@ export async function main(argv = process.argv) {
 // realpath argv[1] too — otherwise invocation through the symlink wouldn't match
 // and the CLI would silently do nothing. buildAll re-invokes this same file per
 // variant, so the guard must keep firing in those child processes.
-function isRunAsMain() {
+export function isRunAsMain() {
   try {
     return (
       Boolean(process.argv[1]) &&
@@ -504,4 +504,6 @@ function isRunAsMain() {
   }
 }
 
+/* v8 ignore next 2 -- the real-entry dispatch only fires when run as the CLI
+   binary (covered by the packaged-E2E subprocess), never on import. */
 if (isRunAsMain()) main(process.argv)

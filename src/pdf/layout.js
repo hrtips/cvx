@@ -164,7 +164,7 @@ const DESC_STYLE = { weight: 400, italic: true }
 export function summaryH(
   /** @type {import('./types.js').Summary} */ summary,
   /** @type {Metrics} */ m,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
@@ -180,7 +180,7 @@ export function summaryH(
 export function entryH(
   /** @type {import('./types.js').ExperienceEntry} */ e,
   /** @type {Metrics} */ m,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   if (e.isContinuation) {
     let h = lh(m.roleSize, m.roleLeading)
@@ -301,8 +301,8 @@ export function estimatePage1Overflow(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
   /** @type {import('./types.js').Summary} */ summary,
   /** @type {import('./types.js').CVConfig} */ config = {},
-  /** @type {import('./types.js').Theme | undefined} */ theme,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   const { page1ExperienceCount: count, page1SplitBullets: splitAt } = config
   if (count == null) return 0
@@ -341,8 +341,8 @@ export function packExperiences(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
   /** @type {import('./types.js').Summary} */ summary,
   /** @type {import('./types.js').CVConfig} */ config = {},
-  /** @type {import('./types.js').Theme | undefined} */ theme,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   const m = deriveMetrics(theme)
   const { page1ExperienceCount, page1SplitBullets } = config

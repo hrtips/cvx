@@ -16,6 +16,53 @@ describe('buildKeywords', () => {
     expect(buildKeywords({ competencies: ['A'] }, { atsKeywords: { enabled: false } })).toBe('')
   })
 
+  it('flattens grouped/object competencies and keyword objects', () => {
+    // competencies as grouped objects + keyword entries as {group, items}
+    const out = kw(
+      /** @type {any} */ ({
+        competencies: [{ group: 'Cloud', items: ['AWS', 'GCP'] }],
+        keywords: [{ items: ['Kubernetes'] }]
+      }),
+      { atsKeywords: { autoDerive: true } }
+    )
+    expect(out).toEqual(expect.arrayContaining(['AWS', 'GCP', 'Kubernetes']))
+  })
+
+  it('derives titles from experience roles and progression steps', () => {
+    const out = kw(
+      {
+        personal: { name: 'X', title: 'Staff Engineer' },
+        experience: [
+          { role: 'Lead', company: 'C', progression: [{ title: 'Senior' }, { title: 'Principal' }] }
+        ]
+      },
+      { atsKeywords: { autoDerive: true } }
+    )
+    expect(out).toEqual(expect.arrayContaining(['Staff Engineer', 'Lead', 'Senior', 'Principal']))
+  })
+
+  it('defensively handles off-type keyword shapes (numbers, bare strings)', () => {
+    // The schema rejects these, but the renderer must not crash on hand-edited
+    // YAML: a non-string/non-object array item is dropped; a bare-string value
+    // (not an array) is coerced to a single keyword.
+    const numbersDropped = kw(/** @type {any} */ ({ keywords: ['Keep', 7, null] }), {
+      atsKeywords: { autoDerive: false }
+    })
+    expect(numbersDropped).toEqual(['Keep'])
+    const bareString = kw(/** @type {any} */ ({ keywords: 'Solo' }), {
+      atsKeywords: { autoDerive: false }
+    })
+    expect(bareString).toEqual(['Solo'])
+  })
+
+  it('caps the keyword count at atsKeywords.max', () => {
+    const out = kw(
+      { competencies: ['A', 'B', 'C', 'D', 'E'] },
+      { atsKeywords: { autoDerive: false, enabled: true, max: 2 } }
+    )
+    expect(out.length).toBeLessThanOrEqual(2)
+  })
+
   it('includes flat manual keywords', () => {
     expect(kw({ keywords: ['Alpha', 'Beta'] }, { atsKeywords: { autoDerive: false } })).toEqual([
       'Alpha',

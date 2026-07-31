@@ -3,7 +3,13 @@
 // the char-width estimate (no measurer injected) so every result is
 // deterministic and dependency-free.
 import { describe, expect, it } from 'vitest'
-import { deriveMetrics, entryH, summaryH, estimatePage1Overflow, packExperiences } from './layout.js'
+import {
+  deriveMetrics,
+  entryH,
+  estimatePage1Overflow,
+  packExperiences,
+  summaryH
+} from './layout.js'
 import { tealTheme } from './themes/teal.js'
 
 const M = deriveMetrics(tealTheme)
@@ -16,8 +22,11 @@ describe('entryH', () => {
         role: 'Engineer',
         location: 'London',
         description: 'A one-line description of the role.',
-        progression: [{ title: 'Lead', period: '2021' }, { title: 'Eng', period: '2020' }],
-        bullets: ['A plain bullet.', { text: 'An object bullet.' }],
+        progression: [
+          { title: 'Lead', period: '2021' },
+          { title: 'Eng', period: '2020' }
+        ],
+        bullets: ['A plain bullet.', { text: 'An object bullet.' }]
       },
       M
     )
@@ -26,7 +35,10 @@ describe('entryH', () => {
   })
 
   it('handles continuation entries with and without visible bullets', () => {
-    const withBullets = entryH({ role: 'R', bullets: ['a', 'b', 'c'], isContinuation: true, startBullet: 1, endBullet: 3 }, M)
+    const withBullets = entryH(
+      { role: 'R', bullets: ['a', 'b', 'c'], isContinuation: true, startBullet: 1, endBullet: 3 },
+      M
+    )
     const noBullets = entryH({ role: 'R', bullets: [], isContinuation: true }, M)
     expect(withBullets).toBeGreaterThan(noBullets)
     expect(noBullets).toBeGreaterThan(0)
@@ -46,13 +58,24 @@ describe('estimatePage1Overflow', () => {
 
   it('applies page1SplitBullets to the last forced entry', () => {
     const experience = [{ role: 'R', bullets: ['a', 'b', 'c', 'd'] }]
-    const overflow = estimatePage1Overflow(experience, ['s'], { page1ExperienceCount: 1, page1SplitBullets: 1 }, tealTheme)
+    const overflow = estimatePage1Overflow(
+      experience,
+      ['s'],
+      { page1ExperienceCount: 1, page1SplitBullets: 1 },
+      tealTheme
+    )
     expect(overflow).toBeGreaterThanOrEqual(0)
   })
 })
 
 describe('packExperiences — config-driven split', () => {
-  const exp = (n) => Array.from({ length: n }, (_, i) => ({ role: `R${i}`, company: `C${i}`, period: 'p', bullets: ['b'] }))
+  const exp = (/** @type {number} */ n) =>
+    Array.from({ length: n }, (_, i) => ({
+      role: `R${i}`,
+      company: `C${i}`,
+      period: 'p',
+      bullets: ['b']
+    }))
 
   it('keeps all entries on page 1 when the forced count exceeds the list length', () => {
     const r = packExperiences(exp(2), ['s'], { page1ExperienceCount: 5, page1SplitBullets: null })
@@ -64,7 +87,7 @@ describe('packExperiences — config-driven split', () => {
   it('splits the last page-1 entry at page1SplitBullets and continues the remainder', () => {
     const experience = [
       { role: 'Split', company: 'C', period: 'p', bullets: ['b0', 'b1', 'b2', 'b3'] },
-      { role: 'Next', company: 'C', period: 'p', bullets: ['x'] },
+      { role: 'Next', company: 'C', period: 'p', bullets: ['x'] }
     ]
     const r = packExperiences(experience, ['s'], { page1ExperienceCount: 1, page1SplitBullets: 2 })
     expect(r.page1Experiences[0].endBullet).toBe(2)

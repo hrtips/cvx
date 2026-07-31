@@ -1,11 +1,13 @@
 // Direct unit tests for the MCP tool implementations (transport-agnostic).
+
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { getSchema, initCv, validateCv, buildPdf, TOOLS } from './tools.js'
+import { buildPdf, getSchema, initCv, TOOLS, validateCv } from './tools.js'
 
 const RENDER_TIMEOUT = 30000
+/** @type {string} */
 let tmp
 
 beforeEach(() => {
@@ -22,7 +24,9 @@ describe('getSchema', () => {
     expect(res.schemaVersion).toBe(1)
     expect(res.schema).toBeTruthy()
     expect(res.themes.map((t) => t.name)).toEqual(expect.arrayContaining(['teal', 'coral', 'mono']))
-    expect(res.layouts.map((l) => l.name)).toEqual(expect.arrayContaining(['two-column', 'single-column']))
+    expect(res.layouts.map((l) => l.name)).toEqual(
+      expect.arrayContaining(['two-column', 'single-column'])
+    )
   })
 
   it('includes user layouts discovered under cv-content/layouts', async () => {
@@ -65,19 +69,39 @@ describe('validateCv', () => {
 })
 
 describe('buildPdf', () => {
-  it('renders the designed PDF', async () => {
-    await initCv({ dir: tmp })
-    const res = await buildPdf({ dir: tmp })
-    expect(res).toMatchObject({ ok: true, filename: 'bruce-wayne.pdf', ats: false, theme: 'teal', layout: 'two-column' })
-    expect(res.bytes).toBeGreaterThan(0)
-    expect(existsSync(res.path)).toBe(true)
-  }, RENDER_TIMEOUT)
+  it(
+    'renders the designed PDF',
+    async () => {
+      await initCv({ dir: tmp })
+      const res = await buildPdf({ dir: tmp })
+      expect(res).toMatchObject({
+        ok: true,
+        filename: 'bruce-wayne.pdf',
+        ats: false,
+        theme: 'teal',
+        layout: 'two-column'
+      })
+      expect(res.bytes).toBeGreaterThan(0)
+      expect(existsSync(res.path)).toBe(true)
+    },
+    RENDER_TIMEOUT
+  )
 
-  it('renders the ATS PDF with null theme/layout', async () => {
-    await initCv({ dir: tmp })
-    const res = await buildPdf({ dir: tmp, ats: true })
-    expect(res).toMatchObject({ ok: true, filename: 'bruce-wayne-ats.pdf', ats: true, theme: null, layout: null })
-  }, RENDER_TIMEOUT)
+  it(
+    'renders the ATS PDF with null theme/layout',
+    async () => {
+      await initCv({ dir: tmp })
+      const res = await buildPdf({ dir: tmp, ats: true })
+      expect(res).toMatchObject({
+        ok: true,
+        filename: 'bruce-wayne-ats.pdf',
+        ats: true,
+        theme: null,
+        layout: null
+      })
+    },
+    RENDER_TIMEOUT
+  )
 })
 
 describe('TOOLS metadata', () => {

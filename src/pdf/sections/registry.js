@@ -19,7 +19,7 @@ import PublicationsSection from './PublicationsSection.jsx'
 import RefereesSection from './RefereesSection.jsx'
 import SummarySection from './SummarySection.jsx'
 
-export const SECTION_REGISTRY = {
+const SECTION_REGISTRY = {
   'identity-photo': IdentityPhoto,
   'identity-compact': IdentityCompact,
   contact: ContactSection,

@@ -3,10 +3,11 @@
 // otherwise unreachable, so we drive them with a transient probe theme file and
 // a mocked readdirSync. resetModules() gives each case a fresh module so the
 // discoverThemes() memo does not leak between them.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+
 import { rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const THEMES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'themes')
 const PROBE = join(THEMES_DIR, '__cvx_discovery_probe_theme__.js')
@@ -42,7 +43,7 @@ describe('discoverThemes', () => {
     vi.doMock('fs', () => ({
       readdirSync: () => {
         throw new Error('scan failed')
-      },
+      }
     }))
     const { discoverThemes, THEMES } = await import('./themes/index.js')
     expect(await discoverThemes()).toBe(THEMES)

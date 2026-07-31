@@ -9,32 +9,45 @@
 // main() is used for dispatch coverage and the happy paths; where main's own
 // try/catch re-wraps a command's process.exit (a mock artifact — real exits
 // terminate the process), the assertions are tolerant of the extra envelope.
+
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { main, init, validate, list, build, buildAll, mcpInit } from './cvx.js'
+import { build, buildAll, init, isRunAsMain, list, main, mcpInit, validate } from './cvx.js'
+
+// The `mcp` (no subcommand) branch starts a blocking stdio server; mock it so
+// the branch is exercised without hanging the test process.
+vi.mock('../lib/mcp/server.js', () => ({ runMcpServer: vi.fn().mockResolvedValue(undefined) }))
 
 const RENDER_TIMEOUT = 30000
 
 class ExitError extends Error {
+  /** @param {number} code */
   constructor(code) {
     super(`process.exit(${code})`)
+    /** @type {number} */
     this.code = code
   }
 }
 
+/** @type {string} */
 let tmp
+/** @type {import('vitest').MockInstance} */
 let cwdSpy
+/** @type {import('vitest').MockInstance} */
 let exitSpy
+/** @type {import('vitest').MockInstance} */
 let logSpy
+/** @type {import('vitest').MockInstance} */
 let errSpy
 
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'cvx-cli-'))
   cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tmp)
   exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
-    throw new ExitError(code ?? 0)
+    throw new ExitError(Number(code ?? 0))
   })
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -50,7 +63,7 @@ afterEach(() => {
 
 // Run a command promise and report the process.exit code it raised (or null if
 // it completed without exiting).
-async function exitCode(promise) {
+async function exitCode(/** @type {Promise<unknown>} */ promise) {
   try {
     await promise
     return null
@@ -77,7 +90,7 @@ function jsonOut() {
 
 const errText = () => errSpy.mock.calls.map((c) => String(c[0])).join('\n')
 const logText = () => logSpy.mock.calls.map((c) => String(c[0])).join('\n')
-const argv = (...args) => ['node', 'cvx', ...args]
+const argv = (/** @type {string[]} */ ...args) => ['node', 'cvx', ...args]
 
 describe('top-level flags', () => {
   it('--version prints the version and does not exit', async () => {
@@ -179,6 +192,19 @@ describe('validate', () => {
     await exitCode(main(argv('validate', '--strict', '--json')))
     expect(jsonEmits().some((j) => j.command === 'validate' && j.ok === true)).toBe(true)
   })
+
+  it('human output renders a nested path + a did-you-mean suggestion', async () => {
+    await init({ json: false })
+    // A typo'd key deep in a list entry → warning carrying both a JSON path
+    // and a "did you mean" suggestion, exercising both human-format branches.
+    writeFileSync(
+      join(tmp, 'cv-content', 'personal.yaml'),
+      'name: Test\nlinkdin: https://example.com\n'
+    )
+    logSpy.mockClear()
+    await exitCode(validate({ strict: true, json: false }))
+    expect(logText()).toMatch(/linkedin/i)
+  })
 })
 
 describe('list', () => {
@@ -186,8 +212,12 @@ describe('list', () => {
     await list({ json: true })
     const out = jsonOut()
     expect(out.command).toBe('list')
-    expect(out.themes.map((t) => t.name)).toEqual(expect.arrayContaining(['teal', 'coral', 'mono']))
-    expect(out.layouts.map((l) => l.name)).toEqual(expect.arrayContaining(['two-column', 'single-column']))
+    expect(out.themes.map((/** @type {{ name: string }} */ t) => t.name)).toEqual(
+      expect.arrayContaining(['teal', 'coral', 'mono'])
+    )
+    expect(out.layouts.map((/** @type {{ name: string }} */ l) => l.name)).toEqual(
+      expect.arrayContaining(['two-column', 'single-column'])
+    )
   })
 
   it('lists just themes when kind=themes (--json)', async () => {
@@ -195,6 +225,13 @@ describe('list', () => {
     const out = jsonOut()
     expect(out.themes).toBeTruthy()
     expect(out.layouts).toBeUndefined()
+  })
+
+  it('human output labels the default theme and layout', async () => {
+    await list({ json: false })
+    expect(logText()).toContain('Themes')
+    expect(logText()).toContain('Layouts')
+    expect(logText()).toMatch(/\(default\)/)
   })
 
   it('lists just layouts (human) including user layouts from cv-content/layouts', async () => {
@@ -227,7 +264,10 @@ describe('mcp init', () => {
 
   it('writes .cursor/mcp.json for cursor and merges into existing servers', async () => {
     mkdirSync(join(tmp, '.cursor'), { recursive: true })
-    writeFileSync(join(tmp, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }))
+    writeFileSync(
+      join(tmp, '.cursor', 'mcp.json'),
+      JSON.stringify({ mcpServers: { other: { command: 'x' } } })
+    )
     await mcpInit({ client: 'cursor', json: false })
     const written = JSON.parse(readFileSync(join(tmp, '.cursor', 'mcp.json'), 'utf8'))
     expect(written.mcpServers.other).toBeTruthy()
@@ -273,27 +313,75 @@ describe('mcp init', () => {
 })
 
 describe('build', () => {
-  it('renders the designed PDF (--json)', async () => {
-    await init({ json: true })
-    logSpy.mockClear()
-    await build({ ats: false, json: true })
-    const out = jsonOut()
-    expect(out).toMatchObject({ command: 'build', ok: true, filename: 'bruce-wayne.pdf', ats: false, theme: 'teal', layout: 'two-column' })
-    expect(out.bytes).toBeGreaterThan(0)
-    expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(true)
-  }, RENDER_TIMEOUT)
+  it(
+    'renders the designed PDF (--json)',
+    async () => {
+      await init({ json: true })
+      logSpy.mockClear()
+      await build({ ats: false, json: true })
+      const out = jsonOut()
+      expect(out).toMatchObject({
+        command: 'build',
+        ok: true,
+        filename: 'bruce-wayne.pdf',
+        ats: false,
+        theme: 'teal',
+        layout: 'two-column'
+      })
+      expect(out.bytes).toBeGreaterThan(0)
+      expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(true)
+    },
+    RENDER_TIMEOUT
+  )
 
-  it('renders the ATS PDF (human) with the -ats filename', async () => {
-    await init({ json: false })
-    logSpy.mockClear()
-    await build({ ats: true, json: false })
-    expect(existsSync(join(tmp, 'bruce-wayne-ats.pdf'))).toBe(true)
-    expect(logText()).toContain('bruce-wayne-ats.pdf')
-  }, RENDER_TIMEOUT)
+  it(
+    'renders the ATS PDF (human) with the -ats filename',
+    async () => {
+      await init({ json: false })
+      logSpy.mockClear()
+      await build({ ats: true, json: false })
+      expect(existsSync(join(tmp, 'bruce-wayne-ats.pdf'))).toBe(true)
+      expect(logText()).toContain('bruce-wayne-ats.pdf')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'renders the ATS PDF (--json) with null theme/layout',
+    async () => {
+      await init({ json: true })
+      logSpy.mockClear()
+      await build({ ats: true, json: true })
+      const out = jsonOut()
+      expect(out).toMatchObject({
+        command: 'build',
+        ok: true,
+        ats: true,
+        theme: null,
+        layout: null
+      })
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'renders the designed PDF (human) reporting theme + layout',
+    async () => {
+      await init({ json: false })
+      logSpy.mockClear()
+      await build({ ats: false, json: false })
+      expect(logText()).toMatch(/theme:.*layout:/)
+    },
+    RENDER_TIMEOUT
+  )
 
   it('render failure → exit 3 when cv-content/ is missing (--json, via main)', async () => {
     expect(await exitCode(main(argv('build', '--json')))).toBe(3)
-    expect(jsonOut()).toMatchObject({ command: 'build', ok: false, error: { code: 'render-failed' } })
+    expect(jsonOut()).toMatchObject({
+      command: 'build',
+      ok: false,
+      error: { code: 'render-failed' }
+    })
   })
 
   it('render failure → exit 3 (human, via main)', async () => {
@@ -303,32 +391,45 @@ describe('build', () => {
 })
 
 describe('build --all', () => {
-  it('validates then renders both variants in child processes (--json)', async () => {
-    await init({ json: true })
-    logSpy.mockClear()
-    await buildAll({ json: true })
-    const out = jsonOut()
-    expect(out).toMatchObject({ command: 'build', all: true, ok: true })
-    expect(out.outputs).toHaveLength(2)
-    expect(out.outputs.map((o) => o.ats)).toEqual([false, true])
-    expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(true)
-    expect(existsSync(join(tmp, 'bruce-wayne-ats.pdf'))).toBe(true)
-  }, RENDER_TIMEOUT)
+  it(
+    'validates then renders both variants in child processes (--json)',
+    async () => {
+      await init({ json: true })
+      logSpy.mockClear()
+      await buildAll({ json: true })
+      const out = jsonOut()
+      expect(out).toMatchObject({ command: 'build', all: true, ok: true })
+      expect(out.outputs).toHaveLength(2)
+      expect(out.outputs.map((/** @type {{ ats: boolean }} */ o) => o.ats)).toEqual([false, true])
+      expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(true)
+      expect(existsSync(join(tmp, 'bruce-wayne-ats.pdf'))).toBe(true)
+    },
+    RENDER_TIMEOUT
+  )
 
-  it('prints a per-variant summary (human)', async () => {
-    await init({ json: false })
-    logSpy.mockClear()
-    await buildAll({ json: false })
-    expect(logText()).toContain('bruce-wayne.pdf')
-    expect(logText()).toContain('bruce-wayne-ats.pdf')
-  }, RENDER_TIMEOUT)
+  it(
+    'prints a per-variant summary (human)',
+    async () => {
+      await init({ json: false })
+      logSpy.mockClear()
+      await buildAll({ json: false })
+      expect(logText()).toContain('bruce-wayne.pdf')
+      expect(logText()).toContain('bruce-wayne-ats.pdf')
+    },
+    RENDER_TIMEOUT
+  )
 
   it('blocks on validation errors before building (exit 2, --json)', async () => {
     await init({ json: true })
     writeFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'title: No Name\n')
     logSpy.mockClear()
     expect(await exitCode(buildAll({ json: true }))).toBe(2)
-    expect(jsonOut()).toMatchObject({ command: 'build', all: true, ok: false, error: { code: 'validation-failed' } })
+    expect(jsonOut()).toMatchObject({
+      command: 'build',
+      all: true,
+      ok: false,
+      error: { code: 'validation-failed' }
+    })
     expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(false)
   })
 
@@ -339,10 +440,120 @@ describe('build --all', () => {
     expect(errText()).toContain('validation failed')
   })
 
-  it('is reachable via "build --all" through main()', async () => {
-    await init({ json: true })
-    logSpy.mockClear()
-    await main(argv('build', '--all', '--json'))
-    expect(jsonOut()).toMatchObject({ all: true, ok: true })
-  }, RENDER_TIMEOUT)
+  it(
+    'is reachable via "build --all" through main()',
+    async () => {
+      await init({ json: true })
+      logSpy.mockClear()
+      await main(argv('build', '--all', '--json'))
+      expect(jsonOut()).toMatchObject({ all: true, ok: true })
+    },
+    RENDER_TIMEOUT
+  )
+})
+
+describe('mcp dispatch', () => {
+  it('mcp (no subcommand) starts the stdio server', async () => {
+    await main(argv('mcp'))
+    const { runMcpServer } = await import('../lib/mcp/server.js')
+    expect(runMcpServer).toHaveBeenCalled()
+  })
+
+  it('mcp with an unknown subcommand → usage error (64)', async () => {
+    expect(await exitCode(main(argv('mcp', 'bogus', '--json')))).toBe(64)
+    expect(jsonEmits().some((j) => j.error?.code === 'unknown-subcommand')).toBe(true)
+  })
+})
+
+describe('mcp init — error + human paths', () => {
+  it('unknown client → usage error (64)', async () => {
+    expect(await exitCode(mcpInit({ client: 'emacs', json: true }))).toBe(64)
+    expect(jsonOut()).toMatchObject({ ok: false, error: { code: 'unknown-client' } })
+  })
+
+  it('refuses to write when the existing config is not valid JSON (64)', async () => {
+    writeFileSync(join(tmp, '.mcp.json'), 'not json{')
+    expect(await exitCode(mcpInit({ client: 'claude', json: true }))).toBe(64)
+    expect(jsonOut()).toMatchObject({ ok: false, error: { code: 'invalid-config' } })
+  })
+
+  it('merges into an existing valid config without clobbering other servers', async () => {
+    writeFileSync(
+      join(tmp, '.mcp.json'),
+      JSON.stringify({ mcpServers: { other: { command: 'x' } } })
+    )
+    await mcpInit({ client: 'claude', json: true })
+    const written = JSON.parse(readFileSync(join(tmp, '.mcp.json'), 'utf8'))
+    expect(written.mcpServers.other).toBeTruthy()
+    expect(written.mcpServers.cvx).toBeTruthy()
+  })
+
+  it('prints human confirmation when not --json', async () => {
+    await mcpInit({ client: 'claude', json: false })
+    expect(logText()).toContain('Added the cvx MCP server')
+  })
+})
+
+describe('mcp init — claude-desktop (per-OS config path)', () => {
+  // Exercise all three platform branches deterministically regardless of the
+  // host OS by overriding process.platform (configurable) + the home env vars.
+  for (const [platform, expected] of /** @type {[NodeJS.Platform, string[]][]} */ ([
+    ['darwin', ['Library', 'Application Support', 'Claude', 'claude_desktop_config.json']],
+    ['win32', ['AppData', 'Roaming', 'Claude', 'claude_desktop_config.json']],
+    ['linux', ['.config', 'claude-desktop', 'claude_desktop_config.json']]
+  ])) {
+    it(`writes the ${platform} config path`, async () => {
+      const origPlatform = process.platform
+      const origHome = process.env.HOME
+      const origAppData = process.env.APPDATA
+      Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+      process.env.HOME = tmp
+      process.env.APPDATA = join(tmp, 'AppData', 'Roaming')
+      try {
+        await mcpInit({ client: 'claude-desktop', json: true })
+        expect(jsonOut()).toMatchObject({ ok: true, client: 'claude-desktop' })
+        const cfg = join(tmp, ...expected)
+        expect(existsSync(cfg)).toBe(true)
+        expect(JSON.parse(readFileSync(cfg, 'utf8')).mcpServers.cvx.command).toBe('npx')
+      } finally {
+        Object.defineProperty(process, 'platform', { value: origPlatform, configurable: true })
+        if (origHome === undefined) delete process.env.HOME
+        else process.env.HOME = origHome
+        if (origAppData === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = origAppData
+      }
+    })
+  }
+})
+
+describe('isRunAsMain guard', () => {
+  it('is false when argv[1] is absent (imported, not executed)', () => {
+    const orig = process.argv[1]
+    process.argv[1] = ''
+    try {
+      expect(isRunAsMain()).toBe(false)
+    } finally {
+      process.argv[1] = orig
+    }
+  })
+
+  it('is false when argv[1] does not resolve (realpath throws)', () => {
+    const orig = process.argv[1]
+    process.argv[1] = join(tmp, 'no-such-file-xyz')
+    try {
+      expect(isRunAsMain()).toBe(false)
+    } finally {
+      process.argv[1] = orig
+    }
+  })
+
+  it('is true when argv[1] realpaths to this bin module', () => {
+    const orig = process.argv[1]
+    process.argv[1] = fileURLToPath(new URL('./cvx.js', import.meta.url))
+    try {
+      expect(isRunAsMain()).toBe(true)
+    } finally {
+      process.argv[1] = orig
+    }
+  })
 })

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">12.5% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/8</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14.28% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -118,8 +118,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -140,10 +140,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -151,7 +151,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -169,8 +169,8 @@
 import { useStyles } from '../ThemeContext.jsx'
 &nbsp;
 /** @param {import('../types.js').Theme} t */
-const <span class="fstat-no" title="function not covered" >makeStyles = (t</span>) =&gt;
-<span class="cstat-no" title="statement not covered" >  StyleSheet.create({</span>
+const makeStyles = (t) =&gt;
+  StyleSheet.create({
     headerRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -190,11 +190,11 @@ const <span class="fstat-no" title="function not covered" >makeStyles = (t</span
   })
 &nbsp;
 /** @param {{ data: import('../types.js').CVContent }} props */
-export default function <span class="fstat-no" title="function not covered" >HeaderATS({</span> data }) {
-  const s = <span class="cstat-no" title="statement not covered" >useStyles(makeStyles)</span>
-  const { personal, profilePhoto } = <span class="cstat-no" title="statement not covered" >data</span>
-  const <span class="cstat-no" title="statement not covered" >linkParts = (personal.links ?? []).<span class="fstat-no" title="function not covered" >map((l</span>) =&gt; (<span class="cstat-no" title="statement not covered" >l.label ? `${l.label}: ${l.href}` : l.href))</span></span>
-  const contactParts = <span class="cstat-no" title="statement not covered" >[</span>
+export default function HeaderATS({ data }) {
+  const s = useStyles(makeStyles)
+  const { personal, profilePhoto } = data
+  const linkParts = (personal.links ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>.map((l) =&gt; (l.label ? `${l.label}: ${l.href}` : l.href))
+  const contactParts = [
     personal.phone,
     personal.email,
     personal.linkedin,
@@ -202,7 +202,7 @@ export default function <span class="fstat-no" title="function not covered" >Hea
     ...linkParts
   ].filter(Boolean)
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;View style={s.headerRow}&gt;
       &lt;View style={s.headerText}&gt;
         &lt;Text style={s.name}&gt;{personal.name}&lt;/Text&gt;
@@ -223,7 +223,7 @@ export default function <span class="fstat-no" title="function not covered" >Hea
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-31T01:43:33.586Z
+                at 2026-07-31T03:18:23.016Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
