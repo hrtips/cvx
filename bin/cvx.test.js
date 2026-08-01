@@ -505,9 +505,14 @@ describe('mcp init — claude-desktop (per-OS config path)', () => {
     it(`writes the ${platform} config path`, async () => {
       const origPlatform = process.platform
       const origHome = process.env.HOME
+      const origUserProfile = process.env.USERPROFILE
       const origAppData = process.env.APPDATA
       Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+      // os.homedir() is native — it keys off the *real* host OS, not the faked
+      // process.platform, reading HOME on POSIX and USERPROFILE on Windows.
+      // Both must be redirected or the Windows runner writes to the real home.
       process.env.HOME = tmp
+      process.env.USERPROFILE = tmp
       process.env.APPDATA = join(tmp, 'AppData', 'Roaming')
       try {
         await mcpInit({ client: 'claude-desktop', json: true })
@@ -519,6 +524,8 @@ describe('mcp init — claude-desktop (per-OS config path)', () => {
         Object.defineProperty(process, 'platform', { value: origPlatform, configurable: true })
         if (origHome === undefined) delete process.env.HOME
         else process.env.HOME = origHome
+        if (origUserProfile === undefined) delete process.env.USERPROFILE
+        else process.env.USERPROFILE = origUserProfile
         if (origAppData === undefined) delete process.env.APPDATA
         else process.env.APPDATA = origAppData
       }
