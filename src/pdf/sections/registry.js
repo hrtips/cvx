@@ -3,37 +3,36 @@
 // Layout configs reference sections by these string keys.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { createElement } from 'react'
 import { View } from '@react-pdf/renderer'
-
-import IdentityPhoto       from './IdentityPhoto.jsx'
-import IdentityCompact     from './IdentityCompact.jsx'
-import ContactSection      from './ContactSection.jsx'
+import { createElement } from 'react'
 import AchievementsSection from './AchievementsSection.jsx'
-import EducationSection    from './EducationSection.jsx'
 import CertificationsSection from './CertificationsSection.jsx'
-import PublicationsSection from './PublicationsSection.jsx'
-import LanguagesSection    from './LanguagesSection.jsx'
 import CompetenciesSection from './CompetenciesSection.jsx'
-import RefereesSection     from './RefereesSection.jsx'
-import SummarySection      from './SummarySection.jsx'
-import ExperienceSection   from './ExperienceSection.jsx'
-import HeaderATS           from './HeaderATS.jsx'
+import ContactSection from './ContactSection.jsx'
+import EducationSection from './EducationSection.jsx'
+import ExperienceSection from './ExperienceSection.jsx'
+import HeaderATS from './HeaderATS.jsx'
+import IdentityCompact from './IdentityCompact.jsx'
+import IdentityPhoto from './IdentityPhoto.jsx'
+import LanguagesSection from './LanguagesSection.jsx'
+import PublicationsSection from './PublicationsSection.jsx'
+import RefereesSection from './RefereesSection.jsx'
+import SummarySection from './SummarySection.jsx'
 
-export const SECTION_REGISTRY = {
-  'identity-photo':   IdentityPhoto,
+const SECTION_REGISTRY = {
+  'identity-photo': IdentityPhoto,
   'identity-compact': IdentityCompact,
-  'contact':          ContactSection,
-  'achievements':     AchievementsSection,
-  'education':        EducationSection,
-  'certifications':   CertificationsSection,
-  'publications':     PublicationsSection,
-  'languages':        LanguagesSection,
-  'competencies':     CompetenciesSection,
-  'referees':         RefereesSection,
-  'summary':          SummarySection,
-  'experience':       ExperienceSection,
-  'header-ats':       HeaderATS,
+  contact: ContactSection,
+  achievements: AchievementsSection,
+  education: EducationSection,
+  certifications: CertificationsSection,
+  publications: PublicationsSection,
+  languages: LanguagesSection,
+  competencies: CompetenciesSection,
+  referees: RefereesSection,
+  summary: SummarySection,
+  experience: ExperienceSection,
+  'header-ats': HeaderATS
 }
 
 /**
@@ -46,9 +45,14 @@ export const SECTION_REGISTRY = {
  *   "spacer:27"            → renders a spacer View
  *
  * @param {string[]} keys   Slot keys from layout config
- * @param {object}   data   Full CV data bag
- * @param {object}   [extra]  Extra props (entries for experience)
- * @returns {React.ReactElement[]}
+ * @param {import('../types.js').CVContent} data   Full CV data bag
+ * @param {import('../types.js').SlotExtra} [extra]  Extra props (entries for experience)
+ * @returns {Array<import('react').ReactElement | null>}
+ */
+/**
+ * @param {string[]} keys
+ * @param {import('../types.js').CVContent} data
+ * @param {import('../types.js').SlotExtra} [extra]
  */
 export function renderSlot(keys, data, extra = {}) {
   return keys.map((key, i) => {
@@ -62,9 +66,8 @@ export function renderSlot(keys, data, extra = {}) {
     if (key === 'experience:continued') {
       return createElement(ExperienceSection, {
         key: `experience-cont-${i}`,
-        data,
         entries: extra.entries ?? [],
-        continued: true,
+        continued: true
       })
     }
 
@@ -72,14 +75,13 @@ export function renderSlot(keys, data, extra = {}) {
     if (key === 'experience') {
       return createElement(ExperienceSection, {
         key: `experience-${i}`,
-        data,
         entries: extra.entries ?? [],
-        continued: false,
+        continued: false
       })
     }
 
     // Standard section
-    const Component = SECTION_REGISTRY[key]
+    const Component = SECTION_REGISTRY[/** @type {keyof typeof SECTION_REGISTRY} */ (key)]
     if (!Component) {
       console.warn(`[section-registry] Unknown section key: "${key}"`)
       return null

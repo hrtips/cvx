@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { pickProfilePhoto, PHOTO_EXTENSIONS } from './profilePhoto.js'
+import { describe, expect, it } from 'vitest'
+import { PHOTO_EXTENSIONS, pickProfilePhoto } from './profilePhoto.js'
 
 describe('pickProfilePhoto (R9)', () => {
   it('returns null when there are no candidates', () => {

@@ -5,9 +5,9 @@
  *
  * Run:  npm run pdf:ats
  */
-import { writeFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { renderCV } from '../src/pdf/render.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
@@ -16,8 +16,8 @@ try {
   console.log('Rendering ATS CV…')
   const { buffer, filename } = await renderCV({
     contentDir: join(__dir, '../cv-content'),
-    fontsDir:   join(__dir, '../src/fonts'),
-    ats: true,
+    fontsDir: join(__dir, '../src/fonts'),
+    ats: true
   })
   writeFileSync(filename, buffer)
   console.log(`✅ ATS PDF saved: ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB)`)

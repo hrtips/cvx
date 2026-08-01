@@ -25,7 +25,9 @@ export function flowIds(plan, flow) {
 export function placedExactlyOnce(ids) {
   const counts = new Map()
   for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1)
-  const duplicates = [...counts.entries()].filter(([, c]) => c > 1).map(([id, c]) => ({ id, count: c }))
+  const duplicates = [...counts.entries()]
+    .filter(([, c]) => c > 1)
+    .map(([id, c]) => ({ id, count: c }))
   return { ok: duplicates.length === 0, duplicates }
 }
 
@@ -38,8 +40,9 @@ export function orderPreserved(ids, expectedOrder) {
   const idSet = new Set(ids)
   const expectedFiltered = expectedOrder.filter((id) => idSet.has(id))
   const actualFiltered = ids.filter((id) => expectedOrder.includes(id))
-  const ok = expectedFiltered.length === actualFiltered.length
-    && expectedFiltered.every((id, i) => id === actualFiltered[i])
+  const ok =
+    expectedFiltered.length === actualFiltered.length &&
+    expectedFiltered.every((id, i) => id === actualFiltered[i])
   return { ok, expected: expectedFiltered, actual: actualFiltered }
 }
 
@@ -106,7 +109,9 @@ export function frontLoadHolds(fills, tolerance = 0.05) {
  */
 export function noPageOverBudget(fills, tolerance = 0.01) {
   const violations = []
-  fills.forEach((fill, i) => { if (fill > 1 + tolerance) violations.push({ page: i, fill }) })
+  fills.forEach((fill, i) => {
+    if (fill > 1 + tolerance) violations.push({ page: i, fill })
+  })
   return { ok: violations.length === 0, violations }
 }
 
@@ -122,7 +127,8 @@ export function noEmptyColumn(plan, { allowedResidualPages = new Set() } = {}) {
     if (allowedResidualPages.has(page.index)) continue
     const mainEmpty = (page.main ?? []).length === 0
     const sidebarEmpty = (page.sidebar ?? []).length === 0
-    if (mainEmpty !== sidebarEmpty) violations.push({ page: page.index, emptyColumn: mainEmpty ? 'main' : 'sidebar' })
+    if (mainEmpty !== sidebarEmpty)
+      violations.push({ page: page.index, emptyColumn: mainEmpty ? 'main' : 'sidebar' })
   }
   return { ok: violations.length === 0, violations }
 }

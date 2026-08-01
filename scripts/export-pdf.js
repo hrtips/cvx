@@ -9,9 +9,9 @@
  *
  * Run:  npm run pdf
  */
-import { writeFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { renderCV } from '../src/pdf/render.js'
 
 const __dir = dirname(fileURLToPath(import.meta.url))
@@ -19,7 +19,7 @@ const __dir = dirname(fileURLToPath(import.meta.url))
 try {
   const { buffer, filename, themeName, layoutName } = await renderCV({
     contentDir: join(__dir, '../cv-content'),
-    fontsDir:   join(__dir, '../src/fonts'),
+    fontsDir: join(__dir, '../src/fonts')
   })
   console.log(`Rendering CV (theme: ${themeName}, layout: ${layoutName})…`)
   writeFileSync(filename, buffer)

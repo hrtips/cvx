@@ -15,10 +15,11 @@
 // configuration task, not a unit test, and out of reach of this sandbox
 // (single architecture). Tracked for whoever wires the CI matrix; see
 // research/c0-baseline.md.
-import { describe, it, expect, afterAll } from 'vitest'
-import { readFileSync, cpSync } from 'node:fs'
+
+import { cpSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { ROOT, mkFixtureDir, buildAll, cleanupFixtureDirs } from './layout-harness/scaffold.js'
+import { afterAll, describe, expect, it } from 'vitest'
+import { buildAll, cleanupFixtureDirs, mkFixtureDir, ROOT } from './layout-harness/scaffold.js'
 
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
 const SOURCE_DATE_EPOCH = '1700000000' // 2023-11-14T22:13:20Z — arbitrary, fixed
@@ -38,7 +39,9 @@ describe('C0 reproducibility — same-architecture byte-determinism', () => {
   afterAll(() => cleanupFixtureDirs())
 
   it('the shipped scaffold renders byte-identical PDFs (designed + ATS) across two independent runs under a pinned SOURCE_DATE_EPOCH', () => {
-    const { dirA, dirB, a, b } = renderTwice((dir) => cpSync(TEMPLATE, path.join(dir, 'cv-content'), { recursive: true }))
+    const { dirA, dirB, a, b } = renderTwice((dir) =>
+      cpSync(TEMPLATE, path.join(dir, 'cv-content'), { recursive: true })
+    )
     expect(a.code).toBe(0)
     expect(b.code).toBe(0)
     expect(a.result.outputs.map((o) => o.filename)).toEqual(b.result.outputs.map((o) => o.filename))

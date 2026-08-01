@@ -11,7 +11,7 @@
 /**
  * Normalize a single slot item from YAML into a string key.
  */
-function normalizeItem(item) {
+function normalizeItem(/** @type {import('./types.js').RawLayoutSlot} */ item) {
   if (typeof item === 'string') return item
 
   if (typeof item === 'object' && item !== null) {
@@ -41,7 +41,7 @@ function normalizeItem(item) {
 /**
  * Normalize a slot array (sidebar or main) from parsed YAML.
  */
-function normalizeSlot(items) {
+function normalizeSlot(/** @type {unknown} */ items) {
   if (!Array.isArray(items)) return []
   return items.map(normalizeItem)
 }
@@ -49,11 +49,11 @@ function normalizeSlot(items) {
 /**
  * Normalize a full page definition.
  */
-function normalizePage(page) {
+function normalizePage(/** @type {import('./types.js').RawLayoutPage | null | undefined} */ page) {
   if (!page) return null
-  const result = {}
+  const result = /** @type {import('./types.js').LayoutPage} */ ({})
   if (page.sidebar) result.sidebar = normalizeSlot(page.sidebar)
-  if (page.main)    result.main    = normalizeSlot(page.main)
+  if (page.main) result.main = normalizeSlot(page.main)
   return result
 }
 
@@ -66,15 +66,16 @@ function normalizePage(page) {
  * Output:
  *   { template: 'two-column', first: {...}, continuation: {...}, last: {...} }
  */
-export function normalizeLayout(parsed) {
-  const result = {
-    template: parsed.template ?? 'two-column',
-  }
+export function normalizeLayout(/** @type {import('./types.js').RawLayout} */ parsed) {
+  const result =
+    /** @type {{ template: string, first?: import('./types.js').LayoutPage | null, continuation?: import('./types.js').LayoutPage | null, last?: import('./types.js').LayoutPage | null }} */ ({
+      template: parsed.template ?? 'two-column'
+    })
 
   const pages = parsed.pages ?? parsed
-  if (pages.first)        result.first        = normalizePage(pages.first)
+  if (pages.first) result.first = normalizePage(pages.first)
   if (pages.continuation) result.continuation = normalizePage(pages.continuation)
-  if (pages.last)         result.last         = normalizePage(pages.last)
+  if (pages.last) result.last = normalizePage(pages.last)
 
-  return result
+  return /** @type {import('./types.js').NormalizedLayout} */ (result)
 }

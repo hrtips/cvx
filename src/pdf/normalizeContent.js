@@ -40,11 +40,15 @@
  * strings, arrays, and plain objects, exactly the shape js-yaml/Vite's YAML
  * import produce). Non-string leaves (numbers, booleans, null) pass through
  * unchanged.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
  */
 export function normalizeContent(value) {
   if (typeof value === 'string') return value.normalize('NFC')
   if (Array.isArray(value)) return value.map(normalizeContent)
   if (value != null && typeof value === 'object') {
+    /** @type {Record<string, unknown>} */
     const out = {}
     for (const [key, v] of Object.entries(value)) out[key] = normalizeContent(v)
     return out

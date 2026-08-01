@@ -2,12 +2,13 @@
 // emitting exactly one JSON object. Spawns the real bin so the CLI wiring
 // (arg parsing → validate gate → renderCV twice) is covered end to end.
 // Requires lib/ (the pretest build:lib step produces it before vitest runs).
-import { describe, it, expect } from 'vitest'
-import { mkdtempSync, cpSync, writeFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { fileURLToPath } from 'node:url'
+
 import { execFileSync } from 'node:child_process'
+import { cpSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
@@ -30,7 +31,12 @@ function run(dir, args) {
 
 // pdftotext ships with poppler (same package as the harness's pdftoppm).
 function hasPdftotext() {
-  try { execFileSync('pdftotext', ['-v'], { stdio: 'ignore' }); return true } catch { return false }
+  try {
+    execFileSync('pdftotext', ['-v'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 }
 const extractText = (pdfPath) => execFileSync('pdftotext', [pdfPath, '-'], { encoding: 'utf8' })
 
@@ -52,7 +58,9 @@ describe('cvx build --all', () => {
   }, 30000)
 
   it('exits 2 without building when validation fails', () => {
-    const dir = scaffold((c) => writeFileSync(path.join(c, 'personal.yaml'), 'title: No Name Here\n'))
+    const dir = scaffold((c) =>
+      writeFileSync(path.join(c, 'personal.yaml'), 'title: No Name Here\n')
+    )
     const { code, stdout } = run(dir, ['build', '--all', '--json'])
     expect(code).toBe(2)
     const result = JSON.parse(stdout)
@@ -74,8 +82,8 @@ describe.skipIf(!hasPdftotext())('cvx build --all — ATS text layer not corrupt
     const { code } = run(dir, ['build', '--all', '--json'])
     expect(code).toBe(0)
     const atsText = extractText(path.join(dir, 'bruce-wayne-ats.pdf'))
-    expect(atsText).toContain('First Place')     // was "ir t Place" under the bug
-    expect(atsText).toContain('CERTIFICATIONS')   // was "CERTI ICATIONS"
+    expect(atsText).toContain('First Place') // was "ir t Place" under the bug
+    expect(atsText).toContain('CERTIFICATIONS') // was "CERTI ICATIONS"
     expect((atsText.match(/Gotham/g) ?? []).length).toBeGreaterThanOrEqual(5) // was 0
   }, 30000)
 })

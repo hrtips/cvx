@@ -1,0 +1,379 @@
+bin/cvx.js(53,15): error TS7006: Parameter 'obj' implicitly has an 'any' type.
+bin/cvx.js(55,23): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(76,27): error TS7031: Binding element 'strict' implicitly has an 'any' type.
+bin/cvx.js(76,35): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(78,36): error TS2353: Object literal may only specify known properties, and 'contentDir' does not exist in type '{ strict?: boolean | undefined; }'.
+bin/cvx.js(104,23): error TS7031: Binding element 'kind' implicitly has an 'any' type.
+bin/cvx.js(104,29): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(151,26): error TS7031: Binding element 'client' implicitly has an 'any' type.
+bin/cvx.js(151,34): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(152,18): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ claude: { file: () => string; root: string; entry: { command: string; args: string[]; type: string; }; }; cursor: { file: () => string; root: string; entry: { command: string; args: string[]; }; }; vscode: { file: () => string; root: string; entry: { ...; }; }; 'claude-desktop': { ...; }; }'.
+bin/cvx.js(172,3): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+bin/cvx.js(172,30): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+bin/cvx.js(179,24): error TS7031: Binding element 'ats' implicitly has an 'any' type.
+bin/cvx.js(179,29): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(181,9): error TS7034: Variable 'warnings' implicitly has type 'any[]' in some locations where its type cannot be determined.
+bin/cvx.js(190,145): error TS7005: Variable 'warnings' implicitly has an 'any[]' type.
+bin/cvx.js(207,27): error TS7031: Binding element 'json' implicitly has an 'any' type.
+bin/cvx.js(210,32): error TS2353: Object literal may only specify known properties, and 'contentDir' does not exist in type '{ strict?: boolean | undefined; }'.
+bin/cvx.js(230,133): error TS18046: 'err' is of type 'unknown'.
+bin/cvx.js(231,68): error TS18046: 'err' is of type 'unknown'.
+bin/cvx.js(300,117): error TS18046: 'err' is of type 'unknown'.
+bin/cvx.js(301,22): error TS18046: 'err' is of type 'unknown'.
+cv-content/index.js(16,33): error TS2339: Property 'glob' does not exist on type 'ImportMeta'.
+cv-content/index.js(32,5): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+cv-content/index.js(37,9): error TS2339: Property 'personal' does not exist on type '{}'.
+cv-content/index.js(37,19): error TS2339: Property 'summary' does not exist on type '{}'.
+cv-content/index.js(37,28): error TS2339: Property 'experience' does not exist on type '{}'.
+cv-content/index.js(37,40): error TS2339: Property 'achievements' does not exist on type '{}'.
+cv-content/index.js(37,54): error TS2339: Property 'education' does not exist on type '{}'.
+cv-content/index.js(37,65): error TS2339: Property 'competencies' does not exist on type '{}'.
+cv-content/index.js(37,79): error TS2339: Property 'referees' does not exist on type '{}'.
+cv-content/index.js(37,89): error TS2339: Property 'keywords' does not exist on type '{}'.
+cv-content/index.js(41,34): error TS2339: Property 'glob' does not exist on type 'ImportMeta'.
+src/main.jsx(17,15): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ teal: { name: string; palette: { accent: string; sidebarBg: string; textDark: string; textBody: string; textMuted: string; textContact: string; tagBg: string; tagText: string; divider: string; white: string; accentText: string; accentTextSecondary: string; accentTextTertiary: string; accentDivider: string; }; typo...'.
+src/main.jsx(17,29): error TS2339: Property 'theme' does not exist on type '{}'.
+src/main.jsx(22,8): error TS2740: Type '{ personal: any; summary: any; experience: any; achievements: any; education: any; competencies: any; referees: any; keywords: any; profilePhoto: any; config: {}; theme: any; }' is missing the following properties from type '{ achievements: any; certifications: any; competencies: any; config: any; creationDate: any; education: any; experience: any; keywords: any; languages: any; layout: any; measure: any; personal: any; ... 4 more ...; theme: any; }': certifications, creationDate, languages, layout, and 2 more.
+src/main.jsx(57,9): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+src/main.jsx(65,12): error TS2345: Argument of type 'HTMLElement | null' is not assignable to parameter of type 'Container'.
+src/mcp/server.js(47,26): error TS2339: Property 'ok' does not exist on type '{ schemaVersion: number; schema: any; themes: { name: string; default: boolean; }[]; layouts: { name: string; default: boolean; source: string; }[]; } | { ok: boolean; error: { code: string; message: string; }; dest?: undefined; nextSteps?: undefined; } | { ...; } | { ...; } | { ...; }'.
+src/mcp/server.js(51,108): error TS18046: 'err' is of type 'unknown'.
+src/mcp/tools.js(21,20): error TS7006: Parameter 'dir' implicitly has an 'any' type.
+src/mcp/tools.js(22,23): error TS7006: Parameter 'dir' implicitly has an 'any' type.
+src/mcp/tools.js(30,35): error TS2339: Property 'dir' does not exist on type '{}'.
+src/mcp/tools.js(48,32): error TS2339: Property 'dir' does not exist on type '{}'.
+src/mcp/tools.js(66,36): error TS2339: Property 'dir' does not exist on type '{ strict?: boolean | undefined; }'.
+src/mcp/tools.js(71,34): error TS2339: Property 'dir' does not exist on type '{ ats?: boolean | undefined; }'.
+src/mcp/tools.js(72,9): error TS7034: Variable 'warnings' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/mcp/tools.js(81,133): error TS7005: Variable 'warnings' implicitly has an 'any[]' type.
+src/pdf/ATSDocument.jsx(16,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,23): error TS7031: Binding element 'personal' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,33): error TS7031: Binding element 'summary' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,42): error TS7031: Binding element 'experience' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,54): error TS7031: Binding element 'achievements' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,68): error TS7031: Binding element 'education' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,79): error TS7031: Binding element 'certifications' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,95): error TS7031: Binding element 'publications' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,109): error TS7031: Binding element 'languages' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,120): error TS7031: Binding element 'competencies' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,134): error TS7031: Binding element 'referees' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(67,144): error TS7031: Binding element 'profilePhoto' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(71,49): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(94,25): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(94,28): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(107,28): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(107,31): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(118,39): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(126,32): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(126,35): error TS7006: Parameter 'j' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(141,27): error TS7006: Parameter 'edu' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(141,32): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(157,32): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(157,35): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(173,30): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(173,33): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(197,52): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(205,30): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(205,33): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(218,26): error TS7006: Parameter 'ref' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(218,31): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(234,3): error TS7031: Binding element 'personal' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(234,13): error TS7031: Binding element 'summary' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(234,22): error TS7031: Binding element 'experience' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(234,34): error TS7031: Binding element 'achievements' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(235,3): error TS7031: Binding element 'education' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(235,14): error TS7031: Binding element 'certifications' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(235,30): error TS7031: Binding element 'publications' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(235,44): error TS7031: Binding element 'languages' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(236,3): error TS7031: Binding element 'competencies' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(236,17): error TS7031: Binding element 'referees' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(236,27): error TS7031: Binding element 'keywords' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(236,37): error TS7031: Binding element 'profilePhoto' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(237,3): error TS7031: Binding element 'theme' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(237,10): error TS7031: Binding element 'config' implicitly has an 'any' type.
+src/pdf/ATSDocument.jsx(237,18): error TS7031: Binding element 'creationDate' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(59,23): error TS7006: Parameter 'keys' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(59,29): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(59,35): error TS7006: Parameter 'theme' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(60,36): error TS7006: Parameter 'k' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(61,36): error TS7006: Parameter 'k' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(75,29): error TS7006: Parameter 'key' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(75,34): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(89,30): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(89,36): error TS7031: Binding element 'activeLayout' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(89,50): error TS7031: Binding element 'activeTheme' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(89,63): error TS7031: Binding element 'packing' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(89,72): error TS7031: Binding element 'measure' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(97,23): error TS7006: Parameter 'pageIndex' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(139,33): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(139,39): error TS7031: Binding element 'activeLayout' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(150,3): error TS7031: Binding element 'personal' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(150,13): error TS7031: Binding element 'summary' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(150,22): error TS7031: Binding element 'experience' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(150,34): error TS7031: Binding element 'achievements' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(151,3): error TS7031: Binding element 'education' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(151,14): error TS7031: Binding element 'certifications' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(151,30): error TS7031: Binding element 'publications' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(151,44): error TS7031: Binding element 'languages' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(152,3): error TS7031: Binding element 'competencies' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(152,17): error TS7031: Binding element 'referees' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(152,27): error TS7031: Binding element 'keywords' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(152,37): error TS7031: Binding element 'profilePhoto' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(152,51): error TS7031: Binding element 'config' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(153,3): error TS7031: Binding element 'theme' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(153,10): error TS7031: Binding element 'layout' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(153,18): error TS7031: Binding element 'creationDate' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(153,32): error TS7031: Binding element 'measure' implicitly has an 'any' type.
+src/pdf/CVDocument.jsx(156,34): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ 'two-column': { template: string; first: { sidebar: string[]; main: string[]; }; continuation: { sidebar: string[]; main: string[]; }; last: { sidebar: string[]; main: string[]; }; }; 'single-column': { template: string; first: { ...; }; }; }'.
+src/pdf/CVDocument.jsx(157,33): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ 'two-column': { name: string; palette: { accent: string; sidebarBg: string; textDark: string; textBody: string; textMuted: string; textContact: string; tagBg: string; tagText: string; divider: string; ... 4 more ...; accentDivider: string; }; typography: { ...; }; spacing: { ...; }; chrome: { ...; }; geometry: { ....'.
+src/pdf/ThemeContext.jsx(14,27): error TS7006: Parameter 'makeStylesFn' implicitly has an 'any' type.
+src/pdf/components/BulletList.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/components/BulletList.jsx(12,38): error TS7031: Binding element 'items' implicitly has an 'any' type.
+src/pdf/components/BulletList.jsx(16,19): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pdf/components/BulletList.jsx(16,25): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,3): error TS7031: Binding element 'role' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,9): error TS7031: Binding element 'company' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,18): error TS7031: Binding element 'period' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,26): error TS7031: Binding element 'location' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,36): error TS7031: Binding element 'description' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,49): error TS7031: Binding element 'progression' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(22,62): error TS7031: Binding element 'bullets' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(23,20): error TS7031: Binding element 'endBullet' implicitly has an 'any' type.
+src/pdf/components/ExpItem.jsx(50,29): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pdf/components/SectionTitle.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/components/SectionTitle.jsx(21,40): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/pdf/keywords.js(16,16): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/pdf/keywords.js(21,26): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/pdf/keywords.js(30,17): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/pdf/keywords.js(54,30): error TS7031: Binding element 'competencies' implicitly has an 'any' type.
+src/pdf/keywords.js(54,44): error TS7031: Binding element 'experience' implicitly has an 'any' type.
+src/pdf/keywords.js(54,56): error TS7031: Binding element 'personal' implicitly has an 'any' type.
+src/pdf/keywords.js(70,17): error TS7006: Parameter 'list' implicitly has an 'any' type.
+src/pdf/keywords.js(91,34): error TS2339: Property 'atsKeywords' does not exist on type 'object'.
+src/pdf/keywords.js(94,30): error TS2339: Property 'keywords' does not exist on type 'object'.
+src/pdf/keywords.js(95,70): error TS2345: Argument of type 'object' is not assignable to parameter of type '{ competencies: any; experience: any; personal: any; }'.
+src/pdf/keywords.test.js(5,13): error TS7006: Parameter 'data' implicitly has an 'any' type.
+src/pdf/keywords.test.js(5,19): error TS7006: Parameter 'config' implicitly has an 'any' type.
+src/pdf/layout.js(30,31): error TS7006: Parameter 'theme' implicitly has an 'any' type.
+src/pdf/layout.js(72,13): error TS7006: Parameter 'pt' implicitly has an 'any' type.
+src/pdf/layout.js(72,17): error TS7006: Parameter 'leading' implicitly has an 'any' type.
+src/pdf/layout.js(93,19): error TS7006: Parameter 'pt' implicitly has an 'any' type.
+src/pdf/layout.js(106,27): error TS7006: Parameter 'text' implicitly has an 'any' type.
+src/pdf/layout.js(106,33): error TS7006: Parameter 'pt' implicitly has an 'any' type.
+src/pdf/layout.js(106,37): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/pdf/layout.js(106,40): error TS7006: Parameter 'cw' implicitly has an 'any' type.
+src/pdf/layout.js(112,21): error TS7006: Parameter 'measure' implicitly has an 'any' type.
+src/pdf/layout.js(112,30): error TS7006: Parameter 'text' implicitly has an 'any' type.
+src/pdf/layout.js(112,36): error TS7006: Parameter 'pt' implicitly has an 'any' type.
+src/pdf/layout.js(112,40): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/pdf/layout.js(112,43): error TS7006: Parameter 'cw' implicitly has an 'any' type.
+src/pdf/layout.js(112,47): error TS7006: Parameter 'opts' implicitly has an 'any' type.
+src/pdf/layout.js(117,21): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pdf/layout.js(121,23): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pdf/layout.js(134,26): error TS7006: Parameter 'summary' implicitly has an 'any' type.
+src/pdf/layout.js(134,35): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pdf/layout.js(134,38): error TS7006: Parameter 'measure' implicitly has an 'any' type.
+src/pdf/layout.js(144,24): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/layout.js(144,27): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/pdf/layout.js(144,30): error TS7006: Parameter 'measure' implicitly has an 'any' type.
+src/pdf/layout.js(199,25): error TS2339: Property 'first' does not exist on type 'object'.
+src/pdf/layout.js(203,17): error TS2339: Property 'continuation' does not exist on type 'object'.
+src/pdf/layout.js(204,17): error TS2339: Property 'last' does not exist on type 'object'.
+src/pdf/layout.js(250,46): error TS2694: Namespace '"/Users/ramith/code/cvx/.claude/worktrees/agent-a7f0873caea6ab194/src/pdf/measure"' has no exported member 'createMeasurer'.
+src/pdf/layout.js(254,39): error TS7006: Parameter 'experience' implicitly has an 'any' type.
+src/pdf/layout.js(254,51): error TS7006: Parameter 'summary' implicitly has an 'any' type.
+src/pdf/layout.js(254,73): error TS7006: Parameter 'theme' implicitly has an 'any' type.
+src/pdf/layout.js(255,11): error TS2339: Property 'page1ExperienceCount' does not exist on type '{}'.
+src/pdf/layout.js(255,40): error TS2339: Property 'page1SplitBullets' does not exist on type '{}'.
+src/pdf/layout.js(259,51): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/layout.js(259,54): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/layout.js(266,20): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/layout.js(266,23): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/layout.js(277,46): error TS2694: Namespace '"/Users/ramith/code/cvx/.claude/worktrees/agent-a7f0873caea6ab194/src/pdf/measure"' has no exported member 'createMeasurer'.
+src/pdf/layout.js(280,33): error TS7006: Parameter 'experience' implicitly has an 'any' type.
+src/pdf/layout.js(280,45): error TS7006: Parameter 'summary' implicitly has an 'any' type.
+src/pdf/layout.js(280,67): error TS7006: Parameter 'theme' implicitly has an 'any' type.
+src/pdf/layout.js(282,11): error TS2339: Property 'page1ExperienceCount' does not exist on type '{}'.
+src/pdf/layout.js(282,33): error TS2339: Property 'page1SplitBullets' does not exist on type '{}'.
+src/pdf/layout.test.js(29,32): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'object'.
+src/pdf/layout.test.js(35,16): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/pdf/loadContent.js(23,16): error TS7008: Member 'config' implicitly has an 'any' type.
+src/pdf/loadContent.js(23,24): error TS7008: Member 'content' implicitly has an 'any' type.
+src/pdf/loadContent.js(23,33): error TS7008: Member 'profilePhoto' implicitly has an 'any' type.
+src/pdf/loadContent.js(43,7): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/loadContent.test.js(17,7): error TS7034: Variable 'dirsToClean' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/loadContent.test.js(19,37): error TS7005: Variable 'dirsToClean' implicitly has an 'any[]' type.
+src/pdf/loadContent.test.js(22,25): error TS7006: Parameter 'files' implicitly has an 'any' type.
+src/pdf/loadLayout.js(14,24): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pdf/loadLayout.js(44,24): error TS7006: Parameter 'items' implicitly has an 'any' type.
+src/pdf/loadLayout.js(52,24): error TS7006: Parameter 'page' implicitly has an 'any' type.
+src/pdf/loadLayout.js(69,33): error TS7006: Parameter 'parsed' implicitly has an 'any' type.
+src/pdf/loadLayout.js(75,34): error TS2339: Property 'first' does not exist on type '{ template: any; }'.
+src/pdf/loadLayout.js(76,34): error TS2339: Property 'continuation' does not exist on type '{ template: any; }'.
+src/pdf/loadLayout.js(77,34): error TS2339: Property 'last' does not exist on type '{ template: any; }'.
+src/pdf/measure.js(28,26): error TS7016: Could not find a declaration file for module 'fontkit'. '/Users/ramith/code/cvx/node_modules/fontkit/dist/browser-module.mjs' implicitly has an 'any' type.
+src/pdf/measure.js(36,22): error TS7006: Parameter 'weight' implicitly has an 'any' type.
+src/pdf/measure.js(36,30): error TS7006: Parameter 'italic' implicitly has an 'any' type.
+src/pdf/measure.js(44,30): error TS7006: Parameter 'weight' implicitly has an 'any' type.
+src/pdf/measure.js(52,31): error TS7006: Parameter 'cp' implicitly has an 'any' type.
+src/pdf/measure.js(74,20): error TS7006: Parameter 'weight' implicitly has an 'any' type.
+src/pdf/measure.js(74,28): error TS7006: Parameter 'italic' implicitly has an 'any' type.
+src/pdf/measure.js(81,20): error TS7006: Parameter 'text' implicitly has an 'any' type.
+src/pdf/measure.js(81,26): error TS7006: Parameter 'size' implicitly has an 'any' type.
+src/pdf/measure.js(102,22): error TS7006: Parameter 'text' implicitly has an 'any' type.
+src/pdf/measure.js(102,28): error TS7006: Parameter 'size' implicitly has an 'any' type.
+src/pdf/measure.js(102,34): error TS7006: Parameter 'maxWidth' implicitly has an 'any' type.
+src/pdf/measure.js(135,29): error TS7006: Parameter 'text' implicitly has an 'any' type.
+src/pdf/measure.js(167,9): error TS7034: Variable 'findings' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/measure.js(169,17): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/pdf/measure.js(169,24): error TS7006: Parameter 'file' implicitly has an 'any' type.
+src/pdf/measure.js(169,30): error TS7006: Parameter 'pointer' implicitly has an 'any' type.
+src/pdf/measure.js(189,10): error TS7005: Variable 'findings' implicitly has an 'any[]' type.
+src/pdf/measure.js(193,51): error TS7031: Binding element 'chars' implicitly has an 'any' type.
+src/pdf/normalizeContent.js(44,17): error TS7023: 'normalizeContent' implicitly has return type 'any' because it does not have a return type annotation and is referenced directly or indirectly in one of its return expressions.
+src/pdf/normalizeContent.js(44,34): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/pdf/normalizeContent.js(49,51): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/render.js(24,33): error TS7006: Parameter 'layoutsDir' implicitly has an 'any' type.
+src/pdf/render.js(28,5): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/render.js(33,25): error TS7006: Parameter 'name' implicitly has an 'any' type.
+src/pdf/render.js(33,31): error TS7006: Parameter 'suffix' implicitly has an 'any' type.
+src/pdf/render.js(45,28): error TS7006: Parameter 'fontsDir' implicitly has an 'any' type.
+src/pdf/render.js(45,38): error TS7006: Parameter 'warn' implicitly has an 'any' type.
+src/pdf/render.js(49,64): error TS18046: 'err' is of type 'unknown'.
+src/pdf/render.js(55,37): error TS7006: Parameter 'measure' implicitly has an 'any' type.
+src/pdf/render.js(55,46): error TS7006: Parameter 'content' implicitly has an 'any' type.
+src/pdf/render.js(55,55): error TS7006: Parameter 'warn' implicitly has an 'any' type.
+src/pdf/render.js(84,49): error TS2345: Argument of type 'object' is not assignable to parameter of type 'Record<string, string | undefined>'.
+src/pdf/render.js(107,18): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+src/pdf/reproducible.js(78,13): error TS7034: Variable 'chunks' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/reproducible.js(80,12): error TS2339: Property 'write' does not exist on type 'EventEmitter<any>'.
+src/pdf/reproducible.js(80,21): error TS7006: Parameter 'chunk' implicitly has an 'any' type.
+src/pdf/reproducible.js(81,12): error TS2339: Property 'end' does not exist on type 'EventEmitter<any>'.
+src/pdf/reproducible.js(81,19): error TS7006: Parameter 'chunk' implicitly has an 'any' type.
+src/pdf/reproducible.js(83,58): error TS7005: Variable 'chunks' implicitly has an 'any[]' type.
+src/pdf/reproducible.test.js(31,12): error TS18048: 'd' is possibly 'undefined'.
+src/pdf/reproducible.test.js(35,12): error TS2532: Object is possibly 'undefined'.
+src/pdf/reproducible.test.js(74,11): error TS7034: Variable 'out' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/reproducible.test.js(76,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pdf/reproducible.test.js(82,26): error TS7005: Variable 'out' implicitly has an 'any[]' type.
+src/pdf/reproducible.test.js(105,12): error TS18048: 'creationDate' is possibly 'undefined'.
+src/pdf/sections/AchievementsSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/AchievementsSection.jsx(11,47): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/AchievementsSection.jsx(17,31): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pdf/sections/CertificationsSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/CertificationsSection.jsx(13,49): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/CertificationsSection.jsx(19,33): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pdf/sections/CertificationsSection.jsx(19,36): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/sections/CompetenciesSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/CompetenciesSection.jsx(11,47): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/CompetenciesSection.jsx(18,33): error TS7006: Parameter 'tag' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(14,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(22,17): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(22,23): error TS7031: Binding element 'color' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(22,30): error TS7031: Binding element 'spacing' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(23,16): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ phone: { viewBox: string; d: string; }; envelope: { viewBox: string; d: string; }; linkedin: { viewBox: string; d: string; }; facebook: { viewBox: string; d: string; }; location: { viewBox: string; d: string; }; link: { ...; }; }'.
+src/pdf/sections/ContactSection.jsx(32,42): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/ContactSection.jsx(43,35): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/pdf/sections/EducationSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/EducationSection.jsx(13,44): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/EducationSection.jsx(19,28): error TS7006: Parameter 'edu' implicitly has an 'any' type.
+src/pdf/sections/ExperienceSection.jsx(7,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/ExperienceSection.jsx(11,45): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/ExperienceSection.jsx(11,51): error TS7031: Binding element 'entries' implicitly has an 'any' type.
+src/pdf/sections/ExperienceSection.jsx(18,21): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/sections/ExperienceSection.jsx(18,24): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/sections/HeaderATS.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/HeaderATS.jsx(13,37): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/HeaderATS.jsx(16,49): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/pdf/sections/IdentityCompact.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/IdentityCompact.jsx(12,43): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/IdentityPhoto.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/IdentityPhoto.jsx(15,41): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/LanguagesSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/LanguagesSection.jsx(12,44): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/LanguagesSection.jsx(18,28): error TS7006: Parameter 'l' implicitly has an 'any' type.
+src/pdf/sections/LanguagesSection.jsx(18,31): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/sections/PublicationsSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/PublicationsSection.jsx(12,47): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/PublicationsSection.jsx(18,31): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pdf/sections/PublicationsSection.jsx(18,34): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(5,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(18,20): error TS7031: Binding element 'r' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(18,23): error TS7031: Binding element 's' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(41,43): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(48,23): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/pdf/sections/RefereesSection.jsx(48,26): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/pdf/sections/SummarySection.jsx(6,42): error TS7031: Binding element 'data' implicitly has an 'any' type.
+src/pdf/sections/registry.js(54,3): error TS2322: Type '(CElement<{ key: string; data: object; }, Component<{ key: string; data: object; }, any, any>> | CElement<PropsWithChildren<ViewProps>, View> | FunctionComponentElement<...> | null)[]' is not assignable to type 'ReactElement<any, string | JSXElementConstructor<any>>[]'.
+src/pdf/sections/registry.js(66,24): error TS2339: Property 'entries' does not exist on type 'object'.
+src/pdf/sections/registry.js(76,24): error TS2339: Property 'entries' does not exist on type 'object'.
+src/pdf/sections/registry.js(82,23): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ 'identity-photo': ({ data }: { data: any; }) => Element; 'identity-compact': ({ data }: { data: any; }) => Element; contact: ({ data }: { data: any; }) => Element; achievements: ({ data }: { ...; }) => Element | null; ... 8 more ...; 'header-ats': ({ data }: { ...; }) => Element; }'.
+src/pdf/templates/SingleColumnTemplate.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/templates/SingleColumnTemplate.jsx(14,48): error TS7031: Binding element 'mainSlot' implicitly has an 'any' type.
+src/pdf/templates/TwoColumnTemplate.jsx(4,21): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pdf/templates/TwoColumnTemplate.jsx(30,45): error TS7031: Binding element 'sidebarSlot' implicitly has an 'any' type.
+src/pdf/templates/TwoColumnTemplate.jsx(30,58): error TS7031: Binding element 'mainSlot' implicitly has an 'any' type.
+src/pdf/templates/TwoColumnTemplate.jsx(30,68): error TS7031: Binding element 'pageNum' implicitly has an 'any' type.
+src/pdf/templates/TwoColumnTemplate.jsx(30,77): error TS7031: Binding element 'totalPages' implicitly has an 'any' type.
+src/pdf/themes/index.js(30,5): error TS7034: Variable '_discovered' implicitly has type 'any' in some locations where its type cannot be determined.
+src/pdf/themes/index.js(33,7): error TS7005: Variable '_discovered' implicitly has an 'any' type.
+src/pdf/themes/index.js(43,11): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ teal: { name: string; palette: { accent: string; sidebarBg: string; textDark: string; textBody: string; textMuted: string; textContact: string; tagBg: string; tagText: string; divider: string; white: string; accentText: string; accentTextSecondary: string; accentTextTertiary: string; accentDivider: string; }; typo...'.
+src/pdf/themes/index.js(52,11): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ teal: { name: string; palette: { accent: string; sidebarBg: string; textDark: string; textBody: string; textMuted: string; textContact: string; tagBg: string; tagText: string; divider: string; white: string; accentText: string; accentTextSecondary: string; accentTextTertiary: string; accentDivider: string; }; typo...'.
+src/pdf/validateContent.js(24,31): error TS2339: Property 'default' does not exist on type 'typeof Ajv2020'.
+src/pdf/validateContent.js(33,5): error TS7034: Variable 'ajv' implicitly has type 'any' in some locations where its type cannot be determined.
+src/pdf/validateContent.js(33,10): error TS7034: Variable 'canonicalSchema' implicitly has type 'any' in some locations where its type cannot be determined.
+src/pdf/validateContent.js(34,23): error TS7006: Parameter 'def' implicitly has an 'any' type.
+src/pdf/validateContent.js(35,8): error TS7005: Variable 'ajv' implicitly has an 'any' type.
+src/pdf/validateContent.js(40,8): error TS7005: Variable 'canonicalSchema' implicitly has an 'any' type.
+src/pdf/validateContent.js(41,27): error TS7005: Variable 'canonicalSchema' implicitly has an 'any' type.
+src/pdf/validateContent.js(42,31): error TS7005: Variable 'canonicalSchema' implicitly has an 'any' type.
+src/pdf/validateContent.js(45,22): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pdf/validateContent.js(45,25): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/pdf/validateContent.js(54,21): error TS7006: Parameter 'word' implicitly has an 'any' type.
+src/pdf/validateContent.js(54,27): error TS7006: Parameter 'candidates' implicitly has an 'any' type.
+src/pdf/validateContent.js(63,19): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/pdf/validateContent.js(73,23): error TS7006: Parameter 'errors' implicitly has an 'any' type.
+src/pdf/validateContent.js(73,31): error TS7006: Parameter 'doc' implicitly has an 'any' type.
+src/pdf/validateContent.js(74,45): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/validateContent.js(74,79): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pdf/validateContent.js(82,62): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/pdf/validateContent.js(82,65): error TS7006: Parameter 'k' implicitly has an 'any' type.
+src/pdf/validateContent.js(105,68): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/pdf/validateContent.js(105,71): error TS7006: Parameter 'k' implicitly has an 'any' type.
+src/pdf/validateContent.js(134,13): error TS2339: Property 'keyword' does not exist on type '{ path: any; message: string; suggestion: string | undefined; unknownKey: boolean; } | { path: any; message: string; suggestion: string | undefined; } | { path: any; message: any; }'.
+src/pdf/validateContent.js(141,7): error TS2339: Property 'keyword' does not exist on type '{ path: any; message: string; suggestion: string | undefined; unknownKey: boolean; } | { unknownKey?: undefined; path: any; message: string; suggestion: string | undefined; } | { unknownKey?: undefined; suggestion?: undefined; path: any; message: any; }'.
+src/pdf/validateContent.js(142,12): error TS2339: Property 'keyword' does not exist on type '{ path: any; message: string; suggestion: string | undefined; unknownKey: boolean; } | { unknownKey?: undefined; path: any; message: string; suggestion: string | undefined; } | { unknownKey?: undefined; suggestion?: undefined; path: any; message: any; }'.
+src/pdf/validateContent.js(162,33): error TS2741: Property 'contentDir' is missing in type '{}' but required in type '{ contentDir: string; strict?: boolean | undefined; fontsDir?: string | undefined; }'.
+src/pdf/validateContent.js(163,9): error TS7034: Variable 'errors' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/validateContent.js(164,9): error TS7034: Variable 'warnings' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/validateContent.js(165,9): error TS7034: Variable 'checked' implicitly has type 'any[]' in some locations where its type cannot be determined.
+src/pdf/validateContent.js(167,16): error TS7006: Parameter 'severity' implicitly has an 'any' type.
+src/pdf/validateContent.js(167,26): error TS7006: Parameter 'file' implicitly has an 'any' type.
+src/pdf/validateContent.js(167,32): error TS7006: Parameter 'code' implicitly has an 'any' type.
+src/pdf/validateContent.js(167,38): error TS7006: Parameter 'f' implicitly has an 'any' type.
+src/pdf/validateContent.js(168,29): error TS7005: Variable 'errors' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(168,38): error TS7005: Variable 'warnings' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(175,25): error TS7005: Variable 'errors' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(175,33): error TS7005: Variable 'warnings' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(175,43): error TS7005: Variable 'checked' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(179,33): error TS7005: Variable 'canonicalSchema' implicitly has an 'any' type.
+src/pdf/validateContent.js(198,15): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(198,32): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(199,39): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(199,51): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(203,5): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/validateContent.js(225,9): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/validateContent.js(227,18): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+src/pdf/validateContent.js(238,23): error TS2339: Property 'config' does not exist on type '{}'.
+src/pdf/validateContent.js(239,65): error TS2339: Property 'experience' does not exist on type '{}'.
+src/pdf/validateContent.js(240,19): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ teal: { name: string; palette: { accent: string; sidebarBg: string; textDark: string; textBody: string; textMuted: string; textContact: string; tagBg: string; tagText: string; divider: string; white: string; accentText: string; accentTextSecondary: string; accentTextTertiary: string; accentDivider: string; }; typo...'.
+src/pdf/validateContent.js(241,49): error TS2339: Property 'experience' does not exist on type '{}'.
+src/pdf/validateContent.js(241,80): error TS2339: Property 'summary' does not exist on type '{}'.
+src/pdf/validateContent.js(241,96): error TS2339: Property 'summary' does not exist on type '{}'.
+src/pdf/validateContent.js(291,15): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(291,32): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(292,39): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(292,51): error TS18046: 'e' is of type 'unknown'.
+src/pdf/validateContent.js(325,37): error TS7005: Variable 'errors' implicitly has an 'any[]' type.
+src/pdf/validateContent.js(325,45): error TS7005: Variable 'warnings' implicitly has an 'any[]' type.

@@ -1,10 +1,11 @@
 // MCP tool layer: same behavior as the CLI's JSON envelopes, driven as
 // plain functions with an explicit workspace dir.
-import { describe, it, expect } from 'vitest'
-import { mkdtempSync, existsSync, writeFileSync, statSync } from 'node:fs'
+
+import { existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { getSchema, initCv, validateCv, buildPdf, TOOLS } from '../src/mcp/tools.js'
+import { describe, expect, it } from 'vitest'
+import { buildPdf, getSchema, initCv, TOOLS, validateCv } from '../src/mcp/tools.js'
 
 const scratch = () => mkdtempSync(path.join(tmpdir(), 'cvx-mcp-'))
 
@@ -25,8 +26,12 @@ describe('get_schema', () => {
     const result = await getSchema({ dir: scratch() })
     expect(result.schemaVersion).toBe(1)
     expect(Object.keys(result.schema.$defs)).toContain('personal')
-    expect(result.themes.map((t) => t.name)).toEqual(expect.arrayContaining(['teal', 'coral', 'mono']))
-    expect(result.layouts.map((l) => l.name)).toEqual(expect.arrayContaining(['two-column', 'single-column']))
+    expect(result.themes.map((t) => t.name)).toEqual(
+      expect.arrayContaining(['teal', 'coral', 'mono'])
+    )
+    expect(result.layouts.map((l) => l.name)).toEqual(
+      expect.arrayContaining(['two-column', 'single-column'])
+    )
   })
 })
 

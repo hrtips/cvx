@@ -11,56 +11,87 @@
  * with extra keys keep working builds). Returns plain data — the CLI decides
  * how to print it.
  */
-import { existsSync, readdirSync, readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join, basename } from 'path'
-import yaml from 'js-yaml'
+
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
-import { PHOTO_EXTENSIONS } from './profilePhoto.js'
+import { load as loadYaml } from 'js-yaml'
 import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
-import { createMeasurer, findUnsupportedGlyphs, describeUnsupportedGlyphFinding } from './measure.js'
+import {
+  createMeasurer,
+  describeUnsupportedGlyphFinding,
+  findUnsupportedGlyphs
+} from './measure.js'
+import { PHOTO_EXTENSIONS } from './profilePhoto.js'
 import { THEMES } from './themes/index.js'
 
-const Ajv2020 = Ajv2020Module.default ?? Ajv2020Module
+const Ajv2020 = /** @type {any} */ (Ajv2020Module).default ?? Ajv2020Module
 
-const SCHEMA_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'schema', 'v1', 'cvx.schema.json')
-const BUILT_IN_THEMES = ['teal', 'coral', 'mono']
+const SCHEMA_PATH = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'schema',
+  'v1',
+  'cvx.schema.json'
+)
 const BUILT_IN_LAYOUTS = ['two-column', 'single-column']
 // Files the default two-column layout cannot render without (the packer
 // crashes on a missing list, and personal.name drives the filename).
 const REQUIRED_FILES = ['personal', 'summary', 'experience']
 
-let ajv, canonicalSchema
-function getValidator(def) {
+/**
+ * @typedef {{ path?: string, message: string, suggestion?: string }} RawFinding
+ * @typedef {{ path: string, message: string, suggestion?: string, unknownKey?: boolean, keyword?: string }} MapFinding
+ * @typedef {{ file: string, code: string, path: string, message: string, suggestion?: string }} Finding
+ * @typedef {{ mark: { line: number }, reason?: string, message?: string }} YamlErr
+ */
+
+/** @type {any} */
+let ajv
+/** @type {any} */
+let canonicalSchema
+function getValidator(/** @type {string} */ def) {
   if (!ajv) {
     canonicalSchema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))
     ajv = new Ajv2020({ allErrors: true, verbose: true })
     ajv.addSchema(canonicalSchema)
   }
   if (!canonicalSchema.$defs[def]) return null
-  return ajv.getSchema(`${canonicalSchema.$id}#/$defs/${def}`)
-    ?? ajv.compile({ $ref: `${canonicalSchema.$id}#/$defs/${def}` })
+  return (
+    ajv.getSchema(`${canonicalSchema.$id}#/$defs/${def}`) ??
+    ajv.compile({ $ref: `${canonicalSchema.$id}#/$defs/${def}` })
+  )
 }
 
-function levenshtein(a, b) {
+function levenshtein(/** @type {string} */ a, /** @type {string} */ b) {
   const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
   for (let j = 1; j <= b.length; j++) m[0][j] = j
   for (let i = 1; i <= a.length; i++)
     for (let j = 1; j <= b.length; j++)
-      m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+      m[i][j] = Math.min(
+        m[i - 1][j] + 1,
+        m[i][j - 1] + 1,
+        m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      )
   return m[a.length][b.length]
 }
 
-function didYouMean(word, candidates) {
-  let best = null, bestDist = Infinity
+function didYouMean(/** @type {string} */ word, /** @type {string[]} */ candidates) {
+  let best = null,
+    bestDist = Infinity
   for (const c of candidates) {
     const d = levenshtein(word.toLowerCase(), c.toLowerCase())
-    if (d < bestDist) { best = c; bestDist = d }
+    if (d < bestDist) {
+      best = c
+      bestDist = d
+    }
   }
   return bestDist <= Math.max(2, Math.floor(word.length / 3)) ? best : null
 }
 
-const jsonType = (v) =>
+const jsonType = (/** @type {unknown} */ v) =>
   v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v
 
 /**
@@ -70,8 +101,9 @@ const jsonType = (v) =>
  * "missing text", not "must be string"); if no branch matches, emit one
  * summary error from the subschema description.
  */
-function mapAjvErrors(errors, doc) {
+function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
   const oneOfPaths = new Set(errors.filter((e) => e.keyword === 'oneOf').map((e) => e.instancePath))
+  /** @type {MapFinding[]} */
   const findings = []
   const seen = new Set()
 
@@ -79,15 +111,30 @@ function mapAjvErrors(errors, doc) {
     const container = [...oneOfPaths].find((p) => err.instancePath.startsWith(p))
     if (container !== undefined && err.keyword !== 'oneOf') {
       // Branch error inside a oneOf: keep only if its branch type matches the instance.
-      const instance = container.split('/').slice(1).reduce((v, k) => v?.[k === '' ? undefined : k], doc)
-      const branchType = err.parentSchema?.type ?? err.schema?.type
-      if (err.instancePath === container && err.keyword === 'type' && err.params.type !== jsonType(instance)) continue
+      const instance = container
+        .split('/')
+        .slice(1)
+        .reduce(
+          (/** @type {any} */ v, /** @type {string} */ k) =>
+            v?.[/** @type {any} */ (k === '' ? undefined : k)],
+          doc
+        )
+      if (
+        err.instancePath === container &&
+        err.keyword === 'type' &&
+        err.params.type !== jsonType(instance)
+      )
+        continue
     }
 
+    /** @type {MapFinding} */
     let finding
     switch (err.keyword) {
       case 'required':
-        finding = { path: err.instancePath || '(root)', message: `missing required key "${err.params.missingProperty}"` }
+        finding = {
+          path: err.instancePath || '(root)',
+          message: `missing required key "${err.params.missingProperty}"`
+        }
         break
       case 'additionalProperties': {
         const key = err.params.additionalProperty
@@ -96,31 +143,43 @@ function mapAjvErrors(errors, doc) {
           path: err.instancePath || '(root)',
           message: `unknown key "${key}"`,
           suggestion: guess ? `did you mean "${guess}"?` : undefined,
-          unknownKey: true,
+          unknownKey: true
         }
         break
       }
       case 'enum': {
         const allowed = err.params.allowedValues
-        const value = err.instancePath.split('/').slice(1).reduce((v, k) => v?.[k], doc)
+        const value = err.instancePath
+          .split('/')
+          .slice(1)
+          .reduce((/** @type {any} */ v, /** @type {string} */ k) => v?.[k], doc)
         const guess = typeof value === 'string' ? didYouMean(value, allowed) : null
         finding = {
           path: err.instancePath || '(root)',
           message: `"${value}" is not one of: ${allowed.join(', ')}`,
-          suggestion: guess ? `did you mean "${guess}"?` : undefined,
+          suggestion: guess ? `did you mean "${guess}"?` : undefined
         }
         break
       }
       case 'const':
-        finding = { path: err.instancePath || '(root)', message: `must be ${JSON.stringify(err.params.allowedValue)}` }
+        finding = {
+          path: err.instancePath || '(root)',
+          message: `must be ${JSON.stringify(err.params.allowedValue)}`
+        }
         break
       case 'oneOf': {
         const desc = (err.parentSchema?.description ?? '').split('.')[0]
-        finding = { path: err.instancePath || '(root)', message: desc ? `invalid shape — ${desc.toLowerCase()}` : 'invalid shape' }
+        finding = {
+          path: err.instancePath || '(root)',
+          message: desc ? `invalid shape — ${desc.toLowerCase()}` : 'invalid shape'
+        }
         break
       }
       case 'type':
-        finding = { path: err.instancePath || '(root)', message: `must be ${err.params.type.replace(',', ' or ')}` }
+        finding = {
+          path: err.instancePath || '(root)',
+          message: `must be ${err.params.type.replace(',', ' or ')}`
+        }
         break
       case 'minimum':
         finding = { path: err.instancePath || '(root)', message: `must be >= ${err.params.limit}` }
@@ -133,13 +192,20 @@ function mapAjvErrors(errors, doc) {
     }
     finding.keyword = err.keyword
     const key = `${finding.path}|${finding.message}`
-    if (!seen.has(key)) { seen.add(key); findings.push(finding) }
+    if (!seen.has(key)) {
+      seen.add(key)
+      findings.push(finding)
+    }
   }
   // A oneOf summary ("invalid shape") is noise when a precise branch finding
   // already points inside the same instance.
-  return findings.filter((f, _, all) =>
-    f.keyword !== 'oneOf' || !all.some((o) => o !== f && (o.path === f.path || o.path.startsWith(`${f.path}/`)))
-  ).map(({ keyword, ...f }) => f)
+  return findings
+    .filter(
+      (f, _, all) =>
+        f.keyword !== 'oneOf' ||
+        !all.some((o) => o !== f && (o.path === f.path || o.path.startsWith(`${f.path}/`)))
+    )
+    .map(({ keyword, ...f }) => f)
 }
 
 /**
@@ -159,24 +225,45 @@ function mapAjvErrors(errors, doc) {
  *   layout.js). Every real call site (`cvx validate`, the `validate_cv` MCP
  *   tool) always has one available and passes it.
  */
-export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
+export function validateContent(
+  {
+    contentDir,
+    strict = false,
+    fontsDir
+  } = /** @type {import('./types.js').ValidateOptions} */ ({})
+) {
+  /** @type {Finding[]} */
   const errors = []
+  /** @type {Finding[]} */
   const warnings = []
+  /** @type {string[]} */
   const checked = []
   const measure = fontsDir && existsSync(fontsDir) ? createMeasurer(fontsDir) : undefined
-  const add = (severity, file, code, f) =>
-    (severity === 'error' ? errors : warnings).push({ file, code, path: f.path ?? '(root)', message: f.message, ...(f.suggestion ? { suggestion: f.suggestion } : {}) })
+  const add = (
+    /** @type {'error'|'warning'} */ severity,
+    /** @type {string} */ file,
+    /** @type {string} */ code,
+    /** @type {RawFinding} */ f
+  ) =>
+    (severity === 'error' ? errors : warnings).push({
+      file,
+      code,
+      path: f.path ?? '(root)',
+      message: f.message,
+      ...(f.suggestion ? { suggestion: f.suggestion } : {})
+    })
 
   if (!existsSync(contentDir)) {
     add('error', '', 'missing-content-dir', {
       message: 'content directory not found',
-      suggestion: 'run "cvx init" to scaffold one',
+      suggestion: 'run "cvx init" to scaffold one'
     })
     return { ok: false, errors, warnings, checked }
   }
 
   getValidator('personal') // force schema load
   const knownDefs = Object.keys(canonicalSchema.$defs)
+  /** @type {Record<string, unknown>} */
   const docs = {}
   const files = readdirSync(contentDir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'))
 
@@ -186,17 +273,19 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
     if (file.endsWith('.yml')) {
       add('warning', file, 'wrong-extension', {
         message: 'file uses .yml — cvx only reads .yaml files, this file is ignored',
-        suggestion: `rename to ${def}.yaml`,
+        suggestion: `rename to ${def}.yaml`
       })
       continue
     }
     let doc
     try {
-      doc = yaml.load(readFileSync(join(contentDir, file), 'utf8'))
+      doc = loadYaml(readFileSync(join(contentDir, file), 'utf8'))
     } catch (e) {
       add('error', file, 'yaml-parse', {
-        path: e.mark ? `line ${e.mark.line + 1}` : '(root)',
-        message: `YAML parse error: ${e.reason ?? e.message}`,
+        path: /** @type {YamlErr} */ (e).mark
+          ? `line ${/** @type {YamlErr} */ (e).mark.line + 1}`
+          : '(root)',
+        message: `YAML parse error: ${/** @type {YamlErr} */ (e).reason ?? /** @type {YamlErr} */ (e).message}`
       })
       continue
     }
@@ -205,10 +294,25 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
 
     const validate = getValidator(def)
     if (!validate) {
-      const guess = didYouMean(def, knownDefs.filter((d) => !d.endsWith('Entry') && !['bulletItem', 'progressionStep', 'keywordGroup', 'layoutSlot', 'layoutPage', 'layout', 'nonEmptyString'].includes(d)))
+      const guess = didYouMean(
+        def,
+        knownDefs.filter(
+          (d) =>
+            !d.endsWith('Entry') &&
+            ![
+              'bulletItem',
+              'progressionStep',
+              'keywordGroup',
+              'layoutSlot',
+              'layoutPage',
+              'layout',
+              'nonEmptyString'
+            ].includes(d)
+        )
+      )
       add('warning', file, 'unknown-file', {
         message: 'not a file cvx reads — it will be ignored',
-        suggestion: guess ? `did you mean "${guess}.yaml"?` : undefined,
+        suggestion: guess ? `did you mean "${guess}.yaml"?` : undefined
       })
       continue
     }
@@ -225,7 +329,10 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
     if (docs[req] == null) {
       add('error', `${req}.yaml`, 'missing-file', {
         message: docs[req] === null ? 'file is empty but required' : 'file is missing but required',
-        suggestion: req === 'personal' ? 'at minimum provide "name"' : 'the default layouts cannot render without it',
+        suggestion:
+          req === 'personal'
+            ? 'at minimum provide "name"'
+            : 'the default layouts cannot render without it'
       })
     }
   }
@@ -235,15 +342,22 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
   // `fontsDir` was given (see this function's docblock) — the same
   // measurement `cvx build` packs against, so this warning and the actual
   // render agree.
-  const config = docs.config ?? {}
+  const config = /** @type {import('./types.js').CVConfig} */ (docs.config ?? {})
   if (config.page1ExperienceCount != null && Array.isArray(docs.experience)) {
-    const theme = THEMES[config.theme] ?? THEMES.teal
-    const overflow = estimatePage1Overflow(docs.experience, Array.isArray(docs.summary) ? docs.summary : [], config, theme, measure)
+    const theme = THEMES[/** @type {string} */ (config.theme)] ?? THEMES.teal
+    const overflow = estimatePage1Overflow(
+      docs.experience,
+      Array.isArray(docs.summary) ? docs.summary : [],
+      config,
+      theme,
+      measure
+    )
     if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
       add('warning', 'config.yaml', 'page1-overflow', {
         path: '/page1ExperienceCount',
         message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — overflow is clipped at the page edge in the designed layout`,
-        suggestion: 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination',
+        suggestion:
+          'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
       })
     }
   }
@@ -261,7 +375,8 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
       add('warning', finding.file, 'unsupported-glyphs', {
         path: finding.path,
         message: describeUnsupportedGlyphFinding(finding),
-        suggestion: 'CVX bundles Lato only and registers no fallback font — provide/replace with a font that covers this script if this text must be visible',
+        suggestion:
+          'CVX bundles Lato only and registers no fallback font — provide/replace with a font that covers this script if this text must be visible'
       })
     }
   }
@@ -269,13 +384,20 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
   // Layout inventory: unknown layout warns (renderer falls back to built-in).
   const layoutsDir = join(contentDir, 'layouts')
   const userLayouts = existsSync(layoutsDir)
-    ? readdirSync(layoutsDir).filter((f) => f.endsWith('.yaml')).map((f) => basename(f, '.yaml'))
+    ? readdirSync(layoutsDir)
+        .filter((f) => f.endsWith('.yaml'))
+        .map((f) => basename(f, '.yaml'))
     : []
-  if (typeof config.layout === 'string' && ![...BUILT_IN_LAYOUTS, ...userLayouts].includes(config.layout)) {
+  if (
+    typeof config.layout === 'string' &&
+    ![...BUILT_IN_LAYOUTS, ...userLayouts].includes(config.layout)
+  ) {
     add('warning', 'config.yaml', 'unknown-layout', {
       path: '/layout',
       message: `layout "${config.layout}" not found — the build will fall back to the built-in default`,
-      suggestion: didYouMean(config.layout, [...BUILT_IN_LAYOUTS, ...userLayouts]) ? `did you mean "${didYouMean(config.layout, [...BUILT_IN_LAYOUTS, ...userLayouts])}"?` : `available: ${[...BUILT_IN_LAYOUTS, ...userLayouts].join(', ')}`,
+      suggestion: didYouMean(config.layout, [...BUILT_IN_LAYOUTS, ...userLayouts])
+        ? `did you mean "${didYouMean(config.layout, [...BUILT_IN_LAYOUTS, ...userLayouts])}"?`
+        : `available: ${[...BUILT_IN_LAYOUTS, ...userLayouts].join(', ')}`
     })
   }
 
@@ -285,11 +407,13 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
     checked.push(file)
     let doc
     try {
-      doc = yaml.load(readFileSync(join(layoutsDir, `${name}.yaml`), 'utf8'))
+      doc = loadYaml(readFileSync(join(layoutsDir, `${name}.yaml`), 'utf8'))
     } catch (e) {
       add('error', file, 'yaml-parse', {
-        path: e.mark ? `line ${e.mark.line + 1}` : '(root)',
-        message: `YAML parse error: ${e.reason ?? e.message}`,
+        path: /** @type {YamlErr} */ (e).mark
+          ? `line ${/** @type {YamlErr} */ (e).mark.line + 1}`
+          : '(root)',
+        message: `YAML parse error: ${/** @type {YamlErr} */ (e).reason ?? /** @type {YamlErr} */ (e).message}`
       })
       continue
     }
@@ -317,7 +441,7 @@ export function validateContent({ contentDir, strict = false, fontsDir } = {}) {
         message: `no usable profile photo found (need profile.<${PHOTO_EXTENSIONS.join('|')}>)`,
         suggestion: near
           ? `"${near}" has an unsupported extension — convert it to one of: ${PHOTO_EXTENSIONS.join(', ')}`
-          : `rename your photo to profile.jpg (found: ${images.slice(0, 3).join(', ')}${images.length > 3 ? ', …' : ''})`,
+          : `rename your photo to profile.jpg (found: ${images.slice(0, 3).join(', ')}${images.length > 3 ? ', …' : ''})`
       })
     }
   }

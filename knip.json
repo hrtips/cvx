@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["scripts/*.js", "test/**/*.{test.js,js}"],
+  "project": ["src/**/*.{js,jsx}", "bin/**/*.js", "scripts/**/*.js"],
+  "ignoreBinaries": ["pdftoppm", "pdftotext"]
+}

@@ -5,6 +5,12 @@
     "moduleResolution": "bundler",
     "target": "ES2022",
     "allowJs": true,
-    "strict": false
-  }
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src", "bin", "cv-content/index.js"],
+  "exclude": ["node_modules", "lib"]
 }

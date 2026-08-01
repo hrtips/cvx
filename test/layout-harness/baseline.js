@@ -23,14 +23,17 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const BASELINE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'baseline.json')
+export const BASELINE_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  'baseline.json'
+)
 
 export function loadBaseline() {
   return JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
 }
 
 export function writeBaseline(data) {
-  writeFileSync(BASELINE_PATH, JSON.stringify(data, null, 2) + '\n')
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(data, null, 2)}\n`)
 }
 
 /** The regression-relevant subset of one variant's oracle facts (drops raw byte sizes / ink ratios — see module docblock). */
@@ -39,23 +42,34 @@ export function normalizeVariantFacts(v) {
   return {
     pageCount: v.pageCount,
     blankPages: v.blankPages,
-    emptyColumns: v.emptyColumns === null ? null : v.emptyColumns.map(({ page, side }) => ({ page, side })),
+    emptyColumns:
+      v.emptyColumns === null ? null : v.emptyColumns.map(({ page, side }) => ({ page, side }))
   }
 }
 
 export function normalizeOracleFacts(facts) {
   if (!facts.ok) return { ok: false, code: facts.code }
-  return { ok: true, designed: normalizeVariantFacts(facts.designed), ats: normalizeVariantFacts(facts.ats) }
+  return {
+    ok: true,
+    designed: normalizeVariantFacts(facts.designed),
+    ats: normalizeVariantFacts(facts.ats)
+  }
 }
 
 /** Recursive structural diff, for a readable regression failure message. */
 export function diff(actual, expected, pathPrefix = '') {
   const same = JSON.stringify(actual) === JSON.stringify(expected)
   if (same) return []
-  const bothPlainObjects = actual && expected && typeof actual === 'object' && typeof expected === 'object'
-    && Array.isArray(actual) === Array.isArray(expected)
+  const bothPlainObjects =
+    actual &&
+    expected &&
+    typeof actual === 'object' &&
+    typeof expected === 'object' &&
+    Array.isArray(actual) === Array.isArray(expected)
   if (!bothPlainObjects) {
-    return [`${pathPrefix || '(root)'}: baseline had ${JSON.stringify(expected)}, now ${JSON.stringify(actual)}`]
+    return [
+      `${pathPrefix || '(root)'}: baseline had ${JSON.stringify(expected)}, now ${JSON.stringify(actual)}`
+    ]
   }
   const keys = new Set([...Object.keys(actual), ...Object.keys(expected)])
   const diffs = []
@@ -68,14 +82,16 @@ export function diff(actual, expected, pathPrefix = '') {
 /** Throws with a readable message listing every mismatched path if `actual` deep-diffs from `baseline[key]`. */
 export function assertMatchesBaseline(baseline, key, actual) {
   if (!(key in baseline)) {
-    throw new Error(`No baseline entry for "${key}" — run: node test/layout-harness/generateBaseline.js`)
+    throw new Error(
+      `No baseline entry for "${key}" — run: node test/layout-harness/generateBaseline.js`
+    )
   }
   const d = diff(actual, baseline[key])
   if (d.length > 0) {
     throw new Error(
       `REGRESSION vs baseline.json["${key}"] (this means the engine's behaviour changed — ` +
-      `if this is an intentional fix, regenerate with: node test/layout-harness/generateBaseline.js):\n  ` +
-      d.join('\n  ')
+        `if this is an intentional fix, regenerate with: node test/layout-harness/generateBaseline.js):\n  ` +
+        d.join('\n  ')
     )
   }
 }

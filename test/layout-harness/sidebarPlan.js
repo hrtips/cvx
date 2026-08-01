@@ -22,8 +22,8 @@
 // vacuous version of this section-presence idea.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { resolveFirstSidebar } from '../../src/pdf/layout.js'
 import { TWO_COLUMN_LAYOUT } from '../../src/pdf/CVDocument.jsx'
+import { resolveFirstSidebar } from '../../src/pdf/layout.js'
 
 /** Mirrors CVDocument.jsx's local `contLayout()` sidebar selection. */
 function continuationSidebarKeys(contPageIndex, contCount) {
@@ -45,10 +45,13 @@ function continuationSidebarKeys(contPageIndex, contCount) {
  */
 export function sidebarStructuralPlan(totalPages) {
   const isSinglePage = totalPages <= 1
-  const pages = [{
-    index: 0, main: [],
-    sidebar: resolveFirstSidebar(TWO_COLUMN_LAYOUT, isSinglePage),
-  }]
+  const pages = [
+    {
+      index: 0,
+      main: [],
+      sidebar: resolveFirstSidebar(TWO_COLUMN_LAYOUT, isSinglePage)
+    }
+  ]
   const contCount = totalPages - 1
   for (let i = 1; i < totalPages; i++) {
     pages.push({ index: i, main: [], sidebar: continuationSidebarKeys(i - 1, contCount) })

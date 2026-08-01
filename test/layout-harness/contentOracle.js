@@ -81,7 +81,10 @@ const TAIL_WORDS = 6
  * input yields `''` (callers skip pushing a sentinel for that).
  */
 export function tailSentinel(text) {
-  const words = String(text ?? '').trim().split(/\s+/).filter(Boolean)
+  const words = String(text ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
   return words.slice(-TAIL_WORDS).join(' ')
 }
 
