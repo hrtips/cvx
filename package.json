@@ -33,6 +33,7 @@
     "pdf:ats": "npx tsx scripts/export-pdf-ats.js",
     "pretest": "npm run build:lib",
     "test": "vitest run",
+    "pretest:cov": "npm run build:lib",
     "test:cov": "vitest run --coverage",
     "lint": "oxlint -c .oxlintrc.json src bin test scripts && biome ci --error-on-warnings src bin test scripts *.js",
     "lint:fix": "biome check --write src bin test scripts *.js",

@@ -103,6 +103,72 @@ export function frontLoadHolds(fills, tolerance = 0.05) {
 }
 
 /**
+ * Front-load property, in the form a WHOLE-BLOCK packer can actually satisfy:
+ * every page is *maximal* — the first block of page i+1 genuinely could not
+ * have been added to page i.
+ *
+ * Why not `frontLoadHolds(fills)` (page i fill >= page i+1 fill)? Because with
+ * atomic blocks that is not achievable and its failure would not mean the
+ * packer misbehaved. Counter-example from the real fixture set (pw-12): the
+ * sidebar's `referees` section measures 580pt against a 690pt page, so after
+ * a 241pt page it cannot join — page 2 lands at 35% fill and page 3 at 84%,
+ * violating fill-monotonicity while being the only front-loaded packing that
+ * exists. Fill-monotonicity becomes meaningful (and should be turned on here)
+ * once sections split at item boundaries, since then the tail of a section can
+ * always be poured into the earlier page's remaining slack.
+ *
+ * `pages` is `[{ used, budget, firstBlockHeight, gapBefore }]`.
+ *
+ * **`budget` MUST come from somewhere other than the packer.** Review found
+ * the first cut of this check toothless precisely because caller and packer
+ * shared one budget source: restating the packer's own break condition against
+ * its own numbers can only fail if the packer contradicts itself, never if the
+ * budget is wrong (a 2x budget error left it green). Callers pass
+ * sidebarBudget.js's independently-derived `expectedSidebarBudget()`.
+ *
+ * Two failure directions, both reported:
+ *   - `lazy`     — the next block would have fit; the page was not filled.
+ *   - `overfull` — this page exceeded the independent budget while holding more
+ *                  than one block, i.e. it was not the forced single-block case
+ *                  Invariant 0 allows.
+ */
+export function frontLoadMaximal(pages, tolerance = 0.01) {
+  const violations = []
+  for (let i = 0; i < pages.length; i++) {
+    const cur = pages[i]
+    if (cur.blockCount > 1 && cur.used > cur.budget + tolerance) {
+      violations.push({ page: i, kind: 'overfull', used: cur.used, budget: cur.budget })
+    }
+    const next = pages[i + 1]
+    if (!next || next.firstBlockHeight == null) continue
+    const wouldUse = cur.used + (next.gapBefore ?? 0) + next.firstBlockHeight
+    if (wouldUse <= cur.budget + tolerance) {
+      violations.push({ page: i, kind: 'lazy', used: cur.used, budget: cur.budget, wouldUse })
+    }
+  }
+  return { ok: violations.length === 0, violations }
+}
+
+/**
+ * Each flow's non-empty pages must form a PREFIX of the document: content runs
+ * out at the tail, never in the middle. `packBlocks` cannot produce a hole on
+ * its own, but the two-flow coordinator zips two independently-packed flows into
+ * P pages and an off-by-one there would leave an interior page blank — which is
+ * exactly the class of bug G1 exists to forbid, and the part of it that IS
+ * falsifiable while sections stay atomic.
+ */
+export function contentFormsPrefix(plan, flow) {
+  const nonEmpty = plan.pages.map((p) => (p[flow] ?? []).length > 0)
+  const lastWithContent = nonEmpty.lastIndexOf(true)
+  const holes = nonEmpty
+    .slice(0, lastWithContent + 1)
+    .map((has, i) => ({ page: i, has }))
+    .filter((p) => !p.has)
+    .map((p) => p.page)
+  return { ok: holes.length === 0, holes, lastWithContent }
+}
+
+/**
  * No page over budget: every fill ratio must be <= 1 + tolerance. Kept
  * separate from frontLoadHolds so a "page 3 overflowed" failure reads
  * distinctly from a "page order isn't front-loaded" one.

@@ -164,3 +164,45 @@ describe('assistant entry path stays intact', () => {
     }
   })
 })
+
+// ── Layout page-kind semantics (added C3a) ──────────────────────────────────
+// docsSync is otherwise a key-presence tripwire over the CONTENT $defs, which
+// makes it structurally blind to a *semantic* change in prose — and C3a made
+// exactly one: the sidebar's three page-kind buckets are now concatenated into
+// a single measured flow, so `pages.last.sidebar` sets ORDER, not the page a
+// section renders on. Four docs restate that contract, and a stale copy of it
+// is actively misleading (a user would expect referees on the last page and get
+// it on page 2). These assertions are the narrowest thing that can catch that:
+// any doc that shows the `pages:` bucket structure must also carry the
+// clarification, and the schema description must too.
+describe('layout page-kind buckets: the sidebar-is-one-flow contract is stated wherever the buckets are', () => {
+  const layoutPage = schema.$defs.layoutPage
+  const DOCS_SHOWING_BUCKETS = [
+    ['docs/cv-schema.md', cvSchemaDoc],
+    ['README.md', readme],
+    ['template/cv-content/README.md', scaffoldReadme]
+  ]
+
+  it('the schema itself says the sidebar lists are one ordered flow, and that main lists are per-page-kind', () => {
+    expect(layoutPage.description).toMatch(/one ordered flow/i)
+    expect(layoutPage.description).toMatch(/per-page-kind/i)
+    expect(layoutPage.properties.sidebar.description).toMatch(/flow/i)
+  })
+
+  it('every doc that shows the pages: {first, continuation, last} structure also states it', () => {
+    const stale = DOCS_SHOWING_BUCKETS.filter(
+      ([, text]) =>
+        /continuation/.test(text) && !/one ordered flow|single ordered (sidebar )?flow/i.test(text)
+    ).map(([name]) => name)
+    expect(stale, `documents the page-kind buckets without the flow semantics: ${stale}`).toEqual(
+      []
+    )
+  })
+
+  it('...and none of them still claims a sidebar bucket picks the page a section renders on', () => {
+    const wrong = DOCS_SHOWING_BUCKETS.filter(([, text]) =>
+      /`?last`?:?\s*#?\s*(the )?final page\b/i.test(text)
+    ).map(([name]) => name)
+    expect(wrong, `still describes last.sidebar as a page assignment: ${wrong}`).toEqual([])
+  })
+})

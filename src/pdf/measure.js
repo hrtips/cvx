@@ -64,11 +64,7 @@ function isSkippableCodePoint(/** @type {number} */ cp) {
  *
  * @param {string} fontsDir  absolute path to the directory containing the
  *   Lato-*.ttf files (render.js resolves this; e.g. lib/fonts or src/fonts)
- * @returns {{
- *   lineCount: (text: string, size: number, maxWidth: number, opts?: {weight?: number, italic?: boolean}) => number,
- *   widthOf: (text: string, size: number, opts?: {weight?: number, italic?: boolean}) => number,
- *   unsupportedChars: (text: string) => string[],
- * }}
+ * @returns {import('./types.js').Measurer}
  */
 export function createMeasurer(fontsDir) {
   const fontCache = new Map()
@@ -80,19 +76,42 @@ export function createMeasurer(fontsDir) {
     return fontCache.get(file)
   }
 
-  /** Advance width, in pt, of `text` set at `size`pt in the given weight/style. Empty string -> 0. */
+  /**
+   * Advance width, in pt, of `text` set at `size`pt in the given
+   * weight/style. Empty string -> 0.
+   *
+   * `letterSpacing` mirrors the CSS/react-pdf `letterSpacing` style property
+   * (textkit's `characterSpacing`), which several sidebar styles set — the
+   * identity name (0.3) and every sidebar section title (1.2) — and which
+   * measurably changes where a line breaks: "CORE COMPETENCIES" at 7pt is
+   * 73.54pt of pure glyph advance but 93.94pt with the theme's 1.2 spacing.
+   * textkit adds the spacing to EVERY glyph's advance (its `isLast` guard,
+   * `i === positions.length`, can never be true — the last index is
+   * `length - 1`), so the run width it breaks against is
+   * `advance + glyphCount * letterSpacing`; that is what this reproduces.
+   * Verified against `pdftotext -bbox` on a real render: the *visual* extent
+   * comes out one `letterSpacing` short of this (the final glyph's trailing
+   * spacing is empty), e.g. 92.7pt observed vs 93.94pt here — the extra
+   * trailing unit is genuinely part of the advance the line breaker uses.
+   */
   function widthOf(
     /** @type {string} */ text,
     /** @type {number} */ size,
-    /** @type {{weight?: number, italic?: boolean}} */ { weight = 400, italic = false } = {}
+    /** @type {{weight?: number, italic?: boolean, letterSpacing?: number}} */ {
+      weight = 400,
+      italic = false,
+      letterSpacing = 0
+    } = {}
   ) {
     if (!text) return 0
-    const key = `${weight}|${italic}|${size}|${text}`
+    const key = `${weight}|${italic}|${size}|${letterSpacing}|${text}`
     const cached = widthCache.get(key)
     if (cached !== undefined) return cached
     const font = fontFor(weight, italic)
     const run = font.layout(text)
-    const w = (run.advanceWidth / font.unitsPerEm) * size
+    const w =
+      (run.advanceWidth / font.unitsPerEm) * size +
+      (letterSpacing ? run.glyphs.length * letterSpacing : 0)
     widthCache.set(key, w)
     return w
   }
@@ -110,7 +129,7 @@ export function createMeasurer(fontsDir) {
     /** @type {string} */ text,
     /** @type {number} */ size,
     /** @type {number} */ maxWidth,
-    /** @type {{weight?: number, italic?: boolean}} */ opts = {}
+    /** @type {{weight?: number, italic?: boolean, letterSpacing?: number}} */ opts = {}
   ) {
     if (!text) return 1
     const words = text.split(/\s+/).filter(Boolean)
@@ -137,6 +156,28 @@ export function createMeasurer(fontsDir) {
   }
 
   /**
+   * The line height react-pdf/textkit uses for a `<Text>` with NO explicit
+   * `lineHeight` style, as a multiple of font size:
+   * `(lineGap + ascent - descent) / unitsPerEm` — textkit's
+   * `height(run) = run.attributes.lineHeight || lineGap + ascent - descent`,
+   * all three scaled by `size / unitsPerEm`.
+   *
+   * Plenty of the sidebar's styles omit `lineHeight` (the education
+   * institution/period rows, the competency tags, the referee name, ...), so
+   * layout.js's sidebar measurement needs this number. Reading it from the
+   * font — rather than hard-coding Lato's 1.2 — means a font swap changes the
+   * measurement instead of silently invalidating it. (layout.js still carries
+   * `NATURAL_LINE_HEIGHT` as the isomorphic fallback for the browser preview,
+   * where no measurer exists, and measure.test.js pins the two together.)
+   */
+  function naturalLineHeight(
+    /** @type {{weight?: number, italic?: boolean}} */ { weight = 400, italic = false } = {}
+  ) {
+    const font = fontFor(weight, italic)
+    return (font.lineGap + font.ascent - font.descent) / font.unitsPerEm
+  }
+
+  /**
    * Which characters in `text` does the bundled font have no glyph for?
    * Returns the distinct offending characters, in first-occurrence order.
    * Glyph coverage is the same across Lato's weights/styles for our
@@ -156,7 +197,7 @@ export function createMeasurer(fontsDir) {
     return [...seen]
   }
 
-  return { lineCount, widthOf, unsupportedChars }
+  return { lineCount, widthOf, naturalLineHeight, unsupportedChars }
 }
 
 /**

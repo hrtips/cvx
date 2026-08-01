@@ -61,7 +61,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 2
+      "logicalTotalPages": 3
     },
     "pw-03": {
       "description": "pairwise: certifications=one,publications=absent,languages=one,referees=many,achievements=absent, textLength=overflowing, volume=multi-page",
@@ -109,10 +109,8 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 3,
-          "blankPages": [
-            2
-          ],
+          "pageCount": 2,
+          "blankPages": [],
           "emptyColumns": []
         },
         "ats": {
@@ -128,7 +126,7 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 3,
+          "pageCount": 2,
           "blankPages": [],
           "emptyColumns": []
         },
@@ -145,21 +143,9 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 6,
-          "blankPages": [
-            2,
-            4
-          ],
-          "emptyColumns": [
-            {
-              "page": 2,
-              "side": "sidebar"
-            },
-            {
-              "page": 4,
-              "side": "sidebar"
-            }
-          ]
+          "pageCount": 5,
+          "blankPages": [],
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 4,
@@ -191,35 +177,19 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 2
+      "logicalTotalPages": 3
     },
     "pw-09": {
       "description": "pairwise: certifications=one,languages=many,publications=one,referees=absent,achievements=one, textLength=overflowing, volume=multi-page",
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 9,
-          "blankPages": [
-            3,
-            5,
-            7
-          ],
+          "pageCount": 6,
+          "blankPages": [],
           "emptyColumns": [
             {
               "page": 1,
               "side": "sidebar"
-            },
-            {
-              "page": 3,
-              "side": "both"
-            },
-            {
-              "page": 5,
-              "side": "both"
-            },
-            {
-              "page": 7,
-              "side": "both"
             }
           ]
         },
@@ -275,7 +245,7 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 2,
+          "pageCount": 3,
           "blankPages": [],
           "emptyColumns": []
         },
@@ -285,7 +255,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 1
+      "logicalTotalPages": 3
     },
     "pw-13": {
       "description": "pairwise: achievements=one,publications=absent,certifications=absent,languages=absent,referees=absent, textLength=short, volume=fits-1-page",
@@ -336,7 +306,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 1
+      "logicalTotalPages": 2
     },
     "pw-16": {
       "description": "pairwise: referees=one,certifications=absent,publications=absent,languages=absent,achievements=absent, textLength=long, volume=fits-1-page",
@@ -360,7 +330,7 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 3,
+          "pageCount": 2,
           "blankPages": [],
           "emptyColumns": []
         },
@@ -377,7 +347,7 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 3,
+          "pageCount": 4,
           "blankPages": [],
           "emptyColumns": []
         },
@@ -389,14 +359,14 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 1
+      "logicalTotalPages": 4
     },
     "risk-maxed-out": {
       "description": "maxed out: every optional section \"many\", overflowing text, multi-page volume — worst-case content load (akin to the Batman demo).",
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 9,
+          "pageCount": 6,
           "blankPages": [],
           "emptyColumns": [
             {
@@ -437,14 +407,9 @@
         "designed": {
           "pageCount": 6,
           "blankPages": [
-            5
+            4
           ],
-          "emptyColumns": [
-            {
-              "page": 5,
-              "side": "both"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 4,
@@ -452,7 +417,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 2
+      "logicalTotalPages": 3
     },
     "edge-minimal": {
       "description": "all-optional-absent minimal CV: only personal + summary + experience (no education, competencies, or any of the five optional sections).",

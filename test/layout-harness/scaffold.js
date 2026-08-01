@@ -5,11 +5,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dump } from 'js-yaml'
+import { pickProfilePhoto } from '../../src/pdf/profilePhoto.js'
 
 export const ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))))
 export const CLI = path.join(ROOT, 'bin', 'cvx.js')
@@ -60,6 +61,20 @@ export function cleanupFixtureDirs() {
       /* best-effort — never fail a test run on cleanup */
     }
   }
+}
+
+/**
+ * Does `contentDir` carry a profile photo (cv-content/images/profile.<ext>)?
+ * Returns a truthy sentinel rather than the image itself: the only thing the
+ * packer needs to know is whether `identity-photo` reserves `chrome.photoHeight`
+ * on page 1 (see layout.js's identityH), and loading/base64-ing the real file
+ * would be pure overhead for a boolean. Mirrors loadContent.js's discovery via
+ * the shared PHOTO_EXTENSIONS list, so a new supported extension can't drift.
+ */
+export function detectProfilePhoto(contentDir) {
+  const imagesDir = path.join(contentDir, 'images')
+  if (!existsSync(imagesDir)) return null
+  return pickProfilePhoto(readdirSync(imagesDir)) ? '(profile-photo-present)' : null
 }
 
 /** Dump a { filename -> content } bag (contentSpecs.js's buildContent() output) to <dir>/cv-content/*.yaml. */

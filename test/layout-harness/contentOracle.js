@@ -168,8 +168,43 @@ export function checkCompleteness(text, sentinels) {
   // that without weakening the check against genuine content loss: a truly
   // dropped sentinel is still entirely absent either way.
   const normalized = text.replace(/\s+/g, ' ')
-  const missing = sentinels.filter((s) => !normalized.includes(s.text))
+  const missing = sentinels.filter((s) => !containsAsWhole(normalized, s.text))
   return { ok: missing.length === 0, missing }
+}
+
+/**
+ * Substring match with word boundaries at BOTH ends, so a sentinel cannot be
+ * satisfied by a longer sibling.
+ *
+ * Review found the plain `includes()` this replaces masked exactly the drop it
+ * exists to catch: the fixtures generate "Certification 1" ... "Certification
+ * 19", so a dropped "Certification 1" was reported present because
+ * "Certification 19" rendered. Any generated corpus with index-suffixed labels
+ * has this shape, which is most of the sidebar sentinels.
+ *
+ * Boundaries are checked by hand rather than with `\b`: sentinel text is
+ * arbitrary content (it can start or end with punctuation, e.g. the achievement
+ * bodies' leading em dash, or a bullet tail ending in "."), for which `\b`
+ * asserts the opposite of what is wanted. "Adjacent character is not a word
+ * character" is the property that actually matters.
+ */
+function containsAsWhole(/** @type {string} */ haystack, /** @type {string} */ needle) {
+  if (!needle) return true
+  const isWordChar = (/** @type {string | undefined} */ c) => c !== undefined && /[\w]/.test(c)
+  let from = 0
+  for (;;) {
+    const at = haystack.indexOf(needle, from)
+    if (at === -1) return false
+    const before = haystack[at - 1]
+    const after = haystack[at + needle.length]
+    // Only enforce a boundary on an end that is itself a word character —
+    // "— Example Body 0" must still match when preceded by a space, and a
+    // sentinel ending in "." needs no boundary after it.
+    const startOk = !isWordChar(needle[0]) || !isWordChar(before)
+    const endOk = !isWordChar(needle[needle.length - 1]) || !isWordChar(after)
+    if (startOk && endOk) return true
+    from = at + 1
+  }
 }
 
 /**

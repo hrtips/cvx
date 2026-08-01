@@ -1,62 +1,76 @@
-// ── Sidebar structural plan — vitest-only (imports a .jsx file) ───────────
+// ── The REAL sidebar plan (C3) ─────────────────────────────────────────────
 //
-// Imports the REAL `TWO_COLUMN_LAYOUT` from src/pdf/CVDocument.jsx (now
-// exported there — the only sanctioned src/ change in this pass; see that
-// file's docblock) instead of a hand-copied duplicate, per review's
-// mirror-drift finding. This file is split out from blocks.js specifically
-// because it needs a .jsx import: that only resolves under a bundler/Vite
-// transform (which vitest provides), never under plain `node` — and
-// generateBaseline.js runs under plain `node`. blocks.js (the main-column
-// plan, loaded by BOTH vitest and generateBaseline.js) stays free of this
-// dependency; only layoutHarnessInvariants.test.js (vitest-only) imports
-// this module.
+// Pre-C3 this file built a *structural approximation* of the sidebar: the
+// engine did not measure or pack sidebar content at all, it assigned a fixed
+// section list per page KIND and repeated that list verbatim onto every
+// physical page the column overflowed onto, so all this harness could check
+// was "is each present section's key reachable somewhere". Four sidebar
+// assertions were `it.todo` for exactly that reason.
 //
-// This is a *structural* (whole-section, unpacked) approximation of the
-// sidebar: the current engine does not measure or split sidebar content at
-// all, it just assigns fixed section keys per page-kind and repeats that
-// whole list verbatim on every physical page the sidebar's real content
-// overflows onto. See layoutHarnessInvariants.test.js for exactly which
-// sidebar assertions that limitation forces us to skip (marked `.todo`,
-// with a reason, pending C3), and test/layout-harness/contentOracle.js for
-// the *real*, non-structural content-completeness check that replaces the
-// vacuous version of this section-presence idea.
+// layout.js now packs the sidebar for real (`packSidebar`) and coordinates it
+// with the main column (`planTwoColumn`, P = max), so this module no longer
+// mirrors anything: it calls the engine and reshapes its output into the
+// LayoutPlan shape invariants.js consumes, plus the per-page fill numbers the
+// front-load and over-budget checks need.
+//
+// Note the whole-section granularity of this slice: a section is atomic, so the
+// front-load check here is `frontLoadMaximal` (no page could have taken the
+// next page's first section), not fill-monotonicity — see that function's
+// docblock for why the latter is unachievable until sections split at item
+// boundaries.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { TWO_COLUMN_LAYOUT } from '../../src/pdf/CVDocument.jsx'
-import { resolveFirstSidebar } from '../../src/pdf/layout.js'
-
-/** Mirrors CVDocument.jsx's local `contLayout()` sidebar selection. */
-function continuationSidebarKeys(contPageIndex, contCount) {
-  const isFirst = contPageIndex === 0
-  const isLast = contPageIndex === contCount - 1
-  const cont = TWO_COLUMN_LAYOUT.continuation
-  const last = TWO_COLUMN_LAYOUT.last
-  if (isFirst && isLast) return [...new Set([...(cont.sidebar ?? []), ...(last.sidebar ?? [])])]
-  if (isLast) return last.sidebar
-  return cont.sidebar
-}
+import { TWO_COLUMN_LAYOUT } from '../../src/pdf/defaultLayouts.js'
+import {
+  deriveSidebarMetrics,
+  planTwoColumn,
+  sidebarFlowKeys,
+  sidebarSectionH
+} from '../../src/pdf/layout.js'
+import { tealTheme } from '../../src/pdf/themes/teal.js'
+import { expectedSidebarBudget } from './sidebarBudget.js'
+import { sidebarLayoutPlan } from './sidebarItems.js'
+import { harnessMeasurer } from './structuralFacts.js'
 
 /**
- * The sidebar's *structural* (whole-section, unpacked) plan: which section
- * keys the static layout assigns to each logical page today, given the
- * logical page count (packExperiences().totalPages). This is NOT a real
- * pack (see module docblock) — it only supports section-presence-level
- * checks, never item-level ones.
+ * Run the real engine over a content bag and return everything the invariants
+ * need: the LayoutPlan (item-level ids per page, both flows) and the per-page
+ * sidebar fill/budget rows.
  */
-export function sidebarStructuralPlan(totalPages) {
-  const isSinglePage = totalPages <= 1
-  const pages = [
-    {
-      index: 0,
-      main: [],
-      sidebar: resolveFirstSidebar(TWO_COLUMN_LAYOUT, isSinglePage)
+export function realSidebarPlan(content, layout = TWO_COLUMN_LAYOUT) {
+  const measure = harnessMeasurer()
+  const plan = planTwoColumn({
+    content,
+    layout,
+    config: content.config,
+    theme: tealTheme,
+    measure
+  })
+  const sm = deriveSidebarMetrics(tealTheme)
+
+  // `budget` is the INDEPENDENTLY derived one (sidebarBudget.js: arithmetic over
+  // the theme's raw tokens, no call into layout.js), never `page.sidebarFill
+  // .budget`. That substitution is what gives the front-load / over-budget
+  // checks any power: with the packer's own budget they could only detect the
+  // packer contradicting itself. `packerBudget` is carried alongside so a test
+  // can assert the two agree — which is the check that actually catches a wrong
+  // budget formula.
+  const photo = Boolean(content.profilePhoto)
+  const pageFills = plan.pages.map((page) => {
+    const firstKey = page.sidebarKeys[0]
+    return {
+      used: page.sidebarFill?.used ?? 0,
+      budget: expectedSidebarBudget(page.index, { photo }),
+      packerBudget: page.sidebarFill?.budget ?? null,
+      blockCount: page.sidebarKeys.length,
+      // The height the NEXT page's first section would add to this one — what
+      // frontLoadMaximal needs to prove the section genuinely did not fit.
+      firstBlockHeight: firstKey == null ? null : sidebarSectionH(firstKey, content, sm, measure),
+      gapBefore: sm.sectionDividerH
     }
-  ]
-  const contCount = totalPages - 1
-  for (let i = 1; i < totalPages; i++) {
-    pages.push({ index: i, main: [], sidebar: continuationSidebarKeys(i - 1, contCount) })
-  }
-  return { pages, totalPages: pages.length }
+  })
+
+  return { plan, layoutPlan: sidebarLayoutPlan(plan, content), pageFills }
 }
 
 /**
@@ -65,19 +79,12 @@ export function sidebarStructuralPlan(totalPages) {
  * `referees` always renders (real entries, or the "available upon request"
  * placeholder — RefereesSection.jsx), so it is always "present" content.
  *
- * `identity-compact` is deliberately NOT in the unconditional base list:
- * it is only ever assigned to continuation/last pages, so a genuinely
- * single-page CV (no continuation pages at all) never needs it — the
- * identity block itself is always satisfied by `identity-photo` on page 1,
- * which always exists.
+ * Identity slots are excluded: they are injected per page by the coordinator,
+ * never packed, so they are not part of the section flow this checks.
  */
-export function presentSidebarKeys(content) {
-  const keys = ['identity-photo', 'contact', 'referees']
-  if (content.achievements?.length) keys.push('achievements')
-  if (content.education?.length) keys.push('education')
-  if (content.certifications?.length) keys.push('certifications')
-  if (content.competencies?.length) keys.push('competencies')
-  if (content.languages?.length) keys.push('languages')
-  if (content.publications?.length) keys.push('publications')
-  return keys
+export function presentSidebarKeys(content, layout = TWO_COLUMN_LAYOUT) {
+  const sm = deriveSidebarMetrics(tealTheme)
+  return sidebarFlowKeys(layout).filter(
+    (key) => sidebarSectionH(key, content, sm, harnessMeasurer()) !== null
+  )
 }

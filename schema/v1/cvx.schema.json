@@ -450,17 +450,17 @@
     },
     "layoutPage": {
       "type": "object",
-      "description": "Section placement for one page kind.",
+      "description": "Slots for one page kind. The two columns are read differently: the `main` lists ARE per-page-kind (first.main renders on page 1, last.main on the final page, continuation.main in between), while the `sidebar` lists across first/continuation/last are concatenated into ONE ordered flow that the engine measures and paginates itself — so listing a section under `last` sets its position in the sidebar order, not the page it renders on. identity-photo/identity-compact are the exception: they are injected at the top of every page's sidebar rather than packed.",
       "properties": {
         "sidebar": {
           "type": "array",
           "items": { "$ref": "#/$defs/layoutSlot" },
-          "description": "Slots in the sidebar column (two-column template only)."
+          "description": "Slots in the sidebar column (two-column template only). Part of the single ordered sidebar flow — see this object's description: you choose the order, the engine measures the page placement."
         },
         "main": {
           "type": "array",
           "items": { "$ref": "#/$defs/layoutSlot" },
-          "description": "Slots in the main column."
+          "description": "Slots in the main column, for this page kind specifically."
         }
       },
       "additionalProperties": false

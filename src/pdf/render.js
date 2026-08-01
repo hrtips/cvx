@@ -13,7 +13,7 @@ import { createElement } from 'react'
 import ATSDocument from './ATSDocument.jsx'
 import CVDocument from './CVDocument.jsx'
 import { registerFonts } from './fonts.js'
-import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
+import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD, planTwoColumn } from './layout.js'
 import { loadContent } from './loadContent.js'
 import { normalizeLayout } from './loadLayout.js'
 import {
@@ -22,6 +22,7 @@ import {
   findUnsupportedGlyphs
 } from './measure.js'
 import { setupReproducibility } from './reproducible.js'
+import { resolveDocument } from './resolveDocument.js'
 import { discoverThemes } from './themes/index.js'
 
 /** Discover layouts from <contentDir>/layouts/*.yaml, keyed by filename. */
@@ -91,7 +92,11 @@ function warnAboutUnsupportedGlyphs(
  * @param {boolean} [opts.ats]       render the standalone ATS document instead
  * @param {Record<string, string | undefined>}  [opts.env]       environment (SOURCE_DATE_EPOCH support)
  * @param {(msg: string) => void} [opts.warn]
- * @returns {Promise<{buffer: Buffer, filename: string, themeName: string|null, layoutName: string|null}>}
+ * @returns {Promise<{buffer: Buffer, filename: string, themeName: string|null, layoutName: string|null, plan?: import('./types.js').LayoutPlan}>}
+ *   `plan` is the two-column pagination plan (absent for the single-column/ATS
+ *   variant, which auto-flows and is not packed). Returned so a caller can see
+ *   what was paginated without re-deriving it — the seam a later chunk's
+ *   `plan_layout` dry-run and build diagnostics hang off.
  */
 export async function renderCV({
   contentDir,
@@ -154,6 +159,26 @@ export async function renderCV({
     )
   }
 
+  // Resolve theme/layout ONCE (resolveDocument.js) and plan the pagination here,
+  // outside the React tree, so the plan is a value this function owns rather
+  // than a side effect of rendering. CVDocument receives it as a prop. Two
+  // reasons this seam matters: a later chunk's dry-run (`plan_layout`: plan +
+  // diagnostics, no glyphs) needs the plan without a render, and computing it
+  // twice through two different fallback chains would measure a document that
+  // is not the one drawn — which is exactly what happened before this, with
+  // render.js resolving the theme, CVDocument re-resolving the layout, and
+  // layout.js defaulting differently again.
+  const resolved = resolveDocument({ config, theme, layout })
+  const plan = resolved.isSingleColumn
+    ? undefined
+    : planTwoColumn({
+        content: /** @type {import('./types.js').CVContent} */ ({ ...content, profilePhoto }),
+        layout: resolved.activeLayout,
+        config: resolved.packing,
+        theme: resolved.activeTheme,
+        measure
+      })
+
   const overflow = estimatePage1Overflow(
     content.experience ?? [],
     content.summary ?? [],
@@ -182,11 +207,18 @@ export async function renderCV({
           theme,
           layout,
           creationDate,
-          measure
+          measure,
+          plan
         })
       )
     )
   )
   const suffix = layoutName === 'single-column' ? '-ats' : ''
-  return { buffer, filename: deriveFilename(content.personal?.name, suffix), themeName, layoutName }
+  return {
+    buffer,
+    filename: deriveFilename(content.personal?.name, suffix),
+    themeName,
+    layoutName,
+    plan
+  }
 }

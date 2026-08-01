@@ -51,6 +51,7 @@ import { buildFixturePlan, describeFixturePlan } from './layout-harness/fixtures
 import { runOracle } from './layout-harness/renderOracle.js'
 import {
   cleanupFixtureDirs,
+  detectProfilePhoto,
   extractText,
   hasPdftoppm,
   mkFixtureDir,
@@ -117,6 +118,32 @@ describe('C0 content-completeness oracle — self-test (proves the check is not 
     )
     expect(droppedReferees.ok).toBe(false)
     expect(droppedReferees.missing).toEqual([{ section: 'referees', text: 'Referee 2' }])
+  })
+
+  it('does NOT accept a longer sibling as a match — a dropped "Certification 1" cannot hide behind "Certification 19"', () => {
+    const sentinels = [{ section: 'certifications', text: 'Certification 1' }]
+    // The exact masking review found: the fixtures generate index-suffixed
+    // labels, so plain includes() reported this as present.
+    expect(
+      checkCompleteness('Certification 0 Certification 19 Certification 2', sentinels).ok
+    ).toBe(false)
+    // ...but a real occurrence, however punctuated or line-wrapped, still matches
+    expect(checkCompleteness('… Certification 1, Issuer 1 …', sentinels).ok).toBe(true)
+    expect(checkCompleteness('Certification\n1 Issuer', sentinels).ok).toBe(true)
+    expect(checkCompleteness('(Certification 1)', sentinels).ok).toBe(true)
+  })
+
+  it('still matches sentinels that begin or end with punctuation (achievement bodies lead with an em dash; bullet tails end with a full stop)', () => {
+    expect(
+      checkCompleteness('Award 0 — Example Body 0 Award 1', [
+        { section: 'achievements', text: '— Example Body 0' }
+      ]).ok
+    ).toBe(true)
+    expect(
+      checkCompleteness('…coverage across multiple districts and international cities.', [
+        { section: 'experience', text: 'and international cities.' }
+      ]).ok
+    ).toBe(true)
   })
 
   it('sentinelsFor() extracts a greppable sentinel for EVERY item of every present section (round 2 fix: was last-item-only)', () => {
@@ -264,6 +291,12 @@ describe.skipIf(!hasPdftoppm())(
       const templateDir = path.join(ROOT, 'template', 'cv-content')
       const read = (f) => load(readFileSync(path.join(templateDir, f), 'utf8'))
       const content = {
+        // `personal` and `profilePhoto` are load-bearing for the SIDEBAR plan
+        // (the contact rows come from personal; identity-photo reserves
+        // chrome.photoHeight on page 1 only when a photo exists), so both are
+        // read here rather than omitted as "metadata".
+        personal: read('personal.yaml'),
+        profilePhoto: detectProfilePhoto(templateDir),
         experience: read('experience.yaml'),
         summary: read('summary.yaml'),
         config: read('config.yaml'),

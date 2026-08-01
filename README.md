@@ -275,7 +275,19 @@ pages:
       - experience:continued
 ```
 
-Then set `layout: compact` in `config.yaml`. Available section keys:
+Then set `layout: compact` in `config.yaml`.
+
+**The sidebar's three lists are one ordered flow, not three page assignments.**
+`first.sidebar` + `continuation.sidebar` + `last.sidebar` are concatenated in
+that order, and CVX measures the result to decide which page each section lands
+on. `last.sidebar: [referees]` therefore means *"referees comes last in the
+sidebar"*, not *"referees renders on the last page"*. Use the buckets to express
+**order**; let pagination be measured. (`identity-photo`/`identity-compact` are
+the exception — they are injected at the top of every page's sidebar rather than
+packed.) The **main** lists remain per-page-kind: `first.main` on page 1,
+`last.main` on the final page, `continuation.main` in between.
+
+Available section keys:
 
 | Key | Renders |
 |---|---|

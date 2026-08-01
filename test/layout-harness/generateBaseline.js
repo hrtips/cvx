@@ -37,6 +37,7 @@ import { runDiffCorpus } from './measureDiff.js'
 import { runOracle } from './renderOracle.js'
 import {
   cleanupFixtureDirs,
+  detectProfilePhoto,
   extractText,
   hasPdftoppm,
   mkFixtureDir,
@@ -81,6 +82,9 @@ function readScaffoldContent() {
   const read = (f) => load(readFileSync(path.join(dir, f), 'utf8'))
   return {
     personal: read('personal.yaml'),
+    // Presence-only, but load-bearing: identity-photo reserves
+    // chrome.photoHeight on page 1 when a photo exists (layout.js identityH).
+    profilePhoto: detectProfilePhoto(dir),
     experience: read('experience.yaml'),
     summary: read('summary.yaml'),
     config: read('config.yaml'),

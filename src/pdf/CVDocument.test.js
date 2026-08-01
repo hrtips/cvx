@@ -42,6 +42,52 @@ const baseData = {
   referees: [{ name: 'Ref One' }]
 }
 
+describe('CVDocument — main-slot page-kind fallbacks (a hand-written layout need not define every page kind)', () => {
+  // The plan's identity injection already falls back continuation -> last ->
+  // first; before this the RENDERER did not, so a layout with no
+  // `continuation` threw `Cannot read properties of undefined (reading 'main')`
+  // as soon as the content needed a second page. The renderer must not throw
+  // where the plan copes — layouts/*.yaml is hand-written user input.
+  const multiPage = experience(8)
+
+  it('renders a multi-page CV from a layout that defines ONLY `first`', async () => {
+    const buffer = await renderToBuffer(
+      /** @type {Parameters<typeof renderToBuffer>[0]} */ (
+        /** @type {unknown} */ (
+          createElement(CVDocument, {
+            ...baseData,
+            experience: multiPage,
+            config: {},
+            layout: {
+              first: { sidebar: ['identity-photo', 'contact'], main: ['summary', 'experience'] }
+            }
+          })
+        )
+      )
+    )
+    expect(buffer.byteLength).toBeGreaterThan(1000)
+  }, 30000)
+
+  it('renders a multi-page CV from a layout with `first` + `last` but no `continuation`', async () => {
+    const buffer = await renderToBuffer(
+      /** @type {Parameters<typeof renderToBuffer>[0]} */ (
+        /** @type {unknown} */ (
+          createElement(CVDocument, {
+            ...baseData,
+            experience: multiPage,
+            config: {},
+            layout: {
+              first: { sidebar: ['identity-photo', 'contact'], main: ['summary', 'experience'] },
+              last: { sidebar: ['identity-compact', 'referees'], main: ['experience:continued'] }
+            }
+          })
+        )
+      )
+    )
+    expect(buffer.byteLength).toBeGreaterThan(1000)
+  }, 30000)
+})
+
 describe('CVDocument — direct render (fallback + merge branches)', () => {
   it('falls back to a default theme and a templateless layout without crashing', async () => {
     // No `theme` prop → activeTheme falls through to the layout default / teal.

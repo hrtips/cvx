@@ -7,7 +7,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { deriveMetrics } from './layout.js'
+import { deriveMetrics, NATURAL_LINE_HEIGHT } from './layout.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -57,6 +57,71 @@ describe('measure.js — canary (tripwire on fontkit/font-file drift)', () => {
   it('empty/whitespace-only text is always exactly 1 line, never 0', () => {
     expect(measure.lineCount('', 9, 200)).toBe(1)
     expect(measure.lineCount('   ', 9, 200)).toBe(1)
+  })
+
+  // C3a canary: layout.js's NATURAL_LINE_HEIGHT is the line height
+  // react-pdf/textkit gives a <Text> with no explicit `lineHeight` style —
+  // `(ascent - descent + lineGap) / unitsPerEm`. Most sidebar styles omit
+  // lineHeight, so every sidebar section height depends on this number being
+  // 1.2 for the bundled Lato faces. Pinned here (against the real font files,
+  // through the same fontkit the measurer and react-pdf both use) so a font or
+  // fontkit bump that changes the metrics fails loudly instead of silently
+  // repaginating the sidebar.
+  it("pins Lato's natural line height at NATURAL_LINE_HEIGHT for every registered face", () => {
+    const faces = [
+      { weight: 300 },
+      { weight: 300, italic: true },
+      { weight: 400 },
+      { weight: 400, italic: true },
+      { weight: 500 },
+      { weight: 600 },
+      { weight: 700 },
+      { weight: 700, italic: true }
+    ]
+    // Tabulated (label + value) rather than asserted per iteration, so a
+    // failure names the offending face instead of just a number.
+    expect(faces.map((f) => [JSON.stringify(f), measure.naturalLineHeight(f)])).toEqual(
+      faces.map((f) => [JSON.stringify(f), NATURAL_LINE_HEIGHT])
+    )
+    expect(NATURAL_LINE_HEIGHT).toBe(1.2)
+    // ...and no measurer at all falls back to the same constant, so the
+    // browser preview and the CLI agree on Lato.
+    expect(measure.naturalLineHeight()).toBe(NATURAL_LINE_HEIGHT)
+  })
+})
+
+describe('measure.js — letterSpacing (C3a: sidebar titles and the identity name set it)', () => {
+  const measure = createMeasurer(FONTS_DIR)
+
+  it('adds the spacing once per glyph, matching textkit', () => {
+    const plain = measure.widthOf('CORE COMPETENCIES', 7, { weight: 600 })
+    const spaced = measure.widthOf('CORE COMPETENCIES', 7, { weight: 600, letterSpacing: 1.2 })
+    expect(spaced - plain).toBeCloseTo('CORE COMPETENCIES'.length * 1.2, 6)
+    // Ground truth: the same string in the same style measured 92.7pt of
+    // visual extent in a real render (`pdftotext -bbox`); the advance textkit
+    // breaks lines against carries one extra trailing spacing unit.
+    expect(spaced).toBeCloseTo(92.7 + 1.2, 1)
+  })
+
+  it('defaults to zero spacing, so existing call sites are unchanged', () => {
+    expect(measure.widthOf('Hello', 12, { weight: 400, letterSpacing: 0 })).toBe(
+      measure.widthOf('Hello', 12, { weight: 400 })
+    )
+  })
+
+  it('is cached separately per spacing value (no cross-contamination through the width cache)', () => {
+    const m = createMeasurer(FONTS_DIR)
+    const a = m.widthOf('Hello', 12, {})
+    const b = m.widthOf('Hello', 12, { letterSpacing: 5 })
+    expect(m.widthOf('Hello', 12, {})).toBe(a)
+    expect(b).toBeCloseTo(a + 5 * 5, 6)
+  })
+
+  it('can push a string onto an extra line', () => {
+    const text = 'Alexandria Cassandra Montgomery'
+    const width = measure.widthOf(text, 11, { weight: 700 }) + 1
+    expect(measure.lineCount(text, 11, width, { weight: 700 })).toBe(1)
+    expect(measure.lineCount(text, 11, width, { weight: 700, letterSpacing: 2 })).toBeGreaterThan(1)
   })
 })
 

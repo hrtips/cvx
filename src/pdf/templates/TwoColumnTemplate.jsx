@@ -1,10 +1,11 @@
 import { Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { bodyHeight } from '../layout.js'
 import { useStyles } from '../ThemeContext.jsx'
 
 /** @param {import('../types.js').Theme} t */
 const makeStyles = (t) => {
   const g = t.geometry
-  const bodyH = g.pageHeight - g.topBar
+  const bodyH = bodyHeight(t)
   const sidebarPct = `${g.sidebarFraction * 100}%`
 
   return StyleSheet.create({
@@ -15,15 +16,18 @@ const makeStyles = (t) => {
     // dogfood report 2026-07-26). With a minimum, short content still fills
     // the page and long content FLOWS onto extra physical pages — react-pdf
     // does not clip it (verified by render 2026-08-01). The cost of overflow
-    // is unplanned pages and wasted space, never lost text; the packer +
-    // page1-overflow warning keep content within budget, and this is the
-    // last line of defense against compression.
+    // is unplanned pages and wasted space, never lost text; the packer is
+    // what keeps content within budget, and this is the last line of defense
+    // against compression.
     //
-    // Known (C1, folded into C3): topBar (30) + this minHeight (pageHeight −
-    // topBar) sums to exactly pageHeight, leaving zero slack, so rounding can
-    // spill a blank sliver page. C3 fixes this properly by measuring and
-    // packing the sidebar; masking it here would only trade the sliver for a
-    // visible bottom gap.
+    // `bodyHeight()` is imported from layout.js rather than recomputed here
+    // (C3): it is the exact box BOTH columns must fit in, and it is the
+    // number every one of the packer's page budgets is derived from. Keeping
+    // one definition is what makes "the packer said it fits" and "it fits"
+    // the same statement — a packer budget larger than this box is precisely
+    // how a full page used to push its page-number badge, and the
+    // minHeight-tall sidebar background with it, onto a near-blank extra
+    // physical sheet (C1's finding (b)).
     body: { flexDirection: 'row', minHeight: bodyH, backgroundColor: t.palette.accent },
     sidebar: { width: sidebarPct, backgroundColor: t.palette.sidebarBg },
     mainFirst: {

@@ -29,8 +29,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
-      # C0 layout-engine harness (test/layoutRenderOracle.test.js,
-      # layoutMeasureDiff.test.js) shells out to `pdftoppm`/`pdftotext`
+      # The layout-engine harness — test/layoutRenderOracle.test.js,
+      # layoutMeasureDiff.test.js and layoutSidebarMeasureDiff.test.js (the
+      # last one added by C3a; it reads true section offsets out of a rendered
+      # PDF with `pdftotext -bbox`) — shells out to `pdftoppm`/`pdftotext`
       # (poppler) to rasterize + text-extract rendered PDFs. Installed on
       # exactly ONE pinned leg — ubuntu-latest + Node 22 — which is the
       # CANONICAL environment the harness's ink/pixel thresholds

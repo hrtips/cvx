@@ -251,16 +251,58 @@ export interface Theme extends Omit<TealTheme, 'palette'> {
   palette: Omit<TealTheme['palette'], AccentTextKeys> & Partial<Pick<TealTheme['palette'], AccentTextKeys>>
 }
 
+/** Text run style the measurer varies its metrics by (measure.js). */
+export interface MeasureOpts {
+  weight?: number
+  italic?: boolean
+  /** react-pdf `letterSpacing` / textkit `characterSpacing`, in pt per glyph. */
+  letterSpacing?: number
+}
+
 /** Optional real-font measurer injected into the packer (measure.js). */
 export interface Measurer {
-  lineCount(
-    text: string,
-    size: number,
-    maxWidth: number,
-    opts?: { weight?: number; italic?: boolean },
-  ): number
-  widthOf(text: string, size: number, opts?: { weight?: number; italic?: boolean }): number
+  lineCount(text: string, size: number, maxWidth: number, opts?: MeasureOpts): number
+  widthOf(text: string, size: number, opts?: MeasureOpts): number
+  /** Line height (as a multiple of font size) for text with no explicit `lineHeight` style. */
+  naturalLineHeight(opts?: MeasureOpts): number
   unsupportedChars(text: string): string[]
+}
+
+/** How full one column of one page is, in pt (layout.js). */
+export interface ColumnFill {
+  used: number
+  budget: number
+}
+
+/**
+ * One page of a pagination plan. Deliberately symmetric across the two flows —
+ * `mainBlocks`/`sidebarKeys` are what each flow packs (the main column packs
+ * measured experience blocks, the sidebar packs whole section keys) and
+ * `mainFill`/`sidebarFill` are the matching per-column numbers. This shape is
+ * the contract a later chunk's `plan_layout` diagnostics is built from
+ * (layout-packing-design.md §7.2), so it is named for that from the start.
+ */
+export interface LayoutPlanPage {
+  index: number
+  /** Identity slot keys injected at the top of this page's sidebar (never packed). */
+  identity: string[]
+  mainBlocks: ExperienceEntry[]
+  sidebarKeys: string[]
+  mainFill: ColumnFill | null
+  sidebarFill: ColumnFill | null
+  /** pt past budget on this page across both columns; 0 unless Invariant 0 forced an over-tall block. */
+  overflowPt: number
+  emptyColumn: 'main' | 'sidebar' | 'both' | null
+}
+
+/** The two-flow pagination plan (layout.js planTwoColumn). */
+export interface LayoutPlan {
+  totalPages: number
+  /** Pages the main flow alone needed. */
+  mainPageCount: number
+  /** Pages the sidebar flow alone needed. */
+  sidebarPageCount: number
+  pages: LayoutPlanPage[]
 }
 
 /** Extra per-slot render props (registry.js renderSlot). */

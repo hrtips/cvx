@@ -1,39 +1,10 @@
+// packExperiences' public contract. The `resolveFirstSidebar (R1)` describe
+// that used to head this file is gone with the function: its single-page
+// sidebar fold is subsumed by sidebarFlowKeys() + packSidebar() (C3a), and its
+// `isSinglePage === false` branch was unreachable in production — keeping tests
+// alive for retired behaviour is how a dead code path survives a review.
 import { describe, expect, it } from 'vitest'
-import { packExperiences, resolveFirstSidebar } from './layout.js'
-
-const LAYOUT = {
-  first: { sidebar: ['identity-photo', 'contact', 'achievements'] },
-  continuation: { sidebar: ['identity-compact', 'education', 'competencies'] },
-  last: { sidebar: ['identity-compact', 'referees'] }
-}
-
-describe('resolveFirstSidebar (R1)', () => {
-  it('leaves first.sidebar unchanged on multi-page CVs', () => {
-    expect(resolveFirstSidebar(LAYOUT, false)).toEqual([
-      'identity-photo',
-      'contact',
-      'achievements'
-    ])
-  })
-
-  it('folds continuation/last sections into page 1 on single-page CVs', () => {
-    const out = resolveFirstSidebar(LAYOUT, true)
-    expect(out).toContain('education')
-    expect(out).toContain('competencies')
-    expect(out).toContain('referees')
-  })
-
-  it('does not duplicate the identity slot when folding', () => {
-    expect(resolveFirstSidebar(LAYOUT, true).filter((k) => k.startsWith('identity-'))).toEqual([
-      'identity-photo'
-    ])
-  })
-
-  it('is safe on empty/missing layout', () => {
-    expect(resolveFirstSidebar({}, true)).toEqual([])
-    expect(resolveFirstSidebar(undefined, false)).toEqual([])
-  })
-})
+import { packExperiences } from './layout.js'
 
 describe('packExperiences', () => {
   const summary = ['A short summary.']

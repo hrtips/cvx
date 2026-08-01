@@ -163,6 +163,53 @@ const RICH_CONFIG = {
   atsKeywords: { enabled: true, autoDerive: true, max: 6 }
 }
 
+describe('renderCV — returns the pagination plan it rendered (the C3a seam)', () => {
+  it(
+    'returns a plan whose page count IS the PDF page count, and whose page-1 sidebar budget accounts for the photo',
+    async () => {
+      cpSync(TEMPLATE, join(tmp, 'cv-content'), { recursive: true })
+      const { buffer, plan } = await renderCV({
+        contentDir: join(tmp, 'cv-content'),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(plan).toBeTruthy()
+      // The plan is the document: same page count as the PDF actually has, and
+      // the badge on each page reads "<i> of totalPages". Counting /Type /Page
+      // objects is enough here (the render oracle does the pixel-level version).
+      const pdfPages = (buffer.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length
+      expect(pdfPages).toBe(plan?.totalPages)
+      expect(plan?.pages).toHaveLength(Number(plan?.totalPages))
+      // Page 1 carries identity-photo; the scaffold HAS a photo, so page 1's
+      // sidebar budget must be materially smaller than a later page's. This is
+      // what proves renderCV planned with the same profilePhoto the render used
+      // (the bug this seam is meant to make impossible).
+      expect(plan?.pages[0].identity).toEqual(['identity-photo'])
+      const p0 = Number(plan?.pages[0].sidebarFill?.budget)
+      const p1 = Number(plan?.pages[1].sidebarFill?.budget)
+      expect(p1 - p0).toBeGreaterThan(200)
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'omits the plan for the ATS/single-column variant, which auto-flows and is not packed',
+    async () => {
+      cpSync(TEMPLATE, join(tmp, 'cv-content'), { recursive: true })
+      const ats = await renderCV({
+        contentDir: join(tmp, 'cv-content'),
+        fontsDir: FONTS,
+        ats: true,
+        env: {},
+        warn: () => {}
+      })
+      expect(ats.plan).toBeUndefined()
+    },
+    RENDER_TIMEOUT
+  )
+})
+
 describe('renderCV — designed (two-column)', () => {
   it(
     'renders the real Bruce Wayne template with a profile photo',

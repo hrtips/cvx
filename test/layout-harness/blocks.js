@@ -15,10 +15,11 @@
 //
 // This file is deliberately plain-Node-safe (no .jsx imports): it is loaded
 // both by vitest test files and by generateBaseline.js, which runs under
-// plain `node` (no Vite/JSX transform available). The sidebar's structural
-// plan (which does need a .jsx import — src/pdf/CVDocument.jsx's exported
-// TWO_COLUMN_LAYOUT) lives in the separate sidebarPlan.js instead, which is
-// vitest-only. See that file's docblock for why the split.
+// plain `node` (no Vite/JSX transform available). The sidebar's side of the
+// plan lives in sidebarItems.js / sidebarPlan.js and is plain-Node-safe for
+// the same reason — as of C3a the built-in layouts it needs live in
+// src/pdf/defaultLayouts.js (plain .js), not inside CVDocument.jsx, precisely
+// so packing-without-rendering never requires a JSX transform.
 // ─────────────────────────────────────────────────────────────────────────
 
 /**

@@ -5,74 +5,12 @@
 
 import { Document, View } from '@react-pdf/renderer'
 import { buildKeywords } from './keywords.js'
-import { packExperiences, resolveFirstSidebar } from './layout.js'
+import { isIdentityKey, planTwoColumn } from './layout.js'
+import { resolveDocument } from './resolveDocument.js'
 import { renderSlot } from './sections/registry.js'
 import { ThemeContext } from './ThemeContext.jsx'
 import SingleColumnTemplate from './templates/SingleColumnTemplate.jsx'
 import TwoColumnTemplate from './templates/TwoColumnTemplate.jsx'
-import { monoTheme } from './themes/mono.js'
-import { tealTheme } from './themes/teal.js'
-
-// ── Default layout configs ──────────────────────────────────────────────────
-// TWO_COLUMN_LAYOUT is exported (in addition to the default export below)
-// purely so the C0 test harness (test/layout-harness/sidebarPlan.js) can
-// read the real sidebar section->page-kind assignment instead of a
-// hand-copied duplicate — no behavior change.
-
-export const TWO_COLUMN_LAYOUT = {
-  template: 'two-column',
-  first: {
-    sidebar: ['identity-photo', 'contact', 'achievements'],
-    main: ['summary', 'spacer:27', 'experience']
-  },
-  continuation: {
-    sidebar: [
-      'identity-compact',
-      'education',
-      'certifications',
-      'competencies',
-      'languages',
-      'publications'
-    ],
-    main: ['experience:continued']
-  },
-  last: {
-    sidebar: ['identity-compact', 'referees'],
-    main: ['experience:continued']
-  }
-}
-
-const SINGLE_COLUMN_LAYOUT = {
-  template: 'single-column',
-  first: {
-    main: [
-      'header-ats',
-      'summary',
-      'experience',
-      'education',
-      'certifications',
-      'publications',
-      'competencies',
-      'languages',
-      'achievements',
-      'referees'
-    ]
-  }
-}
-
-/** @type {Record<string, import('./types.js').NormalizedLayout>} */
-const LAYOUTS = {
-  'two-column': TWO_COLUMN_LAYOUT,
-  'single-column': SINGLE_COLUMN_LAYOUT
-}
-
-// ── Default themes per layout ───────────────────────────────────────────────
-
-/** @type {Record<string, import('./types.js').Theme>} */
-const LAYOUT_DEFAULT_THEME = {
-  'two-column': tealTheme,
-  'single-column': monoTheme
-}
 
 // ── Sidebar builder ─────────────────────────────────────────────────────────
 
@@ -82,8 +20,8 @@ const LAYOUT_DEFAULT_THEME = {
  * @param {import('./types.js').Theme} theme
  */
 function buildSidebar(keys, data, theme) {
-  const identityKeys = keys.filter((k) => k.startsWith('identity-'))
-  const contentKeys = keys.filter((k) => !k.startsWith('identity-'))
+  const identityKeys = keys.filter(isIdentityKey)
+  const contentKeys = keys.filter((k) => !isIdentityKey(k))
   const g = theme.geometry.sidebarPad
 
   const dividerStyle = {
@@ -120,67 +58,65 @@ function buildSidebar(keys, data, theme) {
 // ── Two-column renderer ─────────────────────────────────────────────────────
 
 /**
+ * Which MAIN-column slot keys a page renders. The sidebar is now packed
+ * (layout.js), but the main column's slots are still a per-page-kind choice —
+ * page 1 leads with the summary, every later page continues the experience —
+ * and that is designer intent expressed in the layout YAML, not something to
+ * pack.
+ *
+ * @param {import('./types.js').ResolvedLayout} layout
+ * @param {number} index
+ * @param {number} totalPages
+ * @returns {string[]}
+ */
+function mainSlotKeys(layout, index, totalPages) {
+  if (index === 0) return layout.first.main
+  // Fall back the same way the plan's identity injection does
+  // (continuation -> last -> first): a hand-written layouts/*.yaml may define
+  // only `first`, and the renderer must not throw where the plan copes.
+  const cont = layout.continuation?.main ?? layout.last?.main ?? layout.first.main
+  if (index === totalPages - 1) return layout.last?.main ?? cont
+  return cont
+}
+
+/**
  * @param {{
  *   data: import('./types.js').CVContent,
  *   activeLayout: import('./types.js').ResolvedLayout,
  *   activeTheme: import('./types.js').Theme,
- *   packing: import('./types.js').CVConfig,
- *   measure?: import('./types.js').Measurer,
+ *   plan: import('./types.js').LayoutPlan,
  * }} props
  */
-function TwoColumnDocument({ data, activeLayout, activeTheme, packing, measure }) {
-  const { page1Experiences, continuationChunks, totalPages } = packExperiences(
-    data.experience,
-    data.summary,
-    packing,
-    activeTheme,
-    measure
-  )
-
-  // On a single-page CV, fold the continuation/last sidebar sections
-  // (education, competencies, referees) into page 1 so they never silently drop.
-  const firstSidebar = resolveFirstSidebar(activeLayout, continuationChunks.length === 0)
-
-  /** @param {number} pageIndex */
-  function contLayout(pageIndex) {
-    const isFirst = pageIndex === 0
-    const isLast = pageIndex === continuationChunks.length - 1
-    const cont = activeLayout.continuation
-    const last = activeLayout.last
-
-    // Single continuation page: merge continuation + last sidebar sections
-    if (isFirst && isLast && cont && last) {
-      const mergedSidebar = [...new Set([...(cont.sidebar ?? []), ...(last.sidebar ?? [])])]
-      return { sidebar: mergedSidebar, main: cont.main ?? last.main }
-    }
-    if (isLast && last) return last
-    return cont
-  }
-
+function TwoColumnDocument({ data, activeLayout, activeTheme, plan }) {
+  // C3: both columns are measured and packed by layout.js's two-flow
+  // coordinator (P = max(P_main, P_sidebar), front-loaded). This component no
+  // longer decides which sidebar sections a page shows — it just renders the
+  // per-page slice the plan hands it, with that page's identity block
+  // injected at the top. The pre-C3 static "section -> page-kind" assignment
+  // (repeated verbatim onto every continuation page, which duplicated
+  // education/certifications/... on every one of them and overflowed whenever
+  // the column was taller than the sheet) is gone.
+  //
+  // The plan itself is computed OUTSIDE this component (renderCV) and passed
+  // in, so a caller can obtain the pagination + diagnostics without rendering
+  // a single glyph. CVDocument falls back to computing it (see below) for the
+  // browser preview, which has no renderCV.
   return (
     <>
-      <TwoColumnTemplate
-        isFirst
-        pageNum={1}
-        totalPages={totalPages}
-        sidebarSlot={buildSidebar(firstSidebar, data, activeTheme)}
-        mainSlot={renderSlot(activeLayout.first.main, data, { entries: page1Experiences })}
-      />
-      {continuationChunks.map((chunk, i) => {
-        const pg = contLayout(i)
-        // Continuation pages are identified by their page number — that ordinal
-        // IS the stable identity, not a positional proxy for one.
-        const pageKey = `page-${i + 2}`
-        return (
-          <TwoColumnTemplate
-            key={pageKey}
-            pageNum={i + 2}
-            totalPages={totalPages}
-            sidebarSlot={buildSidebar(pg.sidebar, data, activeTheme)}
-            mainSlot={renderSlot(pg.main, data, { entries: chunk })}
-          />
-        )
-      })}
+      {plan.pages.map(({ index, identity, sidebarKeys, mainBlocks }) => (
+        // A page is identified by its ordinal — that IS its stable identity,
+        // not a positional proxy for one.
+        <TwoColumnTemplate
+          key={`page-${index + 1}`}
+          isFirst={index === 0}
+          pageNum={index + 1}
+          totalPages={plan.totalPages}
+          sidebarSlot={buildSidebar([...identity, ...sidebarKeys], data, activeTheme)}
+          mainSlot={renderSlot(mainSlotKeys(activeLayout, index, plan.totalPages), data, {
+            entries: mainBlocks
+          })}
+        />
+      ))}
     </>
   )
 }
@@ -210,7 +146,12 @@ function SingleColumnDocument({ data, activeLayout }) {
  *   layout?: import('./types.js').NormalizedLayout,
  *   creationDate?: Date,
  *   measure?: import('./types.js').Measurer,
+ *   plan?: import('./types.js').LayoutPlan,
  * }} props
+ *   `plan` is the pagination renderCV already computed (so the plan is
+ *   available to callers without rendering). When absent — the browser preview,
+ *   which has no renderCV — it is computed here from the same resolved
+ *   theme/layout, so both paths pack identically.
  */
 export default function CVDocument({
   personal,
@@ -229,19 +170,14 @@ export default function CVDocument({
   theme,
   layout,
   creationDate,
-  measure
+  measure,
+  plan
 }) {
-  const layoutName = config?.layout ?? 'two-column'
-  const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (
-    layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
-  )
-  const activeTheme =
-    theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
-
-  const packing = {
-    page1ExperienceCount: config?.page1ExperienceCount ?? null,
-    page1SplitBullets: config?.page1SplitBullets ?? null
-  }
+  const { activeLayout, activeTheme, isSingleColumn, packing } = resolveDocument({
+    config,
+    theme,
+    layout
+  })
 
   const data = {
     personal,
@@ -256,8 +192,6 @@ export default function CVDocument({
     referees,
     profilePhoto
   }
-
-  const isSingleColumn = (activeLayout.template ?? layoutName) === 'single-column'
 
   // ATS / AI-parser keywords embedded in the PDF's Keywords metadata field.
   const keywordString = buildKeywords({ keywords, competencies, experience, personal }, config)
@@ -281,8 +215,16 @@ export default function CVDocument({
             data={data}
             activeLayout={activeLayout}
             activeTheme={activeTheme}
-            packing={packing}
-            measure={measure}
+            plan={
+              plan ??
+              planTwoColumn({
+                content: data,
+                layout: activeLayout,
+                config: packing,
+                theme: activeTheme,
+                measure
+              })
+            }
           />
         )}
       </Document>

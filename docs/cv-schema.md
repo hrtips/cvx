@@ -210,16 +210,31 @@ A `.yaml` file here becomes selectable as `layout: <filename>`. Structure:
 ```yaml
 template: two-column        # or single-column — the page shell to use
 pages:
-  first:                    # page 1
+  first:                    # main: page 1. sidebar: start of the flow.
     sidebar: [identity-photo, contact, achievements]
     main:    [summary, spacer: 27, experience]
-  continuation:             # middle pages (repeat as needed)
+  continuation:             # main: middle pages. sidebar: flow continues.
     sidebar: [identity-compact, education, certifications, competencies, languages, publications]
     main:    [experience:continued]
-  last:                     # final page
+  last:                     # main: the closing page. sidebar: end of the flow.
     sidebar: [identity-compact, referees]
     main:    [experience:continued]
 ```
+
+> **How the three page buckets are read (changed in the layout-engine work).**
+> The **sidebar** lists across `first` / `continuation` / `last` are concatenated
+> into **one ordered flow**, and the engine measures that flow and decides which
+> page each section lands on. So `last.sidebar: [referees]` means *"referees
+> comes last in the sidebar"*, **not** *"referees renders on the final page"* — on
+> a CV whose sidebar fits in two pages, a section declared under `continuation`
+> may well render on page 3, and one declared under `last` on page 2. The buckets
+> are how you express **order**; pagination is measured, not declared. (Identity
+> slots are the exception: `identity-photo`/`identity-compact` are injected at the
+> top of every page's sidebar, `first`'s on page 1 and `continuation`'s
+> thereafter, and are never packed.)
+>
+> The **main** lists are still per-page-kind: `first.main` renders on page 1,
+> `last.main` on the final page, `continuation.main` in between.
 
 Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees` (sidebar); `summary`, `experience`, `experience:continued`, `header-ats` (main); `spacer: N` (N points of vertical space, either slot).
 

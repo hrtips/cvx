@@ -106,7 +106,7 @@ function riskScenarioFixtures() {
     {
       id: 'risk-sparse-1-page',
       description:
-        "sparse: every optional section absent, short text, fits-1-page volume — the opposite extreme (near-empty CV; checks resolveFirstSidebar's single-page fold does not misbehave when there is almost nothing to fold).",
+        'sparse: every optional section absent, short text, fits-1-page volume — the opposite extreme (near-empty CV; checks the sidebar packer does not misbehave when there is almost nothing to pack).',
       sections: {
         certifications: 'absent',
         publications: 'absent',
