@@ -9,18 +9,38 @@
 // notice.
 //
 // Review round 2's highest-severity finding: round 1's fix was still BLIND
-// to the exact bug class this sprint exists to catch — a bullet the packer
-// PLACES (invariant0/placedExactlyOnce hold on the logical plan) but the
-// RENDERER CLIPS at the physical page edge (packExperiences() budgets against
-// an ESTIMATE, and the config-driven forced-split branch has no budget check
-// at all — see layout.js). sentinelsFor() checked only each experience
-// entry's ROLE (a short heading that either renders or the whole entry is
-// missing) and only the LAST item of each sidebar section — a bullet
-// (main column) or a middle item (sidebar) could be silently dropped and
-// every previous check would stay green. Concretely: the shipped scaffold's
-// tuned config.yaml clips the second bullet of "Chairman & Chief Executive
-// Officer" (C2's real-measurement finding) and NOTHING before this fix
-// noticed, because nothing was ever checking bullets at all.
+// to the bug class this sprint set out to catch — a bullet the packer PLACES
+// (invariant0/placedExactlyOnce hold on the logical plan) that never reaches
+// the reader (packExperiences() budgets against an ESTIMATE, and the
+// config-driven forced-split branch has no budget check at all — see
+// layout.js). sentinelsFor() checked only each experience entry's ROLE (a
+// short heading that either renders or the whole entry is missing) and only
+// the LAST item of each sidebar section — a bullet (main column) or a middle
+// item (sidebar) could be silently dropped and every previous check would
+// stay green.
+//
+// ⚠ CORRECTION (2026-07-28, restated 2026-08-01): the motivating example
+// this comment used to give — "the shipped scaffold's tuned config.yaml
+// CLIPS the second bullet of 'Chairman & Chief Executive Officer'" — was a
+// MISDIAGNOSIS that propagated through three agents before a direct render
+// settled it. There is no clip. Nothing in src/pdf ever sets `wrap={false}`,
+// so react-pdf's default `wrap: true` FLOWS overflow onto extra physical
+// pages instead of dropping it. Re-verified 2026-08-01: a config forced
+// ~541pt over page-1 budget renders 3 pages with all 20 bullets present in
+// the extracted text and no overprinting. The real defect is the
+// wasted/near-blank page (c0-baseline.md bug (b)) — a layout bug, not a
+// content-loss bug — which is what C3 fixes.
+//
+// This oracle is therefore DEFENCE IN DEPTH, not a live-bug detector: it
+// reports 0 violations across all 58 checks today, and its job is to stay at
+// 0 while C3 rewrites the packer. Keep it; do not read its existence as
+// evidence that content is being lost.
+//
+// NOTE for anyone re-running this by hand: extract with plain `pdftotext`,
+// NOT `pdftotext -layout`. Layout mode interleaves the sidebar column into
+// the main column's wrapped lines, which splits bullet text mid-phrase and
+// manufactures false "missing content" hits (observed 2026-08-01: 4 bogus
+// misses under -layout, 0 under raw extraction on the same PDF).
 //
 // The fix: this is the real oracle now — render the fixture, extract ALL
 // text from the PDF with `pdftotext` (shipped alongside `pdftoppm` in the

@@ -13,9 +13,17 @@ const makeStyles = (t) => {
     // minHeight, NOT height: a fixed height authorizes yoga to compress the
     // columns' children when content overflows (glyphs overprint — see
     // dogfood report 2026-07-26). With a minimum, short content still fills
-    // the page and long content overflows past the page edge, clipped —
-    // visible and honest. The packer + page1-overflow warning keep content
-    // within budget; this is the last line of defense.
+    // the page and long content FLOWS onto extra physical pages — react-pdf
+    // does not clip it (verified by render 2026-08-01). The cost of overflow
+    // is unplanned pages and wasted space, never lost text; the packer +
+    // page1-overflow warning keep content within budget, and this is the
+    // last line of defense against compression.
+    //
+    // Known (C1, folded into C3): topBar (30) + this minHeight (pageHeight −
+    // topBar) sums to exactly pageHeight, leaving zero slack, so rounding can
+    // spill a blank sliver page. C3 fixes this properly by measuring and
+    // packing the sidebar; masking it here would only trade the sliver for a
+    // visible bottom gap.
     body: { flexDirection: 'row', minHeight: bodyH, backgroundColor: t.palette.accent },
     sidebar: { width: sidebarPct, backgroundColor: t.palette.sidebarBg },
     mainFirst: {

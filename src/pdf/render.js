@@ -165,7 +165,8 @@ export async function renderCV({
     warn(
       `page1ExperienceCount: ${config.page1ExperienceCount} likely does not fit on page 1 ` +
         `(estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — ` +
-        `overflowing content is clipped at the page edge. Check the rendered page 1; ` +
+        `the overflow spills onto extra physical pages, so the designed layout ` +
+        `gains unplanned pages. Check the rendered page 1; ` +
         `reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination.`
     )
   }

@@ -337,8 +337,9 @@ export function validateContent(
     }
   }
 
-  // Forced pagination that can't fit: the renderer clips overflow, so surface
-  // the estimate here where agents look first. Uses real font metrics when
+  // Forced pagination that can't fit: the overflow spills onto extra physical
+  // pages, so surface the estimate here where agents look first. Uses real
+  // font metrics when
   // `fontsDir` was given (see this function's docblock) — the same
   // measurement `cvx build` packs against, so this warning and the actual
   // render agree.
@@ -355,7 +356,7 @@ export function validateContent(
     if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
       add('warning', 'config.yaml', 'page1-overflow', {
         path: '/page1ExperienceCount',
-        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — overflow is clipped at the page edge in the designed layout`,
+        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — the overflow spills onto extra physical pages, so the designed layout gains unplanned pages`,
         suggestion:
           'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
       })

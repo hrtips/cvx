@@ -260,7 +260,7 @@ export function resolveFirstSidebar(
  * char-width estimator's own ~20-34% looseness (calibration note, now
  * historical: the shipped scaffold's tuned config used to estimate +209pt
  * under the loose estimator and render with room to spare; the mildest
- * observed real clip estimated +257pt; 220 sat between the two).
+ * observed real overflow estimated +257pt; 220 sat between the two).
  *
  * C2 replaces that loose estimator with real fontkit measurement wherever a
  * `measure` is injected (render.js always injects one), so the threshold
@@ -290,8 +290,12 @@ export const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
  * against PAGE1_OVERFLOW_WARN_THRESHOLD before warning. Mirrors the
  * config-driven branch of packExperiences: the first (count - 1) entries
  * render whole, the last is optionally cut at page1SplitBullets. When
- * content really overflows, the renderer clips it at the page edge (the
- * template columns use minHeight, never shrink).
+ * content really overflows, react-pdf FLOWS it onto extra physical pages —
+ * it does not clip and (thanks to the templates' minHeight, never a fixed
+ * height) does not compress. The cost of a forced overflow is therefore
+ * unplanned pages and wasted space, not lost text. Verified by render
+ * 2026-08-01: page1ExperienceCount forced ~541pt over budget yields 3 pages
+ * with all 20 bullets present in the extracted text.
  *
  * @param {import('./types.js').Measurer} [measure]
  *   optional real-font measurer (render.js/validateContent.js inject one

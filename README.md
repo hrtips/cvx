@@ -232,6 +232,14 @@ Change a value, re-run `npx @hrtips/cvx build`, done.
 - **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
 - **Page 2** — Entry 2 (cont'd) + Entries 3–6
 
+Forcing a count that doesn't fit is warned about by `validate` and `build`, and the overflow spills onto extra physical pages — nothing is ever clipped or dropped, your CV just gains unplanned pages.
+
+### Script support
+
+**CV rendering is English/Western-European Latin only.** CVX bundles [Lato](https://fonts.google.com/specimen/Lato) and registers no fallback font, so scripts Lato doesn't cover — Cyrillic, Greek, Vietnamese, Turkish `ş`/`ğ`, Czech/Romanian diacritics, and all non-Latin scripts (Devanagari, Tamil, Sinhala, CJK, Arabic, …) — render invisibly. `cvx validate` and `cvx build` warn loudly when your content contains characters the bundled font cannot draw, so this fails visibly rather than silently.
+
+This is a deliberate scope decision, not an oversight: shipping fallback fonts for those scripts would blow the package-size budget many times over. (The project website is multilingual; the renderer is not — the two are independent.)
+
 ### Custom layouts
 
 You can define your own page structure — drop a `.yaml` file into `cv-content/layouts/` and reference it by filename:
