@@ -2,13 +2,16 @@
 // theme fallback (renderCV always injects a theme) and the single-continuation-
 // page sidebar merge (needs a layout with both continuation + last pages and
 // content that overflows to exactly one continuation page).
+import { fileURLToPath } from 'node:url'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import CVDocument from './CVDocument.jsx'
 import { registerFonts } from './fonts.js'
 
-registerFonts(new URL('../fonts', import.meta.url).pathname)
+// fileURLToPath, not URL#pathname: on Windows the latter yields "/D:/…", whose
+// leading slash makes fs resolve it against the current drive ("D:\D:\…").
+registerFonts(fileURLToPath(new URL('../fonts', import.meta.url)))
 
 const bullets = Array.from(
   { length: 6 },
