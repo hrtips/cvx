@@ -41,18 +41,17 @@
 // engine config subtly not matching production.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { renderToBuffer } from '@react-pdf/renderer'
-import { createElement } from 'react'
-import { Document, Page, View, Text } from '@react-pdf/renderer'
-import { writeFileSync, readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { Document, Page, renderToBuffer, Text, View } from '@react-pdf/renderer'
+import { createElement } from 'react'
 import { registerFonts } from '../../src/pdf/fonts.js'
 import { createMeasurer } from '../../src/pdf/measure.js'
 import { tealTheme } from '../../src/pdf/themes/teal.js'
-import { ROOT, mkFixtureDir, pdftoppmGray } from './scaffold.js'
-import { parsePGM, countInkBands } from './pgm.js'
-import { lineCount, deriveMetrics } from './estimator.js'
-import { sentencesFor, LONG_URL, NON_LATIN_PHRASES } from './textPool.js'
+import { deriveMetrics, lineCount } from './estimator.js'
+import { countInkBands, parsePGM } from './pgm.js'
+import { mkFixtureDir, pdftoppmGray, ROOT } from './scaffold.js'
+import { LONG_URL, NON_LATIN_PHRASES, sentencesFor } from './textPool.js'
 
 let fontsRegistered = false
 function ensureFonts() {
@@ -79,17 +78,38 @@ const PAD = 40
  * there, resolving to Lato-Bold.ttf, same as measure.js's own
  * nearestWeightBucket()).
  */
-export async function renderedLineCount(text, { fontSize, maxWidth, fontFamily = 'Lato', lineHeight = tealTheme.typography.body.leading, fontWeight, fontStyle, dpi = 150 } = {}) {
+export async function renderedLineCount(
+  text,
+  {
+    fontSize,
+    maxWidth,
+    fontFamily = 'Lato',
+    lineHeight = tealTheme.typography.body.leading,
+    fontWeight,
+    fontStyle,
+    dpi = 150
+  } = {}
+) {
   ensureFonts()
   const textStyle = {
-    fontSize, fontFamily, lineHeight,
+    fontSize,
+    fontFamily,
+    lineHeight,
     ...(fontWeight ? { fontWeight } : {}),
-    ...(fontStyle ? { fontStyle } : {}),
+    ...(fontStyle ? { fontStyle } : {})
   }
-  const doc = createElement(Document, {},
-    createElement(Page, { size: 'A4' },
-      createElement(View, { style: { padding: PAD } },
-        createElement(View, { style: { width: maxWidth } },
+  const doc = createElement(
+    Document,
+    {},
+    createElement(
+      Page,
+      { size: 'A4' },
+      createElement(
+        View,
+        { style: { padding: PAD } },
+        createElement(
+          View,
+          { style: { width: maxWidth } },
           createElement(Text, { style: textStyle }, text)
         )
       )
@@ -152,33 +172,75 @@ const SIDEBAR_WIDTH = pageWidth * sidebarFraction - sidebarPad.left - sidebarPad
 // inner width, a bold name, and a sidebar-sized row — so the measurer's
 // accuracy claim isn't resting on bodySize/bulletW alone.
 export const CORPUS = [
-  { id: 'short', text: sentencesFor('short', 'diff-short', 1)[0], fontSize: BODY_SIZE, maxWidth: BULLET_WIDTH },
-  { id: 'typical-bullet', text: sentencesFor('typical', 'diff-typical', 1)[0], fontSize: BODY_SIZE, maxWidth: BULLET_WIDTH },
-  { id: 'long-bullet', text: sentencesFor('long', 'diff-long', 1)[0], fontSize: BODY_SIZE, maxWidth: BULLET_WIDTH },
-  { id: 'long-token-url', text: `See ${LONG_URL} for details.`, fontSize: BODY_SIZE, maxWidth: BULLET_WIDTH },
+  {
+    id: 'short',
+    text: sentencesFor('short', 'diff-short', 1)[0],
+    fontSize: BODY_SIZE,
+    maxWidth: BULLET_WIDTH
+  },
+  {
+    id: 'typical-bullet',
+    text: sentencesFor('typical', 'diff-typical', 1)[0],
+    fontSize: BODY_SIZE,
+    maxWidth: BULLET_WIDTH
+  },
+  {
+    id: 'long-bullet',
+    text: sentencesFor('long', 'diff-long', 1)[0],
+    fontSize: BODY_SIZE,
+    maxWidth: BULLET_WIDTH
+  },
+  {
+    id: 'long-token-url',
+    text: `See ${LONG_URL} for details.`,
+    fontSize: BODY_SIZE,
+    maxWidth: BULLET_WIDTH
+  },
   {
     id: 'description-italic',
     text: sentencesFor('long', 'diff-desc', 1)[0],
-    fontSize: tealTheme.typography.description.size, maxWidth: INNER_WIDTH, italic: true,
+    fontSize: tealTheme.typography.description.size,
+    maxWidth: INNER_WIDTH,
+    italic: true
   },
   {
     id: 'role-bold',
     text: 'Group Chief Information Security Officer & Executive Vice President',
-    fontSize: tealTheme.typography.role.size, maxWidth: INNER_WIDTH, weight: tealTheme.typography.role.weight,
+    fontSize: tealTheme.typography.role.size,
+    maxWidth: INNER_WIDTH,
+    weight: tealTheme.typography.role.weight
   },
   {
     id: 'sidebar-row',
     text: sentencesFor('typical', 'diff-sidebar', 1)[0],
-    fontSize: tealTheme.typography.sidebarBody.size, maxWidth: SIDEBAR_WIDTH,
+    fontSize: tealTheme.typography.sidebarBody.size,
+    maxWidth: SIDEBAR_WIDTH
   },
   {
     id: 'name-bold',
     text: 'Alexandria Cassandra Montgomery-Fitzgerald',
-    fontSize: tealTheme.typography.name.size, maxWidth: SIDEBAR_WIDTH, weight: tealTheme.typography.name.weight,
+    fontSize: tealTheme.typography.name.size,
+    maxWidth: SIDEBAR_WIDTH,
+    weight: tealTheme.typography.name.weight
   },
-  { id: 'non-latin-sinhala', text: NON_LATIN_PHRASES.sinhala, fontSize: tealTheme.typography.name.size, maxWidth: 150 },
-  { id: 'non-latin-tamil', text: NON_LATIN_PHRASES.tamil, fontSize: tealTheme.typography.name.size, maxWidth: 150 },
-  { id: 'non-latin-devanagari', text: NON_LATIN_PHRASES.devanagari, fontSize: tealTheme.typography.name.size, maxWidth: 150 },
+  {
+    id: 'non-latin-sinhala',
+    text: NON_LATIN_PHRASES.sinhala,
+    fontSize: tealTheme.typography.name.size,
+    maxWidth: 150
+  },
+  {
+    id: 'non-latin-tamil',
+    text: NON_LATIN_PHRASES.tamil,
+    fontSize: tealTheme.typography.name.size,
+    maxWidth: 150
+  },
+  {
+    id: 'non-latin-devanagari',
+    text: NON_LATIN_PHRASES.devanagari,
+    fontSize: tealTheme.typography.name.size,
+    maxWidth: 150
+  }
 ]
 
 /**
@@ -197,11 +259,21 @@ export async function runDiffCorpus(corpus = CORPUS) {
     const estimated = estimatedLineCount(c.text, c.fontSize, c.maxWidth)
     const measured = measuredLineCount(c.text, c.fontSize, c.maxWidth, opts)
     const rendered = await renderedLineCount(c.text, {
-      fontSize: c.fontSize, maxWidth: c.maxWidth,
-      fontWeight: c.weight, fontStyle: c.italic ? 'italic' : undefined,
+      fontSize: c.fontSize,
+      maxWidth: c.maxWidth,
+      fontWeight: c.weight,
+      fontStyle: c.italic ? 'italic' : undefined
     })
-    const errorPct = (predicted) => (rendered > 0 ? Math.round(((predicted - rendered) / rendered) * 100) : null)
-    rows.push({ id: c.id, estimated, measured, rendered, estimatedErrorPct: errorPct(estimated), measuredErrorPct: errorPct(measured) })
+    const errorPct = (predicted) =>
+      rendered > 0 ? Math.round(((predicted - rendered) / rendered) * 100) : null
+    rows.push({
+      id: c.id,
+      estimated,
+      measured,
+      rendered,
+      estimatedErrorPct: errorPct(estimated),
+      measuredErrorPct: errorPct(measured)
+    })
   }
   return rows
 }

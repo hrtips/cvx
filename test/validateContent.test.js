@@ -1,10 +1,11 @@
 // cvx validate engine: catches seeded errors with paths + suggestions,
 // warns without failing on ignorable problems, and promotes under strict.
-import { describe, it, expect } from 'vitest'
-import { mkdtempSync, cpSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 import { validateContent } from '../src/pdf/validateContent.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -70,7 +71,9 @@ describe('validateContent', () => {
     const result = validateContent({ contentDir })
     expect(result.ok).toBe(false)
 
-    const missingName = result.errors.find((f) => f.file === 'personal.yaml' && f.message.includes('"name"'))
+    const missingName = result.errors.find(
+      (f) => f.file === 'personal.yaml' && f.message.includes('"name"')
+    )
     expect(missingName?.code).toBe('schema')
 
     const typo = result.warnings.find((f) => f.code === 'unknown-key')
@@ -80,7 +83,9 @@ describe('validateContent', () => {
     expect(theme?.message).toMatch(/teal, coral, mono/)
 
     expect(result.errors.some((f) => f.path === '/page1ExperienceCount')).toBe(true)
-    expect(result.errors.some((f) => f.file === 'experience.yaml' && f.code === 'missing-file')).toBe(true)
+    expect(
+      result.errors.some((f) => f.file === 'experience.yaml' && f.code === 'missing-file')
+    ).toBe(true)
 
     const stray = result.warnings.find((f) => f.code === 'unknown-file')
     expect(stray?.suggestion).toMatch(/competencies/)
@@ -110,7 +115,10 @@ describe('validateContent', () => {
 
   it('suppresses oneOf noise when a precise branch error exists', () => {
     const contentDir = scaffold((dir) => {
-      writeFileSync(path.join(dir, 'summary.yaml'), '- text: Led team\n  link:\n    href: https://x\n')
+      writeFileSync(
+        path.join(dir, 'summary.yaml'),
+        '- text: Led team\n  link:\n    href: https://x\n'
+      )
     })
     const result = validateContent({ contentDir })
     const summaryFindings = result.errors.filter((f) => f.file === 'summary.yaml')
@@ -121,17 +129,25 @@ describe('validateContent', () => {
   it('warns on unknown layout with available list, and validates user layout files', () => {
     const contentDir = scaffold((dir) => {
       writeFileSync(path.join(dir, 'config.yaml'), 'layout: two-colums\n')
-      writeFileSync(path.join(dir, 'layouts', 'custom.yaml'), 'template: three-column\nfirst:\n  main: [summary]\n')
+      writeFileSync(
+        path.join(dir, 'layouts', 'custom.yaml'),
+        'template: three-column\nfirst:\n  main: [summary]\n'
+      )
     })
     const result = validateContent({ contentDir })
     const layout = result.warnings.find((f) => f.code === 'unknown-layout')
     expect(layout?.suggestion).toMatch(/two-column/)
-    expect(result.errors.some((f) => f.file === 'layouts/custom.yaml' && f.path === '/template')).toBe(true)
+    expect(
+      result.errors.some((f) => f.file === 'layouts/custom.yaml' && f.path === '/template')
+    ).toBe(true)
   })
 
   it('accepts the flat layout form in user layout files', () => {
     const contentDir = scaffold((dir) => {
-      writeFileSync(path.join(dir, 'layouts', 'flat.yaml'), 'template: two-column\nfirst:\n  main: [summary, experience]\n')
+      writeFileSync(
+        path.join(dir, 'layouts', 'flat.yaml'),
+        'template: two-column\nfirst:\n  main: [summary, experience]\n'
+      )
     })
     expect(validateContent({ contentDir }).ok).toBe(true)
   })
@@ -141,7 +157,9 @@ describe('validateContent', () => {
       rmSync(path.join(dir, 'images'), { recursive: true, force: true })
     })
     // no images dir at all: no warning
-    expect(validateContent({ contentDir }).warnings.filter((f) => f.code === 'no-photo')).toEqual([])
+    expect(validateContent({ contentDir }).warnings.filter((f) => f.code === 'no-photo')).toEqual(
+      []
+    )
 
     const withBadPhoto = scaffold((dir) => {
       rmSync(path.join(dir, 'images'), { recursive: true, force: true })
@@ -163,7 +181,9 @@ describe('validateContent', () => {
     const result = validateContent({ contentDir })
     expect(result.warnings.some((f) => f.code === 'wrong-extension')).toBe(true)
     // summary is then missing as a .yaml file → required-file error
-    expect(result.errors.some((f) => f.file === 'summary.yaml' && f.code === 'missing-file')).toBe(true)
+    expect(result.errors.some((f) => f.file === 'summary.yaml' && f.code === 'missing-file')).toBe(
+      true
+    )
   })
 })
 
@@ -222,8 +242,10 @@ describe('page-1 overflow estimate', () => {
 describe('unsupported-glyph detection (design doc G-a)', () => {
   it('warns when text contains a character the bundled font has no glyph for', () => {
     const contentDir = scaffold((dir) => {
-      const personal = readFileSync(path.join(dir, 'personal.yaml'), 'utf8')
-        .replace('Bruce Wayne', 'බ්‍රූස් වේන්')
+      const personal = readFileSync(path.join(dir, 'personal.yaml'), 'utf8').replace(
+        'Bruce Wayne',
+        'බ්‍රූස් වේන්'
+      )
       writeFileSync(path.join(dir, 'personal.yaml'), personal)
     })
     const result = validateContent({ contentDir, fontsDir: FONTS_DIR })
@@ -250,8 +272,10 @@ describe('unsupported-glyph detection (design doc G-a)', () => {
 
   it('is skipped entirely without fontsDir (no approximation of glyph coverage exists)', () => {
     const contentDir = scaffold((dir) => {
-      const personal = readFileSync(path.join(dir, 'personal.yaml'), 'utf8')
-        .replace('Bruce Wayne', 'බ්‍රූස් වේන්')
+      const personal = readFileSync(path.join(dir, 'personal.yaml'), 'utf8').replace(
+        'Bruce Wayne',
+        'බ්‍රූස් වේන්'
+      )
       writeFileSync(path.join(dir, 'personal.yaml'), personal)
     })
     const result = validateContent({ contentDir })

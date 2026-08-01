@@ -17,10 +17,10 @@
 // is actually needed — see layoutRenderOracle.test.js's docblock for why
 // (CI runs `npm test` on legs with no poppler installed; only one pinned
 // leg does, and this suite must SKIP cleanly elsewhere, not error).
-import { describe, it, expect, afterAll } from 'vitest'
-import { runDiffCorpus, CORPUS } from './layout-harness/measureDiff.js'
-import { loadBaseline, diff } from './layout-harness/baseline.js'
-import { hasPdftoppm, cleanupFixtureDirs } from './layout-harness/scaffold.js'
+import { afterAll, describe, expect, it } from 'vitest'
+import { diff, loadBaseline } from './layout-harness/baseline.js'
+import { CORPUS, runDiffCorpus } from './layout-harness/measureDiff.js'
+import { cleanupFixtureDirs, hasPdftoppm } from './layout-harness/scaffold.js'
 
 const baseline = loadBaseline()
 
@@ -36,12 +36,10 @@ describe.skipIf(!hasPdftoppm())('C2 measure-vs-render diff corpus — baseline-l
   it('estimated/measured/rendered line counts match the recorded baseline for every corpus row', async () => {
     const rows = await runDiffCorpus()
     const d = diff(rows, baseline.measureDiffCorpus)
-    if (d.length > 0) {
-      throw new Error(
-        'REGRESSION vs baseline.json.measureDiffCorpus (if this is an intentional measurer change — ' +
-        `regenerate with: node test/layout-harness/generateBaseline.js):\n  ${d.join('\n  ')}`
-      )
-    }
+    // Empty diff = no regression. On failure the array of differences prints
+    // directly; if the measurer change is intentional, regenerate the baseline
+    // with: node test/layout-harness/generateBaseline.js
+    expect(d).toEqual([])
   }, 30000)
 
   it('HARD: the real measurer (C2) is at least as accurate as the old estimate on every Latin row, and exact on most', async () => {
@@ -60,7 +58,7 @@ describe.skipIf(!hasPdftoppm())('C2 measure-vs-render diff corpus — baseline-l
     for (const r of latinRows) expect(r.measured).toBe(r.rendered)
   }, 30000)
 
-  it('documents the known direction and magnitude of the OLD estimator\'s error, and that it is now the browser-preview fallback only (informational)', async () => {
+  it("documents the known direction and magnitude of the OLD estimator's error, and that it is now the browser-preview fallback only (informational)", async () => {
     const rows = await runDiffCorpus()
     const latinRows = rows.filter((r) => !r.id.startsWith('non-latin'))
 
@@ -74,7 +72,7 @@ describe.skipIf(!hasPdftoppm())('C2 measure-vs-render diff corpus — baseline-l
     for (const r of latinRows) expect(r.estimated).toBeGreaterThanOrEqual(r.rendered)
   }, 30000)
 
-  it('non-Latin: measurement accuracy is UNCHANGED by C2 (expected — see measure.js\'s detect-and-warn approach, not fixed here)', async () => {
+  it("non-Latin: measurement accuracy is UNCHANGED by C2 (expected — see measure.js's detect-and-warn approach, not fixed here)", async () => {
     const rows = await runDiffCorpus()
     const nonLatinRows = rows.filter((r) => r.id.startsWith('non-latin'))
     expect(nonLatinRows.length).toBeGreaterThan(0)

@@ -14,7 +14,8 @@
  * @returns {{ width: number, height: number, maxval: number, pixels: Buffer }}
  */
 export function parsePGM(buf) {
-  if (buf[0] !== 0x50 || buf[1] !== 0x35) { // "P5"
+  if (buf[0] !== 0x50 || buf[1] !== 0x35) {
+    // "P5"
     throw new Error('parsePGM: not a P5 (binary grayscale) PGM file')
   }
   let i = 2
@@ -22,7 +23,8 @@ export function parsePGM(buf) {
   const isSpace = (c) => c === 0x20 || c === 0x09 || c === 0x0a || c === 0x0d
   while (tokens.length < 3) {
     while (isSpace(buf[i])) i++
-    if (buf[i] === 0x23) { // '#' comment — skip to end of line
+    if (buf[i] === 0x23) {
+      // '#' comment — skip to end of line
       while (buf[i] !== 0x0a) i++
       continue
     }
@@ -55,10 +57,18 @@ export function bandInk(pixels, width, { x0, x1, y0, y1 }, darkDelta = 20) {
   let n = 0
   for (let y = y0; y < y1; y++) {
     const rowStart = y * width
-    for (let x = x0; x < x1; x++) { hist[pixels[rowStart + x]]++; n++ }
+    for (let x = x0; x < x1; x++) {
+      hist[pixels[rowStart + x]]++
+      n++
+    }
   }
-  let bg = 0, bgCount = -1
-  for (let v = 0; v < 256; v++) if (hist[v] > bgCount) { bgCount = hist[v]; bg = v }
+  let bg = 0,
+    bgCount = -1
+  for (let v = 0; v < 256; v++)
+    if (hist[v] > bgCount) {
+      bgCount = hist[v]
+      bg = v
+    }
   let ink = 0
   for (let v = 0; v < Math.max(0, bg - darkDelta); v++) ink += hist[v]
   return { ink: n > 0 ? ink / n : 0, bg, n }
@@ -86,7 +96,10 @@ export function countInkBands(pixels, width, { x0, x1, y0, y1 }, darkDelta = 20)
     const rowStart = y * width
     let rowInk = false
     for (let x = x0; x < x1; x++) {
-      if (pixels[rowStart + x] < threshold) { rowInk = true; break }
+      if (pixels[rowStart + x] < threshold) {
+        rowInk = true
+        break
+      }
     }
     if (rowInk && !prevInk) bands++
     prevInk = rowInk

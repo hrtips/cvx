@@ -1,12 +1,13 @@
 // Protocol-level test: spawn the real `cvx mcp` stdio server (bin → lib) and
 // speak JSON-RPC 2.0 to it — initialize handshake, tools/list, tools/call.
 // Requires lib/ (built by the pretest hook).
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+
 import { spawn } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
@@ -17,7 +18,7 @@ const pending = new Map()
 function send(method, params, { notification = false } = {}) {
   const msg = { jsonrpc: '2.0', method, ...(params ? { params } : {}) }
   if (notification) {
-    proc.stdin.write(JSON.stringify(msg) + '\n')
+    proc.stdin.write(`${JSON.stringify(msg)}\n`)
     return Promise.resolve(null)
   }
   msg.id = nextId++
@@ -25,19 +26,18 @@ function send(method, params, { notification = false } = {}) {
     pending.set(msg.id, { resolve, reject })
     setTimeout(() => reject(new Error(`timeout waiting for ${method}`)), 15_000)
   })
-  proc.stdin.write(JSON.stringify(msg) + '\n')
+  proc.stdin.write(`${JSON.stringify(msg)}\n`)
   return promise
 }
 
 beforeAll(() => {
   proc = spawn(process.execPath, [path.join(ROOT, 'bin', 'cvx.js'), 'mcp'], {
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe']
   })
   let buffer = ''
   proc.stdout.on('data', (chunk) => {
     buffer += chunk.toString()
-    let idx
-    while ((idx = buffer.indexOf('\n')) !== -1) {
+    for (let idx = buffer.indexOf('\n'); idx !== -1; idx = buffer.indexOf('\n')) {
       const line = buffer.slice(0, idx).trim()
       buffer = buffer.slice(idx + 1)
       if (!line) continue
@@ -45,7 +45,8 @@ beforeAll(() => {
       if (msg.id !== undefined && pending.has(msg.id)) {
         const { resolve, reject } = pending.get(msg.id)
         pending.delete(msg.id)
-        msg.error ? reject(new Error(msg.error.message)) : resolve(msg.result)
+        if (msg.error) reject(new Error(msg.error.message))
+        else resolve(msg.result)
       }
     }
   })
@@ -60,7 +61,7 @@ describe('cvx mcp over stdio', () => {
     const result = await send('initialize', {
       protocolVersion: '2025-06-18',
       capabilities: {},
-      clientInfo: { name: 'cvx-test-client', version: '0.0.0' },
+      clientInfo: { name: 'cvx-test-client', version: '0.0.0' }
     })
     expect(result.serverInfo.name).toBe('cvx')
     expect(result.capabilities.tools).toBeDefined()
@@ -70,7 +71,12 @@ describe('cvx mcp over stdio', () => {
 
   it('lists exactly the four tools with schemas', async () => {
     const result = await send('tools/list')
-    expect(result.tools.map((t) => t.name)).toEqual(['get_schema', 'init_cv', 'validate_cv', 'build_pdf'])
+    expect(result.tools.map((t) => t.name)).toEqual([
+      'get_schema',
+      'init_cv',
+      'validate_cv',
+      'build_pdf'
+    ])
     for (const tool of result.tools) {
       expect(tool.inputSchema.type).toBe('object')
       expect(tool.description).toBeTruthy()

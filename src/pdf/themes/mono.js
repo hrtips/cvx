@@ -9,15 +9,15 @@ export const monoTheme = {
   name: 'mono',
 
   palette: {
-    accent:      '#000000',
-    sidebarBg:   '#ffffff',
-    textDark:    '#000000',
-    textBody:    '#333333',
-    textMuted:   '#555555',
+    accent: '#000000',
+    sidebarBg: '#ffffff',
+    textDark: '#000000',
+    textBody: '#333333',
+    textMuted: '#555555',
     textContact: '#444444',
-    tagBg:       '#eeeeee',
-    tagText:     '#333333',
-    divider:     '#000000',
-    white:       '#ffffff',
-  },
+    tagBg: '#eeeeee',
+    tagText: '#333333',
+    divider: '#000000',
+    white: '#ffffff'
+  }
 }

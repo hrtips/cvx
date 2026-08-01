@@ -54,8 +54,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { tealTheme } from '../../src/pdf/themes/teal.js'
+import { bandInk, countInkBands, parsePGM } from './pgm.js'
 import { buildAll, pdftoppmGray } from './scaffold.js'
-import { parsePGM, bandInk, countInkBands } from './pgm.js'
 
 /**
  * Whole-page ink ratio below which a page counts as "blank". Calibrated
@@ -76,11 +76,13 @@ function pageRegions(width, height) {
   return {
     sidebar: { x0: 0, x1: splitX, y0: topSkip, y1: height },
     main: { x0: splitX, x1: width, y0: topSkip, y1: height },
-    whole: { x0: 0, x1: width, y0: topSkip, y1: height },
+    whole: { x0: 0, x1: width, y0: topSkip, y1: height }
   }
 }
 
-function round3(n) { return Math.round(n * 1000) / 1000 }
+function round3(n) {
+  return Math.round(n * 1000) / 1000
+}
 
 /**
  * Rasterize + analyze one rendered PDF.
@@ -111,7 +113,10 @@ export function analyzeVariant(pdfPath, variant, workDir) {
       const emptySidebar = sidebarBands === 0
       const emptyMain = mainBands === 0
       if (emptySidebar || emptyMain) {
-        emptyColumns.push({ page: i, side: emptyMain && emptySidebar ? 'both' : emptyMain ? 'main' : 'sidebar' })
+        emptyColumns.push({
+          page: i,
+          side: emptyMain && emptySidebar ? 'both' : emptyMain ? 'main' : 'sidebar'
+        })
       }
     }
   })

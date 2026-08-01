@@ -1,0 +1,15 @@
+# zizmor configuration. Suppressions must carry a justification.
+rules:
+  cache-poisoning:
+    ignore:
+      # publish.yml's setup-node sets only node-version + registry-url; `cache:
+      # npm` was deliberately removed, so there is no restored cache to poison.
+      # zizmor still flags setup-node in a release job at low confidence.
+      - publish.yml
+  adhoc-packages:
+    ignore:
+      # ci.yml's ad-hoc installs are required test infrastructure, not a supply-
+      # chain shortcut: poppler-utils for the C0 layout harness (pinned apt), the
+      # packed-tarball `npm install` inside the packaged-E2E, and the upstream
+      # @react-pdf canary install (alert-only, continue-on-error job).
+      - ci.yml

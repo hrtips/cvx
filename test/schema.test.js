@@ -1,12 +1,13 @@
 // The canonical JSON Schema (schema/v1/) must accept every file the scaffold
 // ships and reject seeded mistakes. Green here means the schema matches what
 // the renderer actually reads — it is the tripwire for schema/code drift.
-import { describe, it, expect } from 'vitest'
-import { readFileSync, readdirSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import yaml from 'js-yaml'
+import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
+import { load } from 'js-yaml'
+import { describe, expect, it } from 'vitest'
 
 const Ajv2020 = Ajv2020Module.default ?? Ajv2020Module
 
@@ -26,7 +27,7 @@ function validatorFor(def) {
 }
 
 function loadYaml(...segments) {
-  return yaml.load(readFileSync(path.join(ROOT, ...segments), 'utf8'))
+  return load(readFileSync(path.join(ROOT, ...segments), 'utf8'))
 }
 
 const CONTENT_DIRS = ['template/cv-content', 'cv-content']
@@ -37,7 +38,8 @@ describe('canonical schema accepts the shipped content', () => {
       const files = readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith('.yaml'))
       it('covers every yaml file in the directory', () => {
         const defs = files.map((f) => path.basename(f, '.yaml'))
-        for (const def of defs) expect(canonical.$defs, `no $def for ${def}.yaml`).toHaveProperty(def)
+        for (const def of defs)
+          expect(canonical.$defs, `no $def for ${def}.yaml`).toHaveProperty(def)
       })
       for (const file of files) {
         it(`${file} validates`, () => {
@@ -78,7 +80,7 @@ describe('layout flat form (loadLayout.js accepts pages without the pages: wrapp
     const ok = validate({
       template: 'two-column',
       first: { sidebar: ['identity-photo'], main: ['summary', { spacer: 27 }, 'experience'] },
-      continuation: { main: ['experience:continued'] },
+      continuation: { main: ['experience:continued'] }
     })
     expect(validate.errors ?? []).toEqual([])
     expect(ok).toBe(true)
@@ -91,7 +93,11 @@ describe('canonical schema rejects seeded mistakes', () => {
     ['personal', { name: 'Jane Doe', linkdin: 'typo' }, 'unknown key'],
     ['summary', [{ link: { href: 'https://x', label: 'x' } }], 'bullet object without text'],
     ['experience', [{ company: 'Acme' }], 'entry missing role'],
-    ['experience', [{ role: 'Eng', bullets: [{ text: 'a', link: { href: 'https://x' } }] }], 'link missing label'],
+    [
+      'experience',
+      [{ role: 'Eng', bullets: [{ text: 'a', link: { href: 'https://x' } }] }],
+      'link missing label'
+    ],
     ['education', [{ degree: 'BSc' }], 'entry missing institution'],
     ['competencies', ['ok', 42], 'non-string item'],
     ['achievements', [{ year: '2024' }], 'entry missing text'],
@@ -102,7 +108,7 @@ describe('canonical schema rejects seeded mistakes', () => {
     ['config', { atsKeywords: { enable: true } }, 'unknown atsKeywords key'],
     ['config', { schemaVersion: 2 }, 'wrong schema major'],
     ['layout', { template: 'three-column' }, 'unknown template'],
-    ['layout', { pages: { first: { footer: [] } } }, 'unknown page region'],
+    ['layout', { pages: { first: { footer: [] } } }, 'unknown page region']
   ]
   for (const [def, doc, why] of bad) {
     it(`${def}: ${why}`, () => {

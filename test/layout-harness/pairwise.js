@@ -62,7 +62,10 @@ export function greedyPairwiseCover(factors) {
         for (const fixedKey of Object.keys(row)) {
           if (uncovered.has(pairKey(k, level, fixedKey, row[fixedKey]))) score++
         }
-        if (score > bestScore) { bestScore = score; bestLevel = level }
+        if (score > bestScore) {
+          bestScore = score
+          bestLevel = level
+        }
       }
       row[k] = bestLevel
     }

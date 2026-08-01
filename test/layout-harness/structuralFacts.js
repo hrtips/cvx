@@ -20,8 +20,14 @@
 
 import { packExperiences } from '../../src/pdf/layout.js'
 import { tealTheme } from '../../src/pdf/themes/teal.js'
-import { mainPlanFromPackResult, experienceBlockIds, summaryBlockIds } from './blocks.js'
-import { flowIds, invariant0, placedExactlyOnce, orderPreserved, noOrphanHeading } from './invariants.js'
+import { experienceBlockIds, mainPlanFromPackResult, summaryBlockIds } from './blocks.js'
+import {
+  flowIds,
+  invariant0,
+  noOrphanHeading,
+  orderPreserved,
+  placedExactlyOnce
+} from './invariants.js'
 
 /**
  * @param {{experience, summary, config, [key: string]: any}} content
@@ -39,17 +45,22 @@ export function structuralFactsFor(content) {
       invariant0: invariant0(actualMain, expectedMain),
       placedExactlyOnce: placedExactlyOnce(actualMain),
       orderPreserved: orderPreserved(actualMain, expectedMain),
-      noOrphanHeading: noOrphanHeading(mainPlan, 'main', (id) => id.endsWith('::head')),
-    },
+      noOrphanHeading: noOrphanHeading(mainPlan, 'main', (id) => id.endsWith('::head'))
+    }
   }
 }
 
 /** The four hard main-column invariants that must never be false — see module docblock. */
-export const HARD_INVARIANT_KEYS = ['invariant0', 'placedExactlyOnce', 'orderPreserved', 'noOrphanHeading']
+export const HARD_INVARIANT_KEYS = [
+  'invariant0',
+  'placedExactlyOnce',
+  'orderPreserved',
+  'noOrphanHeading'
+]
 
 /** @returns {string[]} human-readable descriptions of any hard invariant that is false, empty if all hold. */
 export function hardInvariantViolations(structural) {
-  return HARD_INVARIANT_KEYS
-    .filter((key) => structural.main[key].ok !== true)
-    .map((key) => `main.${key}: ${JSON.stringify(structural.main[key])}`)
+  return HARD_INVARIANT_KEYS.filter((key) => structural.main[key].ok !== true).map(
+    (key) => `main.${key}: ${JSON.stringify(structural.main[key])}`
+  )
 }

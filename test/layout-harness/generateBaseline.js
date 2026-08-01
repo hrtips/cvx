@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 // ── Generate/refresh test/layout-harness/baseline.json ─────────────────────
 //
 // Run manually (never from `npm test` itself — see baseline.js docblock):
@@ -24,18 +25,25 @@
 //      into the recording.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { cpSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
+import { cpSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { load } from 'js-yaml'
-import { buildFixturePlan } from './fixtures.js'
+import { BASELINE_PATH, normalizeOracleFacts, writeBaseline } from './baseline.js'
+import { checkCompleteness, sentinelsFor } from './contentOracle.js'
 import { buildContent } from './contentSpecs.js'
-import { ROOT, mkFixtureDir, writeFixtureContent, hasPdftoppm, extractText, cleanupFixtureDirs } from './scaffold.js'
-import { runOracle } from './renderOracle.js'
+import { buildFixturePlan } from './fixtures.js'
 import { runDiffCorpus } from './measureDiff.js'
-import { normalizeOracleFacts, writeBaseline, BASELINE_PATH } from './baseline.js'
-import { structuralFactsFor, hardInvariantViolations } from './structuralFacts.js'
-import { sentinelsFor, checkCompleteness } from './contentOracle.js'
+import { runOracle } from './renderOracle.js'
+import {
+  cleanupFixtureDirs,
+  extractText,
+  hasPdftoppm,
+  mkFixtureDir,
+  ROOT,
+  writeFixtureContent
+} from './scaffold.js'
+import { hardInvariantViolations, structuralFactsFor } from './structuralFacts.js'
 
 /** Every violation found across the whole run — collected, not thrown immediately, so one run surfaces everything at once. */
 const fatalViolations = []
@@ -45,7 +53,9 @@ function factsForContent(id, content) {
   writeFixtureContent(dir, content)
   const oracle = runOracle(dir)
   if (!oracle.ok) {
-    fatalViolations.push(`${id}: build failed (code ${oracle.code}) — ${oracle.stderr ?? ''}`.trim())
+    fatalViolations.push(
+      `${id}: build failed (code ${oracle.code}) — ${oracle.stderr ?? ''}`.trim()
+    )
     return { oracle: normalizeOracleFacts(oracle), logicalTotalPages: null }
   }
 
@@ -56,7 +66,10 @@ function factsForContent(id, content) {
   for (const variant of ['designed', 'ats']) {
     const text = extractText(oracle[variant].pdfPath)
     const { ok, missing } = checkCompleteness(text, sentinels)
-    if (!ok) fatalViolations.push(`${id}: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`)
+    if (!ok)
+      fatalViolations.push(
+        `${id}: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`
+      )
   }
 
   return { oracle: normalizeOracleFacts(oracle), logicalTotalPages: structural.logicalTotalPages }
@@ -67,20 +80,35 @@ function readScaffoldContent() {
   const dir = path.join(ROOT, 'template', 'cv-content')
   const read = (f) => load(readFileSync(path.join(dir, f), 'utf8'))
   return {
-    personal: read('personal.yaml'), experience: read('experience.yaml'), summary: read('summary.yaml'), config: read('config.yaml'),
-    education: read('education.yaml'), certifications: read('certifications.yaml'), publications: read('publications.yaml'),
-    languages: read('languages.yaml'), referees: read('referees.yaml'), achievements: read('achievements.yaml'), competencies: read('competencies.yaml'),
+    personal: read('personal.yaml'),
+    experience: read('experience.yaml'),
+    summary: read('summary.yaml'),
+    config: read('config.yaml'),
+    education: read('education.yaml'),
+    certifications: read('certifications.yaml'),
+    publications: read('publications.yaml'),
+    languages: read('languages.yaml'),
+    referees: read('referees.yaml'),
+    achievements: read('achievements.yaml'),
+    competencies: read('competencies.yaml')
   }
 }
 
 function main() {
-  console.log('Rebuilding lib/ from the current src/ (so the render oracle — which shells out to bin/cvx.js, which imports lib/ — matches what we are about to record)...')
-  execFileSync('node', [path.join(ROOT, 'scripts', 'build-lib.js')], { cwd: ROOT, stdio: 'inherit' })
+  console.log(
+    'Rebuilding lib/ from the current src/ (so the render oracle — which shells out to bin/cvx.js, which imports lib/ — matches what we are about to record)...'
+  )
+  execFileSync('node', [path.join(ROOT, 'scripts', 'build-lib.js')], {
+    cwd: ROOT,
+    stdio: 'inherit'
+  })
 
   if (!hasPdftoppm()) {
     console.error('\nERROR: pdftoppm (and pdftotext, same poppler package) not found on PATH.')
     console.error('generateBaseline.js needs both to render+rasterize+extract-text fixtures.')
-    console.error('Install poppler-utils (Linux) / poppler (macOS: brew install poppler) and retry.')
+    console.error(
+      'Install poppler-utils (Linux) / poppler (macOS: brew install poppler) and retry.'
+    )
     process.exitCode = 1
     return
   }
@@ -93,7 +121,10 @@ function main() {
     process.stdout.write(`  ${spec.id} ... `)
     const t0 = Date.now()
     const content = buildContent(spec)
-    fixtureResults[spec.id] = { description: spec.description, ...factsForContent(spec.id, content) }
+    fixtureResults[spec.id] = {
+      description: spec.description,
+      ...factsForContent(spec.id, content)
+    }
     console.log(`${Date.now() - t0}ms`)
   }
 
@@ -102,31 +133,44 @@ function main() {
   process.stdout.write('  scaffold-default ... ')
   const t0 = Date.now()
   const scaffoldDir = mkFixtureDir('scaffold-default')
-  cpSync(path.join(ROOT, 'template', 'cv-content'), path.join(scaffoldDir, 'cv-content'), { recursive: true })
+  cpSync(path.join(ROOT, 'template', 'cv-content'), path.join(scaffoldDir, 'cv-content'), {
+    recursive: true
+  })
   const scaffoldOracle = runOracle(scaffoldDir)
   const scaffoldContent = readScaffoldContent()
   if (!scaffoldOracle.ok) {
-    fatalViolations.push(`scaffold-default: build failed (code ${scaffoldOracle.code}) — ${scaffoldOracle.stderr ?? ''}`.trim())
+    fatalViolations.push(
+      `scaffold-default: build failed (code ${scaffoldOracle.code}) — ${scaffoldOracle.stderr ?? ''}`.trim()
+    )
   } else {
     const structural = structuralFactsFor(scaffoldContent)
-    for (const v of hardInvariantViolations(structural)) fatalViolations.push(`scaffold-default: ${v}`)
+    for (const v of hardInvariantViolations(structural))
+      fatalViolations.push(`scaffold-default: ${v}`)
     const sentinels = sentinelsFor(scaffoldContent)
     for (const variant of ['designed', 'ats']) {
       const text = extractText(scaffoldOracle[variant].pdfPath)
       const { ok, missing } = checkCompleteness(text, sentinels)
-      if (!ok) fatalViolations.push(`scaffold-default: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`)
+      if (!ok)
+        fatalViolations.push(
+          `scaffold-default: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`
+        )
     }
     fixtureResults['scaffold-default'] = {
-      description: 'The shipped template/cv-content scaffold, unmodified (default config.yaml: theme + layout only — no forced page1ExperienceCount/page1SplitBullets since review round 2; automatic pagination handles it without a wasted page).',
+      description:
+        'The shipped template/cv-content scaffold, unmodified (default config.yaml: theme + layout only — no forced page1ExperienceCount/page1SplitBullets since review round 2; automatic pagination handles it without a wasted page).',
       oracle: normalizeOracleFacts(scaffoldOracle),
-      logicalTotalPages: structural.logicalTotalPages,
+      logicalTotalPages: structural.logicalTotalPages
     }
   }
   console.log(`${Date.now() - t0}ms`)
 
   if (fatalViolations.length > 0) {
-    console.error(`\nREFUSING to write baseline.json: ${fatalViolations.length} hard-invariant / content-completeness violation(s) found.`)
-    console.error('These must never be silently recorded as "expected" — fix the harness or the engine, then re-run:\n')
+    console.error(
+      `\nREFUSING to write baseline.json: ${fatalViolations.length} hard-invariant / content-completeness violation(s) found.`
+    )
+    console.error(
+      'These must never be silently recorded as "expected" — fix the harness or the engine, then re-run:\n'
+    )
     for (const v of fatalViolations) console.error(`  - ${v}`)
     cleanupFixtureDirs()
     process.exitCode = 1
@@ -144,10 +188,10 @@ function main() {
         riskScenarios: meta.riskScenarioCount,
         namedEdgeCases: meta.namedEdgeCaseCount,
         totalCartesianCombinations: meta.pairwise.totalCartesianCombinations,
-        droppedCombinations: meta.pairwise.droppedCombinations,
+        droppedCombinations: meta.pairwise.droppedCombinations
       },
       fixtures: fixtureResults,
-      measureDiffCorpus,
+      measureDiffCorpus
     }
 
     writeBaseline(baseline)

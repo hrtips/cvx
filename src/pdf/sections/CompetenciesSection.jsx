@@ -1,13 +1,30 @@
-import { View, Text, StyleSheet } from '@react-pdf/renderer'
-import { useStyles } from '../ThemeContext.jsx'
+import { StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
+import { useStyles } from '../ThemeContext.jsx'
 
-const makeStyles = (t) => StyleSheet.create({
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', rowGap: t.chrome.tagGap, columnGap: t.chrome.tagGap },
-  tag:  { backgroundColor: t.palette.tagBg, paddingVertical: t.chrome.tagPy, paddingHorizontal: t.chrome.tagPx, borderRadius: t.chrome.tagBorderRadius },
-  text: { fontSize: t.typography.tag.size, fontWeight: t.typography.tag.weight, color: t.palette.tagText },
-})
+/** @param {import('../types.js').Theme} t */
+const makeStyles = (t) =>
+  StyleSheet.create({
+    wrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      rowGap: t.chrome.tagGap,
+      columnGap: t.chrome.tagGap
+    },
+    tag: {
+      backgroundColor: t.palette.tagBg,
+      paddingVertical: t.chrome.tagPy,
+      paddingHorizontal: t.chrome.tagPx,
+      borderRadius: t.chrome.tagBorderRadius
+    },
+    text: {
+      fontSize: t.typography.tag.size,
+      fontWeight: t.typography.tag.weight,
+      color: t.palette.tagText
+    }
+  })
 
+/** @param {{ data: import('../types.js').CVContent }} props */
 export default function CompetenciesSection({ data }) {
   const s = useStyles(makeStyles)
   if (!data.competencies?.length) return null
