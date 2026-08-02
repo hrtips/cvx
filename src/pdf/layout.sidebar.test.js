@@ -16,15 +16,20 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { TWO_COLUMN_LAYOUT } from './defaultLayouts.js'
 import {
+  assertShrinks,
   bodyHeight,
+  CONTINUED_SUFFIX,
   deriveMetrics,
   deriveSidebarMetrics,
   identityH,
   packBlocks,
   packSidebar,
   planTwoColumn,
+  sectionTitleLabel,
   sidebarFlowKeys,
+  sidebarItemCount,
   sidebarSectionH,
+  sidebarSliceH,
   summaryH
 } from './layout.js'
 import { createMeasurer } from './measure.js'
@@ -96,6 +101,274 @@ describe('packBlocks (front-load first-fit)', () => {
     expect(() =>
       packBlocks(blocks([10]), () => 100, /** @type {'frontload'} */ ('balance'))
     ).toThrow(/unsupported policy "balance"/)
+  })
+})
+
+// ── Tier 1b: splitting (C3b), still on synthetic blocks ─────────────────────
+//
+// A synthetic "list block" of `n` unit items, `unit` pt each plus a `title`.
+// This is the exact contract packBlocks relies on — head and tail each keep at
+// least one item, heights re-measured per candidate prefix — with no fonts in
+// the way, so the packer's split behaviour is pinned independently of any
+// measurement.
+describe('packBlocks — splitting a block that does not fit (C3b)', () => {
+  /**
+   * A synthetic splittable block: `items` unit items under a fixed-height title.
+   * `start`/`items`/`split` are optional so the same type also covers the plain
+   * unsplittable blocks these tests mix into a flow.
+   * @typedef {{
+   *   id: string,
+   *   height: number,
+   *   start?: number,
+   *   items?: number,
+   *   gapBefore?: number,
+   *   split?: (room: number, forceMinimum: boolean) => { head: ListBlock, tail: ListBlock } | null,
+   * }} ListBlock
+   */
+
+  /**
+   * @param {string} id
+   * @param {number} items
+   * @param {{ unit?: number, title?: number, gapBefore?: number, start?: number }} [opts]
+   * @returns {ListBlock}
+   */
+  function listBlock(id, items, { unit = 10, title = 5, gapBefore = 0, start = 0 } = {}) {
+    const heightOf = (/** @type {number} */ n) => title + unit * n
+    return {
+      id,
+      start,
+      items,
+      height: heightOf(items),
+      gapBefore,
+      split: (room, forceMinimum) => {
+        let k = 0
+        for (let candidate = 1; candidate < items; candidate++) {
+          if (heightOf(candidate) <= room) k = candidate
+        }
+        if (k === 0 && forceMinimum && items > 1) k = 1
+        if (k === 0) return null
+        return {
+          head: listBlock(id, k, { unit, title, gapBefore, start }),
+          tail: listBlock(id, items - k, { unit, title, gapBefore, start: start + k })
+        }
+      }
+    }
+  }
+
+  /** @param {import('./layout.js').PackedPage<ListBlock>[]} pages */
+  const placed = (pages) =>
+    pages.flatMap((p) =>
+      p.blocks.map((b) => {
+        const start = b.start ?? 0
+        return b.items == null ? b.id : `${b.id}[${start},${start + b.items})`
+      })
+    )
+
+  it('pours the fitting prefix into the current page and carries the rest to the next', () => {
+    // page budget 100; a 5pt title + 10 items of 10pt = 105pt.
+    const pages = packBlocks([listBlock('L', 10)], () => 100)
+    expect(placed(pages)).toEqual(['L[0,9)', 'L[9,10)'])
+    expect(pages[0].used).toBe(95)
+    expect(pages[0].used).toBeLessThanOrEqual(pages[0].budget)
+  })
+
+  it('fills a page with earlier blocks first, then splits into whatever room is left', () => {
+    const pages = packBlocks(
+      [{ id: 'A', height: 40 }, listBlock('L', 10, { gapBefore: 5 })],
+      () => 100
+    )
+    // 40 + 5 gap leaves 55pt: title 5 + 5 items = 55 exactly.
+    expect(placed(pages)).toEqual(['A', 'L[0,5)', 'L[5,10)'])
+    expect(pages[0].used).toBe(100)
+    expect(pages[1].used).toBe(55)
+  })
+
+  it('never cuts to an empty side — a two-item block splits 1/1 and a one-item block not at all', () => {
+    expect(placed(packBlocks([listBlock('L', 2, { unit: 60 })], () => 100))).toEqual([
+      'L[0,1)',
+      'L[1,2)'
+    ])
+    // One item, taller than the page: no legal cut, so it is placed and FLOWS.
+    const single = packBlocks([listBlock('L', 1, { unit: 500 })], () => 100)
+    expect(placed(single)).toEqual(['L[0,1)'])
+    expect(single[0].used).toBeGreaterThan(single[0].budget)
+  })
+
+  it('forces a one-item head when even that does not fit, rather than overflowing the WHOLE block (rule 1)', () => {
+    // 3 items of 200pt against a 100pt page: no prefix fits, but cutting bounds
+    // the overflow to one item per page instead of dumping all three on one.
+    const pages = packBlocks([listBlock('L', 3, { unit: 200 })], () => 100)
+    expect(placed(pages)).toEqual(['L[0,1)', 'L[1,2)', 'L[2,3)'])
+    for (const p of pages) expect(p.used).toBe(205)
+  })
+
+  it('does not force a minimum in the FILL position — a page is never over-filled when the packer had the choice to defer', () => {
+    // 60pt used, 40pt left; the list's smallest legal head is 5 + 30 = 35... so
+    // make it not fit: unit 60 => smallest head 65 > 40. It must move whole.
+    const pages = packBlocks([{ id: 'A', height: 60 }, listBlock('L', 2, { unit: 60 })], () => 100)
+    expect(placed(pages)).toEqual(['A', 'L[0,1)', 'L[1,2)'])
+    expect(pages[0].used).toBe(60)
+    expect(pages[0].used).toBeLessThanOrEqual(pages[0].budget)
+  })
+
+  it('splits the same block repeatedly across as many pages as it needs, in order and without loss', () => {
+    const pages = packBlocks([listBlock('L', 30)], () => 100)
+    expect(placed(pages)).toEqual(['L[0,9)', 'L[9,18)', 'L[18,27)', 'L[27,30)'])
+    expect(pages).toHaveLength(4)
+  })
+
+  it('leaves an unsplittable block (no split function at all) exactly as it was', () => {
+    const pages = packBlocks(
+      [
+        { height: 500, id: 'X' },
+        { height: 20, id: 'Y' }
+      ],
+      () => 100
+    )
+    expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([['X'], ['Y']])
+  })
+})
+
+// ── Rule 1b: a page may END EARLY rather than force an overflow ─────────────
+//
+// The defect this exists for (found in C3b review): page 0's budget is reduced
+// by fixed content the packer does not pack (the summary), so it can be smaller
+// than the smallest legal piece of the first block. Force-placing there put
+// content on a physical sheet the plan never numbered — observed as a 4-sheet
+// PDF whose sheet 2 contained only the string "1 of 3". Ending page 0 early
+// keeps page count and numbering honest at the cost of white space.
+describe('packBlocks — a page ends early when nothing of the next block fits (C3b rule 1b)', () => {
+  /** A block that can only be cut into whole `unit`-sized pieces, minimum one. */
+  const chunky = (/** @type {string} */ id, /** @type {number} */ units, unit = 80) => {
+    /** @type {any} */
+    const b = { id, itemCount: units, height: unit * units }
+    b.split = (/** @type {number} */ room, /** @type {boolean} */ force) => {
+      const fits = Math.min(units - 1, Math.floor(room / unit))
+      const take = fits >= 1 ? fits : force && units > 1 ? 1 : 0
+      if (take === 0) return null
+      return { head: chunky(id, take, unit), tail: chunky(id, units - take, unit) }
+    }
+    return b
+  }
+
+  it('emits an EMPTY page rather than overflowing it, when the block fits the next page', () => {
+    // page 0 has 50pt (a tight residual), later pages 200pt. The block's
+    // smallest legal piece is 80pt: too big for page 0, fine for page 1.
+    const pages = packBlocks([chunky('L', 2)], (i) => (i === 0 ? 50 : 200))
+    expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([[], ['L']])
+    expect(pages[0]).toEqual({ blocks: [], used: 0, budget: 50 })
+    // ...and the page it moved to is not over budget, which is the whole point
+    expect(pages[1].used).toBeLessThanOrEqual(pages[1].budget)
+  })
+
+  it('force-places (rule 1c) when even a full empty page could not take it — overflow is reported, never hidden', () => {
+    // Every page is 50pt; the smallest piece is 80pt. Deferring would not help,
+    // so it is placed and overflows — Invariant 0 over aesthetics.
+    const pages = packBlocks([chunky('L', 2)], () => 50)
+    expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([['L'], ['L']])
+    for (const p of pages) expect(p.used).toBeGreaterThan(p.budget)
+  })
+
+  it('force-places instead of deferring when the NEXT page could not take it either', () => {
+    // page 0 = 10pt, every later page = 50pt, smallest piece 80pt: deferring
+    // would not help, so it must not happen. (A deferral here would be pure
+    // waste — an empty sheet followed by the same overflow.)
+    const pages = packBlocks([chunky('L', 2)], (i) => (i === 0 ? 10 : 50))
+    expect(pages.map((p) => p.blocks.length)).toEqual([1, 1])
+    expect(pages[0].used).toBeGreaterThan(pages[0].budget)
+  })
+
+  it('never emits two empty pages in a row, even for a budget function that keeps promising room and reneging', () => {
+    // `deferred` caps deferral at one page per block. Without it an impure or
+    // oscillating budgetFn — one that answers "the next page fits it" and then
+    // does not — would emit empty pages forever.
+    let probe = 0
+    const liarBudget = () => (probe++ % 2 === 1 ? 400 : 10)
+    const pages = packBlocks([chunky('L', 2)], liarBudget)
+    let run = 0
+    let worst = 0
+    for (const p of pages) {
+      run = p.blocks.length === 0 ? run + 1 : 0
+      worst = Math.max(worst, run)
+    }
+    expect(worst).toBeLessThanOrEqual(1)
+    expect(pages.flatMap((p) => p.blocks).length).toBeGreaterThan(0)
+  })
+
+  it('does not end a page early when the block DOES fit here — no gratuitous white space', () => {
+    expect(packBlocks([chunky('L', 2)], () => 200).map((p) => p.blocks.length)).toEqual([1])
+  })
+
+  it('a page already holding blocks just ends normally (rule 1b is about the page LEAD only)', () => {
+    const pages = packBlocks([{ id: 'A', height: 40 }, chunky('L', 1)], (i) => (i === 0 ? 60 : 200))
+    expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([['A'], ['L']])
+    expect(pages[0].used).toBe(40) // ended with 20pt to spare, and that is correct
+  })
+})
+
+// ── Termination is guarded, not merely argued ───────────────────────────────
+describe('packBlocks — a dishonest splitter fails loudly instead of hanging', () => {
+  /** A splitter whose tail is the whole block again: the carry never advances. */
+  function liarBlock() {
+    /** @type {any} */
+    const liar = { key: 'liar', height: 500, itemCount: 4 }
+    liar.split = () => ({ head: { key: 'liar', height: 10 }, tail: liar })
+    return liar
+  }
+
+  it('throws, naming the stuck block, when a split tail never shrinks', () => {
+    // The exact shape one of C3b's own seeded mutations produced: before this
+    // guard it spun forever and the test run had to be killed from outside.
+    expect(() => packBlocks([liarBlock()], () => 100)).toThrow(/tail that is not smaller/)
+    expect(() => packBlocks([liarBlock()], () => 100)).toThrow(/"liar"/)
+  })
+
+  it('the page cap is the far backstop, and it also throws rather than truncating', () => {
+    // A splitter that shrinks by a hair every time: legal by the strict-
+    // decrease rule, but it would produce unbounded pages. The cap stops it.
+    /** @param {number} h */
+    const creep = (h) => {
+      /** @type {any} */
+      const b = { key: 'creep', itemCount: 2, height: h }
+      b.split = () => ({ head: { key: 'creep', height: 1 }, tail: creep(h - 0.01) })
+      return b
+    }
+    expect(() => packBlocks([creep(500)], () => 0.5)).toThrow(/exceeded \d+ pages/)
+  })
+
+  it('never truncates: the error is raised INSTEAD of returning a short plan (dropping blocks is an Invariant 0 violation)', () => {
+    let result = null
+    try {
+      result = packBlocks([liarBlock()], () => 100)
+    } catch {
+      /* expected */
+    }
+    expect(result).toBe(null)
+  })
+
+  it('the cap scales with the flow, so a legitimately long document is never capped', () => {
+    /** @param {number} n */
+    const many = (n) => {
+      /** @type {any} */
+      const b = { key: 'many', itemCount: n, height: 100 * n }
+      b.split = (/** @type {number} */ room, /** @type {boolean} */ force) => {
+        const fits = Math.min(n - 1, Math.floor(room / 100))
+        const take = fits >= 1 ? fits : force && n > 1 ? 1 : 0
+        return take === 0 ? null : { head: many(take), tail: many(n - take) }
+      }
+      return b
+    }
+    expect(packBlocks([many(40)], () => 100)).toHaveLength(40)
+  })
+
+  it('both real splitters refuse to produce a non-shrinking tail (the obligation is asserted where the cut is made)', () => {
+    // Reaching assertShrinks through the public API needs a lie the real
+    // splitters cannot tell, so this pins the guard directly on a hand-built
+    // cut: same message, same failure mode, no hang.
+    const bad = /** @type {any} */ ({ height: 500 })
+    expect(() => assertShrinks('sidebar section "x"', 4, 4, bad, 500)).toThrow(/did not shrink/)
+    expect(() => assertShrinks('sidebar section "x"', 4, 2, bad, 400)).toThrow(/did not shrink/)
+    expect(() => assertShrinks('sidebar section "x"', 4, 2, bad, 600)).not.toThrow()
   })
 })
 
@@ -412,10 +685,12 @@ describe('packSidebar', () => {
     expect(withPhoto.pages[0].length).toBeLessThan(noPhoto.pages[0].length)
   })
 
-  it('never places a section twice and never drops one', () => {
+  it('never drops a section and never repeats one except as a split continuation, in flow order', () => {
     const packed = packSidebar(keys, CONTENT, TWO_COLUMN_LAYOUT, tealTheme, measure)
-    const placed = packed.pages.flat()
-    expect(placed).toEqual([
+    const slices = packed.pages.flat()
+    // Sections appear in flow order, each contiguously (a split's continuation
+    // immediately follows its head) — never interleaved, never revisited.
+    expect([...new Set(slices.map((s) => s.key))]).toEqual([
       'contact',
       'achievements',
       'education',
@@ -425,6 +700,28 @@ describe('packSidebar', () => {
       'publications',
       'referees'
     ])
+    // ...and each section's slices tile its whole item range exactly once.
+    for (const key of new Set(slices.map((s) => s.key))) {
+      const own = slices.filter((s) => s.key === key)
+      expect(own[0].start).toBe(0)
+      expect(own[own.length - 1].end).toBe(sidebarItemCount(key, CONTENT))
+      expect(own.map((s) => s.start).slice(1)).toEqual(own.map((s) => s.end).slice(0, -1))
+      expect(own.map((s) => s.continued)).toEqual(own.map((_, i) => i > 0))
+    }
+  })
+
+  it('reports a whole (unsplit) section as one slice spanning all of its items', () => {
+    const packed = packSidebar(keys, CONTENT, TWO_COLUMN_LAYOUT, tealTheme, measure)
+    const education = packed.pages.flat().filter((s) => s.key === 'education')
+    expect(education).toEqual([
+      {
+        key: 'education',
+        start: 0,
+        end: CONTENT.education.length,
+        continued: false,
+        itemCount: CONTENT.education.length
+      }
+    ])
   })
 
   it('keeps no page over budget while sections still fit', () => {
@@ -432,7 +729,7 @@ describe('packSidebar', () => {
     for (const { used, budget } of packed.pageMetrics) expect(used).toBeLessThanOrEqual(budget)
   })
 
-  it('places a single over-tall section alone, over budget, rather than dropping it (Invariant 0)', () => {
+  it('SPLITS an over-tall section at item boundaries instead of overflowing it (C3b / Invariant 0)', () => {
     const huge = {
       ...CONTENT,
       certifications: Array.from({ length: 60 }, (_, i) => ({
@@ -442,12 +739,89 @@ describe('packSidebar', () => {
       }))
     }
     const packed = packSidebar(keys, huge, TWO_COLUMN_LAYOUT, tealTheme, measure)
-    const page = packed.pages.findIndex((p) => p.includes('certifications'))
-    expect(packed.pages[page]).toEqual(['certifications'])
+    const certs = packed.pages.flatMap((p, page) =>
+      p.filter((s) => s.key === 'certifications').map((s) => ({ ...s, page }))
+    )
+    expect(certs.length).toBeGreaterThan(1) // it genuinely needed more than one page
+
+    // The slices tile [0, 60) exactly: no gap (an item dropped), no overlap (an
+    // item rendered twice), and they run in order across consecutive pages.
+    expect(certs.map((s) => s.start)).toEqual(certs.map((_, i) => (i === 0 ? 0 : certs[i - 1].end)))
+    expect(certs[certs.length - 1].end).toBe(60)
+    expect(certs.map((s) => s.continued)).toEqual(certs.map((_, i) => i > 0))
+    expect(certs.map((s) => s.page)).toEqual(certs.map((_, i) => certs[0].page + i))
+
+    // Every slice carries at least one item — a title alone would be an
+    // orphaned heading, which is precisely what a split must never produce.
+    for (const s of certs) expect(s.end - s.start).toBeGreaterThan(0)
+
+    // ...and no page is over budget any more: the whole point of splitting.
+    for (const { used, budget } of packed.pageMetrics) expect(used).toBeLessThanOrEqual(budget)
+
+    // Every other section is still placed exactly once.
+    const others = packed.pages.flat().filter((s) => s.key !== 'certifications')
+    expect(new Set(others.map((s) => s.key)).size).toBe(others.length)
+  })
+
+  it('places a single INDIVISIBLE over-tall item rather than dropping it — the irreducible residual (Invariant 0 / G7)', () => {
+    // One certification whose name alone runs many lines: there is no item
+    // boundary to cut at, so the section is placed over budget and FLOWS.
+    const word = 'Supercalifragilistic'
+    const huge = {
+      ...CONTENT,
+      certifications: [
+        { name: Array.from({ length: 400 }, () => word).join(' '), issuer: 'X', year: '2000' }
+      ]
+    }
+    const packed = packSidebar(keys, huge, TWO_COLUMN_LAYOUT, tealTheme, measure)
+    const page = packed.pages.findIndex((p) => p.some((s) => s.key === 'certifications'))
+    expect(packed.pages[page].map((s) => s.key)).toEqual(['certifications'])
+    expect(packed.pages[page][0]).toMatchObject({ start: 0, end: 1, continued: false })
     expect(packed.pageMetrics[page].used).toBeGreaterThan(packed.pageMetrics[page].budget)
-    // and every other section is still placed exactly once
-    expect(packed.pages.flat().filter((k) => k === 'certifications')).toHaveLength(1)
-    expect(new Set(packed.pages.flat()).size).toBe(packed.pages.flat().length)
+  })
+
+  it('cuts a section to the LARGEST prefix that fits, never a smaller one (front-load maximality of the split)', () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      name: `Certification ${i}`,
+      issuer: `Issuer ${i}`,
+      year: `${2000 + i}`
+    }))
+    const content = {
+      personal: PERSONAL,
+      summary: [],
+      experience: [],
+      certifications: items
+    }
+    const packed = packSidebar(['certifications'], content, TWO_COLUMN_LAYOUT, tealTheme, measure)
+    expect(packed.pages.length).toBeGreaterThan(1)
+    packed.pages.forEach((page, i) => {
+      const slice = page[0]
+      if (i === packed.pages.length - 1) return // the tail is whatever is left
+      // One more item would have exceeded this page's budget — measured with the
+      // packer's own slice measurement, which is what the split searched over.
+      const oneMore = Number(
+        sidebarSliceH('certifications', content, sm, measure, slice.start, slice.end + 1)
+      )
+      expect(oneMore).toBeGreaterThan(packed.pageMetrics[i].budget)
+      expect(packed.pageMetrics[i].used).toBeLessThanOrEqual(packed.pageMetrics[i].budget)
+    })
+  })
+
+  it("a continued slice's title carries the (cont.) marker, and the marker is measured, not assumed free", () => {
+    const content = {
+      personal: PERSONAL,
+      summary: [],
+      experience: [],
+      languages: CONTENT.languages
+    }
+    const whole = Number(sidebarSliceH('languages', content, sm, measure, 0, 4))
+    const continued = Number(sidebarSliceH('languages', content, sm, measure, 4, 8))
+    // Both slices hold four items, so any difference is the title alone. The
+    // marker fits on the same single line here, so the two agree exactly — and
+    // this test is what would catch it ceasing to (a theme size bump wrapping
+    // "LANGUAGES (CONT.)" to two lines shows up as a difference).
+    expect(sectionTitleLabel('Languages', true)).toBe(`Languages ${CONTINUED_SUFFIX}`)
+    expect(continued - whole).toBe(0)
   })
 
   it('produces no pages when the flow is empty', () => {

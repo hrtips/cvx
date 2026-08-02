@@ -539,8 +539,11 @@ describe('renderCV — warnings and errors', () => {
       const warnings = []
       await renderCV({ contentDir: dir, fontsDir: FONTS, env: {}, warn: (m) => warnings.push(m) })
       expect(
-        warnings.some((m) => m.includes('page1ExperienceCount') && m.includes('safety margin'))
+        warnings.some((m) => m.includes('page1ExperienceCount') && m.includes('over budget'))
       ).toBe(true)
+      // exactly one warning for the page, never a lever warning plus a
+      // general one for the same overflow
+      expect(warnings.filter((m) => m.includes('over budget'))).toHaveLength(1)
     },
     RENDER_TIMEOUT
   )

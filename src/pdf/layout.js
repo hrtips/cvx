@@ -7,13 +7,38 @@
 // by the same front-load first-fit engine (`packBlocks`) against per-page
 // budgets derived from one shared box (`bodyHeight`), and the document takes
 // `P = max(P_main, P_sidebar)` pages (`planTwoColumn`). Nothing is dropped to
-// make a flow fit: a block that fits nowhere is placed anyway and FLOWS (see
-// packBlocks' contract and Invariant 0).
+// make a flow fit: a block that does not fit is SPLIT at an item boundary
+// (sidebar section) or a bullet boundary (experience entry) — C3b — and one
+// that cannot be split is placed anyway and FLOWS (see packBlocks' contract
+// and Invariant 0).
 //
 // Pre-C3 only the main column was packed; the sidebar was a static
 // section->page-kind assignment repeated verbatim onto every continuation
 // page — which both duplicated sections across pages and silently overflowed
 // whenever the column was taller than the sheet.
+//
+// WHAT IS PACKED AND WHAT IS NOT — an explicit decision, not an accident
+// (recorded in C3b review; design doc §4.1 says "everything on the page is a
+// Block", and this engine does not do that).
+//
+//   PACKED (measured, distributed across pages, splittable):
+//     experience entries (at bullet boundaries), sidebar sections (at item
+//     boundaries).
+//   FIXED (measured, SUBTRACTED from a page's budget, never distributed):
+//     the summary, the page-1 spacer, the "Experience" section title, the
+//     page-number badge, both columns' padding, `spacing.safety`, and the
+//     per-page identity block.
+//
+// The fixed set is what the layout YAML pins to a page kind — it is designer
+// intent about where things go, not a bin-packing question — so a greedy
+// front-load packer gains nothing by owning it. The cost is real and is the
+// reason a whole class of overflow exists: a summary taller than the main
+// column cannot be paginated by anything here, because the summary is not a
+// block. `overflowWarnings()` reports exactly that case in words, and
+// `edge-summary-exceeds-page` pins it. Making the summary a packed, splittable
+// block is a coherent future change (it would also let page 1 start an entry
+// mid-summary), but it moves content the layout YAML currently places, so it
+// belongs to C4's objective model rather than to a checkpoint slice.
 //
 // The theme argument provides all typography/spacing/geometry values so the
 // estimator stays in sync with what components actually render.
@@ -26,8 +51,8 @@
 //
 // MEASUREMENT INJECTION (C2 / design doc §5): this file ships in the Vite
 // browser bundle (the in-app preview), so it must stay isomorphic — no
-// fontkit, no node:fs. `entryH`/`summaryH`/`estimatePage1Overflow`/
-// `packExperiences` all take an OPTIONAL trailing `measure` argument shaped
+// fontkit, no node:fs. `entryH`/`summaryH`/`packExperiences` all take an
+// OPTIONAL trailing `measure` argument shaped
 // like `src/pdf/measure.js`'s `createMeasurer()` return value
 // (`{ lineCount(text, size, maxWidth, opts) }`). render.js (which has
 // `fontsDir`) builds that measurer with real fontkit metrics against the
@@ -333,6 +358,63 @@ export function entryH(
  */
 
 /**
+ * A block that can be cut at an internal boundary (a sidebar section at an
+ * item boundary, an experience entry at a bullet boundary — design doc §2.4 /
+ * §6). `split(room, forceMinimum)` returns the largest legal prefix whose
+ * measured height fits `room`, paired with the remainder, or `null` when no
+ * legal cut exists.
+ *
+ * Legality is the splitter's business, not the packer's, and it always means
+ * at least one item on each side — which is what keeps a section title from
+ * being orphaned at the foot of a page with its first item overleaf.
+ *
+ * `forceMinimum` is set only by rule 1c below (the block is alone on a page,
+ * does not fit, and would not fit a fresh empty page either): the splitter then
+ * returns the smallest legal prefix even though it overflows, so the
+ * irreducible case (design doc G7 — a single ITEM taller than a page)
+ * overflows by one item instead of by a whole section.
+ *
+ * **Obligation on every implementation: `tail` must be STRICTLY SMALLER than
+ * the block it came from** — fewer items, and therefore lower measured height.
+ * `packBlocks` carries the tail to the next page and would otherwise spin
+ * forever on an unchanged remainder. Both splitters in this file assert it
+ * (`assertShrinks`), and `packBlocks` bounds its own iteration count as a
+ * second line of defence, so a violation surfaces as a named error rather than
+ * a hang.
+ *
+ * @template B
+ * @typedef {(room: number, forceMinimum: boolean) => { head: B, tail: B } | null} SplitFn
+ */
+
+/**
+ * Guard for `SplitFn`'s strict-decrease obligation, applied at the point of
+ * production so a dishonest cut is named where it is made rather than
+ * diagnosed later from a hang.
+ *
+ * Exported only so the guard itself can be tested: both real splitters get `k`
+ * from `largestFittingPrefix`, which constrains it to `[1, n-1]`, so they
+ * cannot reach this throw — which is the point (defence in depth), and also
+ * why the test calls it directly rather than contriving a lie.
+ *
+ * @template {{ height: number }} B
+ * @param {string} what          block identity, for the message
+ * @param {number} beforeItems   items in the block being cut
+ * @param {number} afterItems    items left in the tail
+ * @param {B} tail
+ * @param {number} beforeHeight
+ * @returns {void}
+ */
+export function assertShrinks(what, beforeItems, afterItems, tail, beforeHeight) {
+  if (afterItems >= beforeItems || quantize(tail.height) > quantize(beforeHeight)) {
+    throw new Error(
+      `layout: split of ${what} did not shrink (${beforeItems} -> ${afterItems} items, ` +
+        `${beforeHeight} -> ${tail.height} pt). A split tail must be strictly smaller; ` +
+        `packBlocks would otherwise never terminate.`
+    )
+  }
+}
+
+/**
  * Pack an ordered block flow onto pages, front-loaded: fill page *i* with as
  * many leading blocks as fit its budget, then start page *i+1*. This is the
  * exact greedy first-fit loop `packExperiences()` has always used for the
@@ -341,22 +423,51 @@ export function entryH(
  * `optimal` are later chunks and are deliberately NOT implemented here).
  *
  * Contract, in order of priority:
- *  1. **Every block is placed, exactly once, in order** (Invariant 0). A
- *     block that cannot fit an empty page is placed anyway rather than
- *     dropped — it then overflows, which react-pdf FLOWS onto extra physical
- *     pages (it never clips). This forced placement is also what guarantees
- *     termination.
- *  2. No page is over budget unless rule 1 forced it.
+ *  1. **Every block is placed, exactly once, in order** (Invariant 0), in the
+ *     first of these three ways that applies:
+ *     - **1a** it fits the page's remaining room (whole, or cut to fit);
+ *     - **1b** it fits nothing here but WOULD fit a fresh full page, so this
+ *       page **ends early** — with room to spare — and the block leads the
+ *       next one;
+ *     - **1c** it would not fit even an empty page, so it is force-placed
+ *       (cut to its smallest legal unit if it has one) and OVERFLOWS, which
+ *       react-pdf FLOWS onto extra physical sheets. This is the only case
+ *       that can produce a page the plan under-counts, and it always shows up
+ *       in `LayoutPlanPage.overflowPt`.
+ *  2. No page is over budget unless 1c forced it.
  *  3. `gapBefore` (the separator a block only gets when something precedes it
  *     on the same page — the main column's entry divider, the sidebar's
  *     section divider) is charged only to non-first blocks on a page, exactly
  *     as the components render it.
+ *  4. A block that does not fit the page's REMAINING room is split there too,
+ *     when a legal cut exists (C3b). This is the single place a split hooks
+ *     in: it is exactly the pre-C3b `break`, tried once before giving up.
+ *
+ * **Rule 1b is why a page may end early** (C3b review). The case that forced
+ * it: the shipped scaffold with an 11-bullet summary leaves 108.59pt of page-1
+ * residual, while the smallest legal piece of the first experience entry is its
+ * head plus one bullet — 177.75pt, an irreducible floor, because cutting to
+ * zero bullets would orphan the entry head. Force-placing it (the pre-review
+ * behaviour) produced a 4-sheet PDF whose sheet 2 held nothing but the string
+ * "1 of 3". Ending page 1 early instead costs visible white space under the
+ * summary and keeps page count, numbering and diagnostics honest. The sprint
+ * doc offered "bullet-level splitting OR an explicit decision to allow an
+ * entry-free page 1"; this is that decision, taken for every flow rather than
+ * special-cased to page 1.
+ *
+ * **Termination.** Every outer iteration either consumes one whole `flow`
+ * entry, or replaces the carried remainder with a strictly smaller one
+ * (`SplitFn`'s obligation, asserted by both splitters), or defers — and a block
+ * may be deferred at most once, so a deferral cannot cycle. `MAX_PAGES_FOR`
+ * bounds the whole loop independently and THROWS rather than truncating: a cap
+ * that silently stopped placing blocks would be a silent Invariant-0 violation,
+ * which is strictly worse than a crash.
  *
  * Heights are compared through `quantize()` (see its docblock) and `used`
  * accumulates raw, mirroring the pre-C3 loop term for term so this
  * refactor cannot move a knife-edge page break.
  *
- * @template {{ height: number, gapBefore?: number }} B
+ * @template {{ height: number, gapBefore?: number, split?: SplitFn<B> }} B
  * @param {B[]} flow                             ordered blocks for one column
  * @param {(pageIndex: number) => number} budgetFn  usable height of page `i`, pt
  * @param {'frontload'} [policy]
@@ -369,15 +480,27 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
   /** @type {PackedPage<B>[]} */
   const pages = []
   let i = 0
-  while (i < flow.length) {
+  /** The tail of a block cut by a split — it leads the next page. @type {B | null} */
+  let carry = null
+  /** Has the block currently leading already had a page ended early for it (rule 1b)? */
+  let deferred = false
+  const maxPages = maxPagesFor(flow)
+
+  while (carry !== null || i < flow.length) {
+    if (pages.length >= maxPages) {
+      // Never truncate: dropping the remainder would be a silent Invariant-0
+      // violation. Name what is stuck instead.
+      const stuck = carry ?? flow[i]
+      throw new Error(
+        `packBlocks: exceeded ${maxPages} pages with ${flow.length - i} block(s) left; ` +
+          `stuck on ${describeBlock(stuck, i)}. A split whose tail does not shrink, or a ` +
+          `budget function that never admits a block, will do this.`
+      )
+    }
     const budget = budgetFn(pages.length)
 
-    // Rule 1, stated where it happens: the first block on a page is placed
-    // UNCONDITIONALLY. A block taller than any page still gets placed — it
-    // then overflows and FLOWS (react-pdf's wrap:true), which is the only
-    // Invariant-0-compatible answer, since the alternative is dropping it.
-    // This is also what guarantees termination: every iteration of the outer
-    // loop consumes at least one block.
+    // Rule 1, stated where it happens: what to do with the block that will
+    // LEAD this page.
     //
     // (Pre-C3 this was written as a `if (page.length === 0) page.push(...)`
     // fallback *after* the fill loop, which the fill loop's own
@@ -385,22 +508,184 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
     // dead and therefore untestable. Hoisting it makes the rule explicit and
     // exercised, with byte-identical arithmetic: the first block never charges
     // a `gapBefore`, every later one always does.)
-    /** @type {B[]} */
-    const blocks = [flow[i]]
-    let used = flow[i].height
-    i++
+    /** @type {B} */
+    const lead = carry ?? flow[i]
+    const leadFits = quantize(lead.height) <= quantize(budget)
+    /** @type {{ head: B, tail: B } | null} */
+    let leadCut = leadFits ? null : (lead.split?.(budget, false) ?? null)
 
-    while (i < flow.length) {
+    if (!leadFits && leadCut === null) {
+      // Rule 1b: nothing of this block fits HERE. If a fresh page would take
+      // it, end this one early rather than force an overflow onto a sheet the
+      // plan cannot number. `deferred` makes this at most one page per block,
+      // which is exact for the two budget functions this engine has (page 0,
+      // then a constant) and provably terminating for any other.
+      if (!deferred && canPlaceOn(lead, budgetFn(pages.length + 1))) {
+        pages.push({ blocks: [], used: 0, budget: quantize(budget) })
+        deferred = true
+        continue
+      }
+      // Rule 1c: irreducible. Place the smallest legal unit (or the whole
+      // block when it has none) and let it overflow.
+      leadCut = lead.split?.(budget, true) ?? null
+    }
+
+    // The lead is consumed now, so the next iteration starts a fresh block.
+    if (carry !== null) carry = null
+    else i++
+    deferred = false
+
+    /** @type {B[]} */
+    const blocks = [leadCut ? leadCut.head : lead]
+    let used = blocks[0].height
+    if (leadCut) {
+      assertCarryShrinks(lead, leadCut.tail, i - 1)
+      carry = leadCut.tail
+    }
+
+    while (carry === null && i < flow.length) {
       const b = flow[i]
       const gap = b.gapBefore ?? 0
-      if (quantize(used + gap + b.height) > quantize(budget)) break
-      blocks.push(b)
-      used += gap + b.height
+      if (quantize(used + gap + b.height) <= quantize(budget)) {
+        blocks.push(b)
+        used += gap + b.height
+        i++
+        continue
+      }
+      // Rule 4: the block does not fit whole — pour as much of it as fits into
+      // the page's remaining room instead of leaving that room empty.
+      const cut = b.split?.(quantize(budget - used - gap), false) ?? null
+      if (cut === null) break
+      assertCarryShrinks(b, cut.tail, i)
+      blocks.push(cut.head)
+      used += gap + cut.head.height
+      carry = cut.tail
       i++
     }
     pages.push({ blocks, used: quantize(used), budget: quantize(budget) })
   }
   return pages
+}
+
+/**
+ * Can this block be placed on a page of `budget` without overflowing it —
+ * whole, or cut to a legal prefix? The question rule 1b asks about the NEXT
+ * page before ending the current one early.
+ *
+ * @template {{ height: number, split?: SplitFn<B> }} B
+ * @param {B} block
+ * @param {number} budget
+ */
+function canPlaceOn(block, budget) {
+  if (quantize(block.height) <= quantize(budget)) return true
+  return (block.split?.(budget, false) ?? null) !== null
+}
+
+/**
+ * Allowance for a splittable block that declares no item count. Both real
+ * block kinds declare one (`itemCount` on a sidebar slice, `entry.bullets` on
+ * an experience block), so this only covers a hypothetical third; it is
+ * deliberately generous, because a cap that false-positives on a real document
+ * would be far worse than the hang it guards against — the PRECISE guard is
+ * `carry must shrink`, checked on every split below, which fires immediately.
+ */
+const SPLITTABLE_PAGES_UNKNOWN = 512
+
+/**
+ * Hard upper bound on the pages one flow may produce: one page per block, plus
+ * one per splittable item (the worst legal split is one item per page), plus
+ * one for a single rule-1b deferral. Any run past this is a bug in a `SplitFn`
+ * or a `budgetFn`, not a document — see packBlocks' throw.
+ *
+ * @param {readonly unknown[]} flow
+ */
+function maxPagesFor(flow) {
+  let items = 0
+  for (const block of flow) {
+    const b =
+      /** @type {{ itemCount?: number, entry?: { bullets?: unknown[] }, split?: unknown }} */ (
+        block
+      )
+    items += b.itemCount ?? b.entry?.bullets?.length ?? (b.split ? SPLITTABLE_PAGES_UNKNOWN : 0)
+  }
+  return flow.length + items + 1
+}
+
+/**
+ * The precise termination guard: the remainder a split hands back must be
+ * strictly shorter than what was cut, or `packBlocks` would carry an unchanged
+ * block to the next page forever. Checked on EVERY cut the packer accepts —
+ * `assertShrinks` covers the two splitters in this file, this covers any
+ * splitter at all, including the ones tests hand in.
+ *
+ * @template {{ height: number }} B
+ * @param {B} before
+ * @param {B} tail
+ * @param {number} index
+ */
+function assertCarryShrinks(before, tail, index) {
+  if (tail === before || quantize(tail.height) >= quantize(before.height)) {
+    throw new Error(
+      `packBlocks: split of ${describeBlock(before, index)} returned a tail that is not ` +
+        `smaller (${before.height} -> ${tail.height} pt). packBlocks would carry it forever; ` +
+        `a SplitFn must always shrink.`
+    )
+  }
+}
+
+/** Best-effort identity of a block for an error message — sidebar slices have a key, experience blocks an entry. */
+function describeBlock(/** @type {any} */ block, /** @type {number} */ index) {
+  const key = block?.key ?? block?.entry?.role ?? block?.id
+  return `${key == null ? 'block' : `"${key}"`} at flow index ${index} (height ${block?.height})`
+}
+
+/**
+ * The largest `k` in `[1, n-1]` whose measured prefix height fits `room`, or
+ * `0` when none does (`1` instead, when `forceMinimum`). Shared by both flows'
+ * splitters.
+ *
+ * BINARY SEARCH, and it is exact rather than a heuristic: `heightAt` is
+ * non-decreasing in `k` for every splittable block CVX has (each extra item
+ * contributes a non-negative height — strictly positive for every list
+ * section, exactly zero only when an extra competency pill joins a tag row
+ * that was already tall enough), so `heightAt(k) <= room` is a monotone
+ * predicate and the search finds its true boundary. A linear scan would
+ * re-measure O(n) prefixes of O(n) items each; at 60 items that is ~100k
+ * glyph-advance word-wraps per split, which is why this is a search and not a
+ * loop. Deterministic: integer index arithmetic, quantized comparison, no
+ * floating-point accumulation (G-b).
+ *
+ * Returns `0` for "no legal cut". Callers MUST treat 0 as `null` rather than as
+ * "cut at zero items", and this is load-bearing twice over: a zero-item head is
+ * an orphaned heading (a section title alone at the foot of a column with its
+ * first item overleaf), AND its tail would be the whole block again, so the
+ * packer would carry an unchanged remainder forever. Both were confirmed by
+ * seeding the mutation: relaxing the `k === 0` guard in either splitter turns
+ * this into an infinite loop on a one-item over-tall section.
+ *
+ * The search range `[1, n-1]` is what guarantees BOTH sides keep at least one
+ * item — the anti-orphan rule, enforced here once rather than at each call site.
+ *
+ * @param {number} n                          items available to split
+ * @param {(k: number) => number} heightAt    measured height of the first `k` items (with the title)
+ * @param {number} room                       pt available
+ * @param {boolean} forceMinimum              accept a one-item prefix that does NOT fit (rule 1)
+ */
+function largestFittingPrefix(n, heightAt, room, forceMinimum) {
+  if (n < 2) return 0 // nothing to cut: one item cannot be split into two non-empty sides
+  let lo = 1
+  let hi = n - 1
+  let best = 0
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (quantize(heightAt(mid)) <= quantize(room)) {
+      best = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best === 0 && forceMinimum ? 1 : best
 }
 
 // ── Main-column budgets ────────────────────────────────────────────────────
@@ -432,98 +717,172 @@ function mainContBudget(/** @type {Metrics} */ m) {
 }
 
 /**
- * Warning threshold for estimatePage1Overflow, in points.
+ * Warning threshold for `overflowWarnings()`, in points.
  *
- * Pre-C2, this was 220pt — an empirical fudge sized to absorb the
- * char-width estimator's own ~20-34% looseness (calibration note, now
- * historical: the shipped scaffold's tuned config used to estimate +209pt
- * under the loose estimator and render with room to spare; the mildest
- * observed real overflow estimated +257pt; 220 sat between the two).
+ * Pre-C2 this was 220pt — an empirical fudge sized to absorb the char-width
+ * estimator's own ~20-34% looseness (calibration note, now historical: the
+ * shipped scaffold's tuned config used to estimate +209pt under the loose
+ * estimator and render with room to spare; the mildest observed real overflow
+ * estimated +257pt; 220 sat between the two).
  *
- * C2 replaces that loose estimator with real fontkit measurement wherever a
- * `measure` is injected (render.js always injects one), so the threshold
- * shrinks to a small, honest safety backstop — `spacing.safety` (15pt),
- * the same per-page margin the packer itself budgets against — rather than
- * a number sized to paper over a bad estimate. G-a: the margin is shrunk,
- * not deleted; a real measurement can still be off by a point or two
- * (kerning/kerning-adjacent rounding), so a bare `> 0` would be too twitchy.
+ * C2 replaced that estimator with real fontkit measurement wherever a `measure`
+ * is injected (every real entry point injects one), so the threshold shrank to
+ * a small, honest backstop — `spacing.safety` (15pt), the same per-page margin
+ * the budgets already subtract. G-a: shrunk, not deleted; a real measurement
+ * can still be off by a point or two (kerning-adjacent rounding), so a bare
+ * `> 0` would be too twitchy. Concretely: the shipped scaffold at nine summary
+ * bullets sits 0.16pt past budget and renders in exactly its planned three
+ * sheets — noise, not a page break.
  *
- * When no `measure` is injected (the isomorphic browser-preview fallback,
- * or any caller that doesn't build one), this same small threshold now
- * applies to the LOOSE estimate too — which will warn somewhat more often
- * there than it used to (the loose estimate overshoots real height, so a
- * config that truly fits can still read as "15pt over" on the estimate
- * alone). That trade-off is intentional: every real entry point that emits
- * this warning today (`cvx build`, `cvx validate`, the `build_pdf` /
- * `validate_cv` MCP tools) always has `fontsDir` available and injects the
- * real measurer, so it always gets the honest, tight threshold; only a
- * hypothetical measurer-less caller sees the looser signal degrade.
+ * Module-private: `overflowWarnings()` is the only consumer, and callers should
+ * ask it rather than re-implement the comparison.
  */
-export const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
+const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
 
 /**
- * Estimate how far a forced page1ExperienceCount overshoots the page-1 budget.
+ * Every page whose content reaches past its budget, as an actionable warning.
  *
- * Returns the raw estimate in points (0 when no count is forced). Compare
- * against PAGE1_OVERFLOW_WARN_THRESHOLD before warning. Mirrors the
- * config-driven branch of packExperiences: the first (count - 1) entries
- * render whole, the last is optionally cut at page1SplitBullets. When
- * content really overflows, react-pdf FLOWS it onto extra physical pages —
- * it does not clip and (thanks to the templates' minHeight, never a fixed
- * height) does not compress. The cost of a forced overflow is therefore
- * unplanned pages and wasted space, not lost text. Verified by render
- * 2026-08-01: page1ExperienceCount forced ~541pt over budget yields 3 pages
- * with all 20 bullets present in the extracted text.
+ * This is the GENERAL predicate for "the render will gain a physical sheet the
+ * page numbering does not count", and it reads the plan the build actually
+ * used. Until C3b it did not exist: `estimatePage1Overflow` covered only the
+ * config-forced lever, so an 87pt lever overflow warned while a 474pt summary
+ * overflow was silent — same symptom, same consequence, no signal. (Worse,
+ * `LayoutPlanPage.overflowPt` was computed and read by nothing at all.)
  *
- * @param {import('./types.js').Measurer} [measure]
- *   optional real-font measurer (render.js/validateContent.js inject one
- *   when they have `fontsDir`); omit for the char-width estimate.
+ * After C3b's rule 1b, a page that merely *cannot start* an over-tall block
+ * ends early instead of overflowing, so a non-zero `overflowPt` now means
+ * something genuinely irreducible: a single block — one summary, one bullet,
+ * one description, one sidebar item — is taller than a whole page, or the
+ * user's own `page1ExperienceCount` forces more onto page 1 than fits. Those
+ * are the only two shapes this can report, and the message says which.
+ *
+ * Threshold is `PAGE1_OVERFLOW_WARN_THRESHOLD`, the same honest backstop the
+ * lever estimate uses: the budgets already subtract `spacing.safety`, so a
+ * sub-point overrun is measurement noise eating the margin, not a page break.
+ *
+ * @param {import('./types.js').LayoutPlan | undefined} plan
+ * @param {import('./types.js').CVConfig} [config]
+ * @returns {{ page: number, overflowPt: number, forcedByConfig: boolean, message: string }[]}
  */
-export function estimatePage1Overflow(
-  /** @type {import('./types.js').ExperienceEntry[]} */ experience,
-  /** @type {import('./types.js').Summary} */ summary,
-  /** @type {import('./types.js').CVConfig} */ config = {},
-  /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
-  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
-) {
-  const { page1ExperienceCount: count, page1SplitBullets: splitAt } = config
-  if (count == null) return 0
-
-  const m = deriveMetrics(theme)
-  const entries = experience.slice(0, count).map((e, i) => {
-    const isLast = i === count - 1
-    if (isLast && splitAt != null && splitAt < (e.bullets?.length ?? 0))
-      return { ...e, endBullet: splitAt }
-    return e
-  })
-
-  let used = 0
-  entries.forEach((e, i) => {
-    used += entryH(e, m, measure) + (i > 0 ? calcDividerH(m) : 0)
-  })
-
-  const budget = mainFirstBudget(m, summaryH(summary ?? [], m, measure))
-
-  return Math.max(0, Math.round(quantize(used) - quantize(budget)))
+export function overflowWarnings(plan, config = {}) {
+  const out = []
+  for (const page of plan?.pages ?? []) {
+    if (page.overflowPt <= PAGE1_OVERFLOW_WARN_THRESHOLD) continue
+    const over = Math.round(page.overflowPt)
+    const forcedByConfig = page.index === 0 && config.page1ExperienceCount != null
+    const lever =
+      `page1ExperienceCount: ${config.page1ExperienceCount}` +
+      (config.page1SplitBullets != null
+        ? ` (+ page1SplitBullets: ${config.page1SplitBullets})`
+        : '')
+    // Which of the three shapes is it? A negative main budget means the FIXED
+    // content the packer subtracts before packing anything (the summary, the
+    // spacer, the section title) is already taller than the column — no
+    // pagination of the experience list can help, because the experience list
+    // is not what overflowed.
+    const fixedTooTall = (page.mainFill?.budget ?? 0) < 0
+    out.push({
+      page: page.index + 1,
+      overflowPt: page.overflowPt,
+      forcedByConfig,
+      message: forcedByConfig
+        ? `page 1 is ~${over}pt over budget: ${lever} forces more onto it than fits. ` +
+          `The surplus flows onto an extra physical sheet the page numbering does not count. ` +
+          `Reduce page1ExperienceCount, set or lower page1SplitBullets, or remove both for ` +
+          `automatic pagination.`
+        : fixedTooTall
+          ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
+            `is placed: the summary alone is taller than the main column, so it flows onto an ` +
+            `extra physical sheet the page numbering does not count. Shorten the summary — the ` +
+            `packer cannot paginate it (it is fixed page-1 content, not a packed block).`
+          : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
+            `than a whole page and cannot be split any further, so it flows onto an extra ` +
+            `physical sheet the page numbering does not count. Shorten the longest single item ` +
+            `on that page (one bullet, one description, or one sidebar entry).`
+    })
+  }
+  return out
 }
 
 /**
- * Wrap experience entries as `packBlocks` flow blocks: the entry divider is
- * the `gapBefore` (ExperienceSection renders it between entries only).
+ * @typedef {{
+ *   entry: import('./types.js').ExperienceEntry,
+ *   height: number,
+ *   gapBefore: number,
+ *   split: SplitFn<ExperienceBlock>,
+ * }} ExperienceBlock
+ */
+
+/**
+ * One experience entry as a `packBlocks` flow block. The entry divider is the
+ * `gapBefore` (ExperienceSection renders it between entries only), and `split`
+ * cuts the entry at a BULLET boundary (C3b).
+ *
+ * The split RE-MEASURES each candidate prefix rather than indexing a
+ * precomputed prefix-sum table: `entryH`'s continuation form is not a suffix of
+ * its whole-entry form (a continuation drops the company/period/location/
+ * description/progression rows and gains a "(cont'd)" role line), so the two
+ * halves of a cut do not sum to the uncut height and no single offset table
+ * describes both. Re-measuring is exact by construction and, behind
+ * `largestFittingPrefix`'s binary search, costs O(log n) measurements.
+ *
+ * @param {import('./types.js').ExperienceEntry} entry
+ * @param {Metrics} m
+ * @param {import('./types.js').Measurer | undefined} measure
+ * @param {number} gapBefore
+ * @returns {ExperienceBlock}
+ */
+function experienceBlock(entry, m, measure, gapBefore) {
+  const height = entryH(entry, m, measure)
+  return {
+    entry,
+    height,
+    gapBefore,
+    split: (room, forceMinimum) => {
+      const bullets = entry.bullets ?? []
+      const start = entry.startBullet ?? 0
+      const end = entry.endBullet ?? bullets.length
+      const headAt = (/** @type {number} */ k) =>
+        entryH({ ...entry, startBullet: start, endBullet: start + k }, m, measure)
+      const k = largestFittingPrefix(end - start, headAt, room, forceMinimum)
+      if (k === 0) return null
+      // The head keeps the entry's own kind (a continuation stays a
+      // continuation), so a long entry can be cut more than once.
+      const head = experienceBlock(
+        { ...entry, startBullet: start, endBullet: start + k },
+        m,
+        measure,
+        gapBefore
+      )
+      const tail = experienceBlock(
+        { ...entry, isContinuation: true, startBullet: start + k, endBullet: end },
+        m,
+        measure,
+        gapBefore
+      )
+      assertShrinks(`experience entry "${entry.role}"`, end - start, end - start - k, tail, height)
+      return { head, tail }
+    }
+  }
+}
+
+/**
+ * Wrap experience entries as `packBlocks` flow blocks.
  *
  * @param {import('./types.js').ExperienceEntry[]} entries
  * @param {Metrics} m
  * @param {import('./types.js').Measurer | undefined} measure
- * @returns {{ entry: import('./types.js').ExperienceEntry, height: number, gapBefore: number }[]}
+ * @returns {ExperienceBlock[]}
  */
 function experienceBlocks(entries, m, measure) {
   const gapBefore = calcDividerH(m)
-  return entries.map((entry) => ({ entry, height: entryH(entry, m, measure), gapBefore }))
+  return entries.map((entry) => experienceBlock(entry, m, measure, gapBefore))
 }
 
 /**
  * @param {import('./types.js').Measurer} [measure]
- *   optional real-font measurer — see estimatePage1Overflow's docblock.
+ *   optional real-font measurer (render.js/validateContent.js inject one when
+ *   they have `fontsDir`); omit for the char-width estimate.
  * @returns {{
  *   page1Experiences: import('./types.js').ExperienceEntry[],
  *   continuationChunks: import('./types.js').ExperienceEntry[][],
@@ -590,7 +949,7 @@ export function packExperiences(
       pageMetrics: [
         // Page 1 is dictated by the config, not packed, so its budget is
         // reported for reference only — it is legitimately exceeded here (and
-        // render.js warns when it is; see estimatePage1Overflow).
+        // render.js warns when it is; see overflowWarnings()).
         {
           used: forcedUsed,
           budget: quantize(mainFirstBudget(m, summaryH(summary ?? [], m, measure)))
@@ -703,27 +1062,18 @@ function itemRowsH(rows, sm, measure) {
 
 /** ContactSection — icon+text rows; the row is as tall as its taller child. */
 function contactH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {string[]} */ values,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const sp = t.spacing
   const ty = t.typography.sidebarContact
-  const p = data.personal ?? { name: '' }
-  // Mirrors ContactSection's `rows` array + `.filter(r => r.value)`.
-  const values = [
-    p.phone,
-    p.email,
-    p.linkedin,
-    p.facebook,
-    p.location,
-    ...(p.links ?? []).map((l) => l.label || l.href)
-  ].filter(Boolean)
   const iconH = sp.iconWidth + sp.iconMt
   const valueW = sm.innerW - sp.iconWidth - sp.iconMr
 
-  let h = sidebarTitleH('Contact', sm, measure)
+  let h = sidebarTitleH(label, sm, measure)
   for (const value of values) {
     h +=
       Math.max(iconH, rowH(measure, value, ty.size, valueW, sm.cw, { leading: ty.leading })) +
@@ -734,13 +1084,14 @@ function contactH(
 
 /** AchievementsSection — year + indented text, every item margin-bottomed (including the last). */
 function achievementsH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').AchievementEntry[]} */ items,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
-  let h = sidebarTitleH('Achievements', sm, measure)
-  for (const a of data.achievements ?? []) {
+  let h = sidebarTitleH(label, sm, measure)
+  for (const a of items) {
     h +=
       itemRowsH(
         [
@@ -768,14 +1119,15 @@ function achievementsH(
 }
 
 function educationH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').EducationEntry[]} */ items,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ty = t.typography
-  let h = sidebarTitleH('Education', sm, measure)
-  for (const e of data.education ?? []) {
+  let h = sidebarTitleH(label, sm, measure)
+  for (const e of items) {
     h +=
       itemRowsH(
         [
@@ -803,14 +1155,15 @@ function educationH(
 }
 
 function certificationsH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').CertificationEntry[]} */ items,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ty = t.typography
-  let h = sidebarTitleH('Certifications', sm, measure)
-  for (const c of data.certifications ?? []) {
+  let h = sidebarTitleH(label, sm, measure)
+  for (const c of items) {
     h +=
       itemRowsH(
         [
@@ -833,14 +1186,15 @@ function certificationsH(
 }
 
 function publicationsH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').PublicationEntry[]} */ items,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ty = t.typography
-  let h = sidebarTitleH('Publications', sm, measure)
-  for (const p of data.publications ?? []) {
+  let h = sidebarTitleH(label, sm, measure)
+  for (const p of items) {
     const meta = [p.venue, p.year].filter(Boolean).join('  ·  ')
     h +=
       itemRowsH(
@@ -868,14 +1222,15 @@ function publicationsH(
 }
 
 function languagesH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').LanguageEntry[]} */ items,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ty = t.typography
-  let h = sidebarTitleH('Languages', sm, measure)
-  for (const l of data.languages ?? []) {
+  let h = sidebarTitleH(label, sm, measure)
+  for (const l of items) {
     h +=
       itemRowsH(
         [
@@ -904,15 +1259,15 @@ function languagesH(
  * that text needs (never clipped).
  */
 function competenciesH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {string[]} */ tags,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ch = t.chrome
   const ty = t.typography.tag
-  const tags = data.competencies ?? []
-  const titleH = sidebarTitleH('Core Competencies', sm, measure)
+  const titleH = sidebarTitleH(label, sm, measure)
   if (tags.length === 0) return titleH
 
   const pad = ch.tagPx * 2
@@ -949,14 +1304,14 @@ function competenciesH(
 
 /** RefereesSection — real entries separated by a ruled gap, or the "available upon request" line. */
 function refereesH(
-  /** @type {import('./types.js').CVContent} */ data,
+  /** @type {import('./types.js').RefereeEntry[]} */ referees,
   /** @type {SidebarMetrics} */ sm,
-  /** @type {import('./types.js').Measurer | undefined} */ measure
+  /** @type {import('./types.js').Measurer | undefined} */ measure,
+  /** @type {string} */ label
 ) {
   const { t } = sm
   const ty = t.typography
-  const referees = data.referees ?? []
-  let h = sidebarTitleH('Referees', sm, measure)
+  let h = sidebarTitleH(label, sm, measure)
   if (referees.length === 0) {
     // The italic placeholder line RefereesSection renders instead.
     return (
@@ -1004,45 +1359,198 @@ const REFEREE_LABEL_W = 9 // RefereesSection.label.width
 const REFEREE_LABEL_SIZE = 7 // RefereesSection.label.fontSize
 
 /**
- * Measured height of one sidebar section, or `null` when the section renders
- * nothing at all (its component's own `if (!data.x?.length) return null`
- * guard) and must therefore be dropped from the flow rather than packed as a
- * zero-height block — a phantom block would still earn its divider and leave
- * a stray rule in the column.
+ * The contact rows, in render order, already filtered to the ones with a value
+ * — the SINGLE definition of that order, consumed by both sides.
  *
- * `contact` and `referees` have no presence guard: contact always renders its
- * title, and referees always renders either its entries or the "available
- * upon request" line.
+ * `ContactSection.jsx` imports this rather than rebuilding the array, because
+ * contact is the one section whose item list is not simply `data.<key>`: it is
+ * assembled from six different `personal` fields plus the links tail, and while
+ * it was assembled twice (here and in the component) a pure REORDER of the two
+ * copies was undetectable — membership was identical, so every content-level
+ * check passed while the packer measured `contact[0,k)` as one order and the
+ * renderer drew another. Found by adversarial review, fixed by deletion of the
+ * second copy rather than by a test alone.
+ *
+ * `field` is the row's identity; the icon and the href it maps to are
+ * presentation and stay in the component.
+ *
+ * @param {import('./types.js').CVContent} data
+ * @returns {{ field: 'phone'|'email'|'linkedin'|'facebook'|'location'|'link', value: string, href?: string }[]}
+ */
+export function contactRows(data) {
+  const p = data.personal ?? { name: '' }
+  /** @type {{ field: 'phone'|'email'|'linkedin'|'facebook'|'location'|'link', value?: string, href?: string }[]} */
+  const rows = [
+    { field: 'phone', value: p.phone, href: p.phoneHref },
+    { field: 'email', value: p.email, href: p.email ? `mailto:${p.email}` : undefined },
+    { field: 'linkedin', value: p.linkedin, href: p.linkedinHref },
+    { field: 'facebook', value: p.facebook, href: p.facebookHref },
+    { field: 'location', value: p.location },
+    ...(p.links ?? []).map((l) => ({
+      field: /** @type {const} */ ('link'),
+      value: l.label || l.href,
+      href: l.href
+    }))
+  ]
+  return /** @type {{ field: 'phone'|'email'|'linkedin'|'facebook'|'location'|'link', value: string, href?: string }[]} */ (
+    rows.filter((r) => r.value)
+  )
+}
+
+/** ContactSection's rows as the packer measures them: one wrapped value per row. */
+function contactItems(/** @type {import('./types.js').CVContent} */ data) {
+  return contactRows(data).map((r) => r.value)
+}
+
+/**
+ * Every sidebar section, as (a) the ordered ITEM LIST its component iterates
+ * and (b) the height of any contiguous slice of that list under a given title.
+ *
+ * C3b turns a section from an atom into a list: `packSidebar` may place items
+ * `[0, k)` on one page and `[k, n)` on the next, each slice repeating the
+ * title (the continuation with a "(cont.)" marker — see `sectionTitleLabel`).
+ * Splitting the measurement this way is exact rather than proportional because
+ * every one of these components renders a title followed by a uniform per-item
+ * sub-tree, so the height of a slice is the height of the same component fed
+ * the sliced array — which is literally what the renderer does.
+ *
+ * `always: true` marks the two sections with no presence guard: ContactSection
+ * always renders its title, and RefereesSection always renders either its
+ * entries or the "available upon request" line.
+ *
+ * @type {Record<string, {
+ *   label: string,
+ *   always?: true,
+ *   items: (data: import('./types.js').CVContent) => unknown[],
+ *   height: (items: never[], sm: SidebarMetrics, measure: import('./types.js').Measurer | undefined, label: string) => number,
+ * }>}
+ */
+const SIDEBAR_SECTIONS = {
+  contact: { label: 'Contact', always: true, items: contactItems, height: contactH },
+  achievements: {
+    label: 'Achievements',
+    items: (d) => d.achievements ?? [],
+    height: achievementsH
+  },
+  education: { label: 'Education', items: (d) => d.education ?? [], height: educationH },
+  certifications: {
+    label: 'Certifications',
+    items: (d) => d.certifications ?? [],
+    height: certificationsH
+  },
+  publications: {
+    label: 'Publications',
+    items: (d) => d.publications ?? [],
+    height: publicationsH
+  },
+  languages: { label: 'Languages', items: (d) => d.languages ?? [], height: languagesH },
+  competencies: {
+    label: 'Core Competencies',
+    items: (d) => d.competencies ?? [],
+    height: competenciesH
+  },
+  referees: { label: 'Referees', always: true, items: (d) => d.referees ?? [], height: refereesH }
+}
+
+/**
+ * The marker a split section's repeated title carries so a continuation reads
+ * as deliberate rather than as a duplicated heading.
+ *
+ * Exported so the render side can find it, but note it is not spelled again
+ * anywhere: `sections/sectionSlice.js` composes titles through
+ * `sectionTitleLabel()` below, and the render-diff harness derives the
+ * uppercased form from this constant. The only other consumer of the literal
+ * itself is `test/layout-harness/sidebarBudget.js`, which re-states it on
+ * purpose (it is the deliberately-independent oracle, see its docblock).
+ */
+export const CONTINUED_SUFFIX = '(cont.)'
+
+/**
+ * Is a slice starting at item `start` a continuation? The ONE definition —
+ * `SidebarSlice.continued` is set from it, and `sidebarSliceH` titles from it,
+ * so the height measured and the title rendered can never disagree about which
+ * string is on the page.
+ */
+const isContinuedSlice = (/** @type {number} */ start) => start > 0
+
+/** The title one slice renders: the plain label, or the label plus the continuation marker. */
+export function sectionTitleLabel(/** @type {string} */ label, /** @type {boolean} */ continued) {
+  return continued ? `${label} ${CONTINUED_SUFFIX}` : label
+}
+
+/**
+ * The ordered ITEM LIST one sidebar section renders — the engine's own view of
+ * it, which is what `SidebarSlice`'s `[start, end)` indexes into. `null` for a
+ * key the registry does not know.
+ *
+ * Exported so the plan/render mirror can be ASSERTED rather than assumed:
+ * seven components map `data.<key>` directly and can only diverge by edit,
+ * `contact` no longer has a second copy at all (see `contactRows`), and
+ * `layout.mirror.test.js` proves for every section that the item the renderer
+ * draws at index `i` is the item this list holds at index `i`.
+ *
+ * @param {string} key
+ * @param {import('./types.js').CVContent} data
+ * @returns {unknown[] | null}
+ */
+export function sidebarSectionItems(key, data) {
+  return SIDEBAR_SECTIONS[key]?.items(data) ?? null
+}
+
+/** How many items a sidebar section holds (0 for an unknown key, or a section with no items). */
+export function sidebarItemCount(
+  /** @type {string} */ key,
+  /** @type {import('./types.js').CVContent} */ data
+) {
+  return sidebarSectionItems(key, data)?.length ?? 0
+}
+
+/** Every sidebar slot key the packer knows how to measure and slice, in registry order. */
+export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
+
+/**
+ * Measured height of a contiguous slice of one sidebar section — items
+ * `[start, end)` under the section's title, with the "(cont.)" marker whenever
+ * `start > 0`. Returns `null` when the section renders nothing at all (its
+ * component's own `if (!data.x?.length) return null` guard) and must therefore
+ * be dropped from the flow rather than packed as a zero-height block — a
+ * phantom block would still earn its divider and leave a stray rule in the
+ * column.
  *
  * @param {string} key   sidebar slot key (registry.js)
+ * @param {import('./types.js').CVContent} data
+ * @param {SidebarMetrics} sm
+ * @param {import('./types.js').Measurer} [measure]
+ * @param {number} [start]
+ * @param {number} [end]
+ * @returns {number | null}
+ */
+export function sidebarSliceH(key, data, sm, measure = undefined, start = 0, end = undefined) {
+  const def = SIDEBAR_SECTIONS[key]
+  // An unknown key renders nothing (registry.js warns and returns null), so it
+  // contributes no height and no divider.
+  if (!def) return null
+  const all = def.items(data)
+  if (!def.always && all.length === 0) return null
+  const items = /** @type {never[]} */ (all.slice(start, end ?? all.length))
+  return quantize(
+    def.height(items, sm, measure, sectionTitleLabel(def.label, isContinuedSlice(start)))
+  )
+}
+
+/**
+ * Measured height of one WHOLE sidebar section (the `[0, n)` slice) — the
+ * pre-split view of the same measurement, kept as the name every caller that
+ * does not care about slicing uses.
+ *
+ * @param {string} key
  * @param {import('./types.js').CVContent} data
  * @param {SidebarMetrics} sm
  * @param {import('./types.js').Measurer} [measure]
  * @returns {number | null}
  */
 export function sidebarSectionH(key, data, sm, measure = undefined) {
-  switch (key) {
-    case 'contact':
-      return quantize(contactH(data, sm, measure))
-    case 'achievements':
-      return data.achievements?.length ? quantize(achievementsH(data, sm, measure)) : null
-    case 'education':
-      return data.education?.length ? quantize(educationH(data, sm, measure)) : null
-    case 'certifications':
-      return data.certifications?.length ? quantize(certificationsH(data, sm, measure)) : null
-    case 'publications':
-      return data.publications?.length ? quantize(publicationsH(data, sm, measure)) : null
-    case 'languages':
-      return data.languages?.length ? quantize(languagesH(data, sm, measure)) : null
-    case 'competencies':
-      return data.competencies?.length ? quantize(competenciesH(data, sm, measure)) : null
-    case 'referees':
-      return quantize(refereesH(data, sm, measure))
-    default:
-      // An unknown key renders nothing (registry.js warns and returns null),
-      // so it contributes no height and no divider.
-      return null
-  }
+  return sidebarSliceH(key, data, sm, measure)
 }
 
 /**
@@ -1146,11 +1654,74 @@ function identityKeysFor(
 }
 
 /**
- * Pack the sidebar flow across pages at WHOLE-SECTION granularity (a section
- * is atomic in this slice; item-level splitting of an over-tall section is
- * the next slice and is what Invariant 0 ultimately needs — until then an
- * over-tall section is placed alone and FLOWS onto extra physical pages,
- * never clipped).
+ * @typedef {import('./types.js').SidebarSlice & {
+ *   height: number,
+ *   gapBefore: number,
+ *   split: SplitFn<SidebarBlock>,
+ * }} SidebarBlock
+ */
+
+/**
+ * One sidebar section slice as a `packBlocks` flow block. `split` cuts it at an
+ * ITEM boundary, never inside one, and never with an empty side — so the title
+ * always keeps at least one item under it on both pages (no orphaned heading).
+ *
+ * Like the experience splitter, each candidate prefix is RE-MEASURED (the
+ * continuation title differs from the original, so the two halves do not sum to
+ * the whole) behind `largestFittingPrefix`'s binary search.
+ *
+ * `continued` is DERIVED from `start`, never passed: "an earlier page already
+ * showed part of this section" and "this slice does not begin at item 0" are
+ * the same fact, and the title string depends on it on both sides of the
+ * plan/render boundary (`sectionTitleLabel` here, `sliceTitle` in
+ * sections/sectionSlice.js). Two independent predicates for one string is how
+ * a measured title and a rendered title come to disagree.
+ *
+ * @param {{
+ *   key: string,
+ *   data: import('./types.js').CVContent,
+ *   sm: SidebarMetrics,
+ *   measure: import('./types.js').Measurer | undefined,
+ *   itemCount: number,
+ *   gapBefore: number,
+ * }} ctx
+ * @param {number} start
+ * @param {number} end
+ * @returns {SidebarBlock}
+ */
+function sidebarBlock(ctx, start, end) {
+  const sliceH = (/** @type {number} */ from, /** @type {number} */ to) =>
+    /** @type {number} */ (sidebarSliceH(ctx.key, ctx.data, ctx.sm, ctx.measure, from, to))
+  const height = sliceH(start, end)
+  return {
+    key: ctx.key,
+    start,
+    end,
+    continued: isContinuedSlice(start),
+    itemCount: ctx.itemCount,
+    height,
+    gapBefore: ctx.gapBefore,
+    split: (room, forceMinimum) => {
+      const k = largestFittingPrefix(
+        end - start,
+        (kk) => sliceH(start, start + kk),
+        room,
+        forceMinimum
+      )
+      if (k === 0) return null
+      const head = sidebarBlock(ctx, start, start + k)
+      const tail = sidebarBlock(ctx, start + k, end)
+      assertShrinks(`sidebar section "${ctx.key}"`, end - start, end - start - k, tail, height)
+      return { head, tail }
+    }
+  }
+}
+
+/**
+ * Pack the sidebar flow across pages, splitting a section that does not fit at
+ * an ITEM boundary (C3b — design doc §2.4/§6, required by Invariant 0 so a
+ * section taller than a page FLOWS inside pages the plan actually numbered
+ * instead of being carried onto sheets it never counted).
  *
  * The budget is the body box minus the page's injected identity block and the
  * column's own padding, minus the `spacing.safety` backstop (design doc G-a):
@@ -1163,18 +1734,27 @@ function identityKeysFor(
  * @param {import('./types.js').NormalizedLayout | undefined} layout
  * @param {import('./types.js').Theme} [theme]
  * @param {import('./types.js').Measurer} [measure]
- * @returns {{ pages: string[][], pageMetrics: { used: number, budget: number }[], totalPages: number }}
+ * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number }[], totalPages: number }}
+ *   `pages[i]` is page `i`'s ordered slices. A section that fits whole is a
+ *   single slice spanning `[0, itemCount)` with `continued: false`.
  */
 export function packSidebar(keys, data, layout, theme = undefined, measure = undefined) {
   const sm = deriveSidebarMetrics(theme)
-  const flow = keys
-    .map((key) => ({ key, height: sidebarSectionH(key, data, sm, measure) }))
-    .filter((b) => b.height !== null)
-    .map((b) => ({
-      key: b.key,
-      height: /** @type {number} */ (b.height),
-      gapBefore: sm.sectionDividerH
-    }))
+  /** @type {SidebarBlock[]} */
+  const flow = []
+  for (const key of keys) {
+    // The presence guard (a section whose component renders nothing must not
+    // earn a divider) lives in sidebarSliceH and is read off the whole section.
+    if (sidebarSectionH(key, data, sm, measure) === null) continue
+    const itemCount = sidebarItemCount(key, data)
+    flow.push(
+      sidebarBlock(
+        { key, data, sm, measure, itemCount, gapBefore: sm.sectionDividerH },
+        0,
+        itemCount
+      )
+    )
+  }
 
   const budgetFn = (/** @type {number} */ pageIndex) =>
     sm.bodyH -
@@ -1185,7 +1765,15 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
 
   const packed = packBlocks(flow, budgetFn)
   return {
-    pages: packed.map((p) => p.blocks.map((b) => b.key)),
+    pages: packed.map((p) =>
+      p.blocks.map(({ key, start, end, continued, itemCount }) => ({
+        key,
+        start,
+        end,
+        continued,
+        itemCount
+      }))
+    ),
     pageMetrics: packed.map(({ used, budget }) => ({ used, budget })),
     totalPages: packed.length
   }
@@ -1238,7 +1826,12 @@ export function planTwoColumn({
     sidebarPageCount: sidebar.totalPages,
     pages: Array.from({ length: totalPages }, (_, index) => {
       const mainBlocks = mainChunks[index] ?? []
-      const sidebarKeys = sidebar.pages[index] ?? []
+      const sidebarSlices = sidebar.pages[index] ?? []
+      // Kept alongside `sidebarSlices` (never replaced by it): it is the field
+      // C6's diagnostics are specified against, and it stays exactly "which
+      // sections are on this page, in order" — one entry per slice, so a
+      // section split across two pages appears once on each.
+      const sidebarKeys = sidebarSlices.map((s) => s.key)
       const mainFill = main.pageMetrics[index] ?? null
       const sidebarFill = sidebar.pageMetrics[index] ?? null
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>
@@ -1251,6 +1844,7 @@ export function planTwoColumn({
         identity: identityKeysFor(layout, index),
         mainBlocks,
         sidebarKeys,
+        sidebarSlices,
         mainFill,
         sidebarFill,
         /**

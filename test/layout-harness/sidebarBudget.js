@@ -92,6 +92,29 @@ const SIDEBAR_TITLE_H =
 export const SECTION_DIVIDER_H = CH.dividerHeight + SP.sectionGap
 
 /**
+ * The label each sidebar section's SectionTitle renders — restated here (like
+ * everything else in this file) rather than imported, and paired with the
+ * continuation marker C3b appends when a section is split across pages. The
+ * single-line assumption covers these too: `continuedTitleRows()` feeds them to
+ * a real measurer and a test asserts none of them wraps, which is what lets
+ * `expectedSliceH` charge one `SIDEBAR_TITLE_H` for a continued slice as well
+ * as for a first one.
+ */
+const SECTION_LABELS = {
+  contact: 'Contact',
+  achievements: 'Achievements',
+  education: 'Education',
+  certifications: 'Certifications',
+  publications: 'Publications',
+  languages: 'Languages',
+  competencies: 'Core Competencies',
+  referees: 'Referees'
+}
+
+/** layout.js's CONTINUED_SUFFIX, re-stated (this file never imports from layout.js — see the docblock). */
+const CONTINUED_SUFFIX = '(cont.)'
+
+/**
  * @internal
  * How much ONE more item adds to a section's height — the per-item increment,
  * item by item, derived from each component's own box model. This is what makes
@@ -131,6 +154,20 @@ const PER_ITEM_H = {
 }
 
 /**
+ * How much ONE more item adds to a section, straight from the token arithmetic
+ * above — the number the split-maximality check uses to say "one more item
+ * would not have fitted". `undefined` for a section this oracle cannot derive
+ * from tokens alone (competencies: its height depends on how the tag pills wrap,
+ * which needs glyph widths; referees: non-uniform, see `expectedRefereeH`).
+ *
+ * @param {string} key
+ * @returns {number | undefined}
+ */
+export function perItemH(key) {
+  return PER_ITEM_H[key]
+}
+
+/**
  * Full expected height of a section whose every row is one line, for the
  * sections whose per-item increment is uniform.
  *
@@ -138,16 +175,53 @@ const PER_ITEM_H = {
  * @param {number} itemCount
  */
 export function expectedSectionH(key, itemCount) {
-  // Sections whose root View carries a marginBottom of sectionGap; the two that
-  // do not (achievements, competencies) are excluded here by construction.
-  const WRAP_MB = {
-    education: true,
-    certifications: true,
-    publications: true,
-    languages: true,
-    contact: true
-  }
-  return SIDEBAR_TITLE_H + PER_ITEM_H[key] * itemCount + (WRAP_MB[key] ? SP.sectionGap : 0)
+  return SIDEBAR_TITLE_H + PER_ITEM_H[key] * itemCount + (SECTION_WRAP_MB[key] ? SP.sectionGap : 0)
+}
+
+/**
+ * Sections whose root View carries a marginBottom of sectionGap; the two that
+ * do not (achievements, competencies) are absent by construction.
+ * @type {Record<string, true>}
+ */
+const SECTION_WRAP_MB = {
+  education: true,
+  certifications: true,
+  publications: true,
+  languages: true,
+  contact: true
+}
+
+/**
+ * Expected height of ONE SLICE of a section — items `[start, end)` under the
+ * section's title (C3b). Identical arithmetic to `expectedSectionH` bar the
+ * item count, because that is exactly what the renderer does: a slice is the
+ * same component fed a sliced array. `continued` costs nothing extra only
+ * because the "(cont.)" title still measures one line, which
+ * `continuedTitleRows()` makes an asserted fact rather than an assumption.
+ *
+ * @param {keyof typeof PER_ITEM_H} key
+ * @param {number} itemsInSlice
+ */
+export function expectedSliceH(key, itemsInSlice) {
+  return expectedSectionH(key, itemsInSlice)
+}
+
+/**
+ * The title rows the "(cont.)" marker adds to this oracle's single-line
+ * assumption, for `multiLineRows()` to check against a real measurer. Content-
+ * independent: the labels are the components' own literals, and the marker is
+ * appended to every one of them because any section can be split.
+ */
+export function continuedTitleRows() {
+  return Object.values(SECTION_LABELS).flatMap((label) =>
+    [label, `${label} ${CONTINUED_SUFFIX}`].map((text) => ({
+      text: text.toUpperCase(),
+      size: TY.sidebarSection.size,
+      width: INNER_W,
+      weight: TY.sidebarSection.weight,
+      letterSpacing: TY.sidebarSection.spacing
+    }))
+  )
 }
 
 /**
@@ -176,6 +250,111 @@ const REFEREE_SEPARATOR_H = CH.dividerHeight + SP.sectionGap * 2
 export function expectedRefereesH(n, shape) {
   if (n === 0) return SIDEBAR_TITLE_H + TY.meta.size * LH
   return SIDEBAR_TITLE_H + n * expectedRefereeH(shape) + (n - 1) * REFEREE_SEPARATOR_H
+}
+
+/** Which optional rows one referee entry actually renders — the input `expectedRefereeH` varies by. */
+const refereeShape = (r) => ({
+  title: Boolean(r.title),
+  email: Boolean(r.email),
+  phone: Boolean(r.phone)
+})
+
+/** Referees SLICE total for a concrete (possibly heterogeneous) list of entries. */
+function expectedRefereesSliceH(entries) {
+  if (entries.length === 0) return SIDEBAR_TITLE_H + TY.meta.size * LH
+  return (
+    SIDEBAR_TITLE_H +
+    entries.reduce((a, r) => a + expectedRefereeH(refereeShape(r)), 0) +
+    (entries.length - 1) * REFEREE_SEPARATOR_H
+  )
+}
+
+/** What moving ONE more referee onto the previous page would have cost: its own height plus the ruled separator. */
+export function expectedRefereeIncrement(entry) {
+  return REFEREE_SEPARATOR_H + expectedRefereeH(refereeShape(entry))
+}
+
+/**
+ * Sections this oracle can derive from theme tokens alone. `contact` and
+ * `competencies` are deliberately absent: a contact row's height depends on
+ * whether its value wraps (the label-less-long-URL fixture makes that real) and
+ * a competencies block's on how its tag pills flow, both of which need glyph
+ * widths — i.e. the very measurement under test. Pages containing them are
+ * reported as un-derivable rather than approximated.
+ */
+const TOKEN_DERIVABLE = new Set([
+  'education',
+  'certifications',
+  'publications',
+  'languages',
+  'achievements',
+  'referees'
+])
+
+/**
+ * The SMALLEST piece of a section that can legally be placed: its title plus
+ * one item, because cutting to zero items would orphan the heading. This is the
+ * unit `frontLoadMaximal` asks about — "could the next page's first section
+ * have started here?" — and the floor that makes C3b's rule 1b necessary at
+ * all. Token-derived, so the answer does not come from the packer.
+ *
+ * `null` for a section this oracle cannot derive (see TOKEN_DERIVABLE).
+ *
+ * @param {string} key
+ * @param {object} content
+ */
+export function expectedMinUnitH(key, content) {
+  if (!TOKEN_DERIVABLE.has(key)) return null
+  if (key === 'referees') {
+    const first = (content.referees ?? [])[0]
+    return first ? SIDEBAR_TITLE_H + expectedRefereeH(refereeShape(first)) : null
+  }
+  return expectedSliceH(/** @type {keyof typeof PER_ITEM_H} */ (key), 1)
+}
+
+/** The content array one sidebar section iterates — mirrored, like everything else here. */
+const SECTION_ITEMS = {
+  education: (c) => c.education ?? [],
+  certifications: (c) => c.certifications ?? [],
+  publications: (c) => c.publications ?? [],
+  languages: (c) => c.languages ?? [],
+  achievements: (c) => c.achievements ?? [],
+  referees: (c) => c.referees ?? []
+}
+
+/**
+ * The height one planned SLICE should have, derived from tokens + the content
+ * bag, or `null` when the section is not token-derivable (see TOKEN_DERIVABLE).
+ *
+ * @param {{ key: string, start: number, end: number }} slice
+ * @param {object} content
+ */
+export function expectedSliceHFor(slice, content) {
+  if (!TOKEN_DERIVABLE.has(slice.key)) return null
+  const items = SECTION_ITEMS[slice.key](content).slice(slice.start, slice.end)
+  if (slice.key === 'referees') return expectedRefereesSliceH(items)
+  return expectedSliceH(/** @type {keyof typeof PER_ITEM_H} */ (slice.key), items.length)
+}
+
+/**
+ * How full one page's sidebar column should be — every slice's own height plus
+ * `buildSidebar`'s rule between consecutive ones — or `null` when any slice on
+ * the page is not token-derivable. This is the fully-independent counterpart of
+ * the packer's `sidebarFill.used`: where it returns a number, "the packer filled
+ * this page to exactly the height the theme says" is checkable without calling
+ * layout.js at all.
+ *
+ * @param {{ key: string, start: number, end: number }[]} slices
+ * @param {object} content
+ */
+export function expectedPageUsedH(slices, content) {
+  let total = 0
+  for (let i = 0; i < slices.length; i++) {
+    const h = expectedSliceHFor(slices[i], content)
+    if (h === null) return null
+    total += (i > 0 ? SECTION_DIVIDER_H : 0) + h
+  }
+  return total
 }
 
 /**
@@ -208,6 +387,23 @@ export function singleLineRowsFor(content) {
   for (const l of content.languages ?? [])
     rows.push({ text: l.language, size: TY.degree.size, width: INNER_W, weight: TY.degree.weight })
   return rows
+}
+
+/**
+ * Does this oracle's arithmetic apply to a given content bag at all?
+ *
+ * Everything here assumes one line per identity row and per item label. Most
+ * fixtures satisfy that; the ones C3b's review added deliberately do not — a
+ * page-tall certification name and a six-fold-repeated personal.title exist
+ * precisely to break the single-line world. Rather than weaken every expected
+ * number to accommodate them, the token-derived checks SKIP those fixtures and
+ * say so, and `multiLineRows` stays an exact assertion for the rest.
+ *
+ * @param {import('../../src/pdf/types.js').Measurer} measure
+ * @param {object} content
+ */
+export function oracleApplies(measure, content) {
+  return multiLineRows(measure, singleLineRowsFor(content)).length === 0
 }
 
 /**

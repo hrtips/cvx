@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
 import { useStyles } from '../ThemeContext.jsx'
+import { sliceItems, sliceTitle } from './sectionSlice.js'
 
 /** @param {import('../types.js').Theme} t */
 const makeStyles = (t) =>
@@ -21,14 +22,15 @@ const makeStyles = (t) =>
     }
   })
 
-/** @param {{ data: import('../types.js').CVContent }} props */
-export default function PublicationsSection({ data }) {
+/** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
+export default function PublicationsSection({ data, slice }) {
   const s = useStyles(makeStyles)
-  if (!data.publications?.length) return null
+  const items = sliceItems(data.publications, slice)
+  if (!items.length) return null
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">Publications</SectionTitle>
-      {data.publications.map((p) => {
+      <SectionTitle variant="sidebar">{sliceTitle('Publications', slice)}</SectionTitle>
+      {items.map((p) => {
         const meta = [p.venue, p.year].filter(Boolean).join('  ·  ')
         return (
           <View key={p.title} style={s.item}>

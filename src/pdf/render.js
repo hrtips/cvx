@@ -13,7 +13,7 @@ import { createElement } from 'react'
 import ATSDocument from './ATSDocument.jsx'
 import CVDocument from './CVDocument.jsx'
 import { registerFonts } from './fonts.js'
-import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD, planTwoColumn } from './layout.js'
+import { overflowWarnings, planTwoColumn } from './layout.js'
 import { loadContent } from './loadContent.js'
 import { normalizeLayout } from './loadLayout.js'
 import {
@@ -179,22 +179,14 @@ export async function renderCV({
         measure
       })
 
-  const overflow = estimatePage1Overflow(
-    content.experience ?? [],
-    content.summary ?? [],
-    config,
-    theme,
-    measure
-  )
-  if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
-    warn(
-      `page1ExperienceCount: ${config.page1ExperienceCount} likely does not fit on page 1 ` +
-        `(estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — ` +
-        `the overflow spills onto extra physical pages, so the designed layout ` +
-        `gains unplanned pages. Check the rendered page 1; ` +
-        `reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination.`
-    )
-  }
+  // Overflow warnings come off the PLAN this build is about to render, not off
+  // a separate estimate: one warning per page that genuinely reaches past its
+  // budget, whatever caused it (C3b). The old call site warned only for the
+  // config-forced lever, so the far larger silent cases — an over-tall summary,
+  // one page-tall bullet, one page-tall sidebar item — produced an extra,
+  // unnumbered physical sheet with no diagnostic at all. `overflowWarnings`
+  // emits at most one line per page, so the lever case is not warned twice.
+  for (const { message } of overflowWarnings(plan, config)) warn(message)
 
   const buffer = await renderToBuffer(
     /** @type {Parameters<typeof renderToBuffer>[0]} */ (

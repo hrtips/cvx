@@ -17,7 +17,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
-import { estimatePage1Overflow, PAGE1_OVERFLOW_WARN_THRESHOLD } from './layout.js'
+import { overflowWarnings, planTwoColumn } from './layout.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -217,7 +217,7 @@ function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
  * @param {boolean} [opts.strict]
  * @param {string} [opts.fontsDir]  absolute path to the Lato fonts directory
  *   (same one render.js is given). When provided, powers two checks with
- *   real font metrics instead of the char-width estimate: the page1-overflow
+ *   real font metrics instead of the char-width estimate: the page-overflow
  *   estimate (C2) and the unsupported-glyph scan (design doc G-a). Omit to
  *   skip both real-measurement checks entirely — NOT to fall back to a loose
  *   approximation of them, which would be noisier than useful now that
@@ -337,28 +337,33 @@ export function validateContent(
     }
   }
 
-  // Forced pagination that can't fit: the overflow spills onto extra physical
-  // pages, so surface the estimate here where agents look first. Uses real
-  // font metrics when
-  // `fontsDir` was given (see this function's docblock) — the same
-  // measurement `cvx build` packs against, so this warning and the actual
-  // render agree.
+  // Content that cannot fit the page it is planned onto: the surplus spills
+  // onto extra PHYSICAL sheets the page numbering never counts, so surface it
+  // here where agents look first. This runs the real two-flow packer — a plan,
+  // not a render, so it costs milliseconds and no glyphs — against real font
+  // metrics whenever `fontsDir` was given (see this function's docblock), which
+  // makes this warning and `cvx build`'s agree by construction.
+  //
+  // Before C3b this covered only `page1ExperienceCount`; every other way to
+  // overflow a page (an over-tall summary, one page-tall bullet, one page-tall
+  // sidebar item) was silent. `overflowWarnings` is the general predicate and
+  // emits at most one line per page.
   const config = /** @type {import('./types.js').CVConfig} */ (docs.config ?? {})
-  if (config.page1ExperienceCount != null && Array.isArray(docs.experience)) {
+  if (Array.isArray(docs.experience) && docs.personal) {
     const theme = THEMES[/** @type {string} */ (config.theme)] ?? THEMES.teal
-    const overflow = estimatePage1Overflow(
-      docs.experience,
-      Array.isArray(docs.summary) ? docs.summary : [],
+    const plan = planTwoColumn({
+      content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
       config,
       theme,
       measure
-    )
-    if (overflow > PAGE1_OVERFLOW_WARN_THRESHOLD) {
-      add('warning', 'config.yaml', 'page1-overflow', {
-        path: '/page1ExperienceCount',
-        message: `${config.page1ExperienceCount} experience entries likely do not fit on page 1 (estimate ≈${overflow - PAGE1_OVERFLOW_WARN_THRESHOLD}pt past the safety margin) — the overflow spills onto extra physical pages, so the designed layout gains unplanned pages`,
-        suggestion:
-          'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
+    })
+    for (const w of overflowWarnings(plan, config)) {
+      add('warning', w.forcedByConfig ? 'config.yaml' : 'summary.yaml', 'page-overflow', {
+        ...(w.forcedByConfig ? { path: '/page1ExperienceCount' } : {}),
+        message: w.message,
+        suggestion: w.forcedByConfig
+          ? 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
+          : `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
       })
     }
   }

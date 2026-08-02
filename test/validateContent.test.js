@@ -220,22 +220,23 @@ describe('page-1 overflow estimate', () => {
     // large, reliable overflow regardless of exact content tuning.
     const contentDir = scaffold((dir) => forceConfig(dir, 'page1ExperienceCount: 6'))
     const result = validateContent({ contentDir, fontsDir: FONTS_DIR })
-    const finding = result.warnings.find((f) => f.code === 'page1-overflow')
+    const finding = result.warnings.find((f) => f.code === 'page-overflow')
     expect(finding).toBeDefined()
     expect(finding.path).toBe('/page1ExperienceCount')
-    expect(finding.message).toMatch(/pt past the safety margin/)
+    expect(finding.message).toMatch(/page 1 is ~\d+pt over budget/)
+    expect(finding.message).toMatch(/page1ExperienceCount: 6/)
     expect(finding.suggestion).toMatch(/page1SplitBullets/)
   })
 
   it('stays silent when nothing forces a split — automatic pagination never overflows its own budget by construction', () => {
     const result = validateContent({ contentDir: scaffold(), fontsDir: FONTS_DIR })
-    expect(result.warnings.filter((f) => f.code === 'page1-overflow')).toEqual([])
+    expect(result.warnings.filter((f) => f.code === 'page-overflow')).toEqual([])
   })
 
   it('still runs the check without fontsDir, against the looser char-width fallback', () => {
     const contentDir = scaffold((dir) => forceConfig(dir, 'page1ExperienceCount: 6'))
     const result = validateContent({ contentDir })
-    expect(result.warnings.some((f) => f.code === 'page1-overflow')).toBe(true)
+    expect(result.warnings.some((f) => f.code === 'page-overflow')).toBe(true)
   })
 })
 

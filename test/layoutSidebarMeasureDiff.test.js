@@ -85,6 +85,18 @@ describe.skipIf(!hasPdftoppm())(
         sectionsFound,
         `${label}: no measurable section pair found — the diff would be vacuous`
       ).toBeGreaterThan(2)
+      // COVERAGE FLOOR, not just coverage reporting. `skipped` used to be
+      // logged and never asserted, so a regression that moved a title off its
+      // planned page would quietly shrink the sample and leave the suite green
+      // saying "0.00pt on everything we still managed to measure". The one
+      // skip reason that means "the plan and the render disagree about which
+      // page this is on" is `title-not-on-planned-page`, and it must never
+      // occur: it is precisely the physical-vs-logical divergence C3b closed.
+      const misplaced = skipped.filter((s) => s.reason === 'title-not-on-planned-page')
+      expect(
+        misplaced,
+        `${label}: planned section titles were not on their planned page — the render has drifted from the plan: ${JSON.stringify(misplaced)}`
+      ).toEqual([])
       const bad = rows.filter((r) => Math.abs(r.deltaPt) > TOLERANCE_PT)
       expect(
         bad,
@@ -139,14 +151,18 @@ describe.skipIf(!hasPdftoppm())(
 
     // Fixtures chosen to exercise every section builder at both "one" and "many"
     // item counts, plus the referees placeholder and a label-less long link.
-    // `identityObservable: false` on pw-09 is not a waiver — it records a known,
-    // still-open fact: pw-09's first experience entry (645.8pt) is taller than
-    // page 1's residual budget after a 422pt summary, so the packer places it
-    // anyway (Invariant 0: never drop) and it flows onto one extra physical
-    // sheet. That is the item-splitting slice's job, not the sidebar's.
+    //
+    // pw-09 was `identityObservable: false` through C3a and is `true` now, which
+    // is a recorded FIX rather than a loosened expectation: its first experience
+    // entry (645.8pt) is taller than page 1's residual budget after a 422pt
+    // summary, so C3a placed it whole (Invariant 0: never drop) and it flowed
+    // onto an extra, unnumbered physical sheet — which is what made "first
+    // physical sheet of a logical page" an undefined mapping. C3b cuts that
+    // entry at a bullet boundary instead, so physical and logical pages line up
+    // again and the identity block IS observable on every page.
     for (const { id, identityObservable } of [
       { id: 'risk-tall-sidebar-short-main', identityObservable: true },
-      { id: 'pw-09', identityObservable: false },
+      { id: 'pw-09', identityObservable: true },
       { id: 'pw-12', identityObservable: true },
       { id: 'edge-one-entry-sections', identityObservable: true },
       { id: 'edge-explicit-empty-referees', identityObservable: true },
@@ -208,11 +224,19 @@ describe.skipIf(!hasPdftoppm())(
 
     // The EIGHT-referee, 580.36pt block is the single measurement that drives
     // both of C3a's page-count regressions (pw-12, risk-tall-sidebar-short-main):
-    // atomic, taller than most of a page, and dominated by the per-entry ruled
-    // separator (dividerHeight + 2 x sectionGap). Nothing in the committed suite
+    // taller than most of a page and dominated by the per-entry ruled separator
+    // (dividerHeight + 2 x sectionGap). Nothing in the committed suite
     // differenced it before — referees is last in the built-in flow, so it was
     // always the undifferenceable page tail. Same reordering trick, many entries.
-    it("referees with EIGHT entries — the ~580pt block driving C3a's page-count regressions — matches the render exactly", () => {
+    //
+    // C3b bonus, and the strongest single piece of evidence for this slice: the
+    // ordering below also makes `contact` SPLIT (its 4 rows do not all fit under
+    // the 580pt referees block), so the same render differences a continued
+    // slice — `CONTACT (CONT.)` plus one row on page 2 — against
+    // `sidebarSliceH`'s prediction for it. If the "(cont.)" title were measured
+    // as a plain title, or the slice measured the wrong item range, that row's
+    // delta would be non-zero.
+    it('referees with EIGHT entries (~580pt, whole) AND a section SPLIT across pages both match the render exactly', () => {
       const spec = buildFixturePlan().fixtures.find((f) => f.id === 'edge-one-entry-sections')
       const content = {
         ...buildContent(spec),
@@ -227,31 +251,22 @@ describe.skipIf(!hasPdftoppm())(
       const dir = mkFixtureDir('sidebar-diff-referees-many')
       writeFixtureContent(dir, content)
 
-      // referees early, with a section after it so differencing has a following
-      // title; the rest pushed onto the third page kind so page 2 stays feasible.
+      // referees FIRST (so the whole 580pt block fits page 1 and is followed by
+      // another title, hence differenceable), then contact — which no longer
+      // fits whole in what is left, so the packer splits it.
       const rawLayout = {
         template: 'two-column',
         pages: {
           first: {
-            sidebar: ['identity-photo', 'contact'],
+            sidebar: ['identity-photo', 'referees', 'contact'],
             main: ['summary', { spacer: 27 }, 'experience']
           },
-          // `languages` (one item, ~60pt) is small enough to share page 2 with
-          // the ~580pt referees block, which is what gives referees a following
-          // title to be differenced against.
           continuation: {
-            sidebar: ['identity-compact', 'referees', 'languages'],
+            sidebar: ['identity-compact', 'languages', 'education', 'certifications'],
             main: ['experience:continued']
           },
           last: {
-            sidebar: [
-              'identity-compact',
-              'education',
-              'certifications',
-              'competencies',
-              'publications',
-              'achievements'
-            ],
+            sidebar: ['identity-compact', 'competencies', 'publications', 'achievements'],
             main: ['experience:continued']
           }
         }
@@ -268,8 +283,29 @@ describe.skipIf(!hasPdftoppm())(
       const row = rows.find((r) => r.key === 'referees')
       expect(row, `referees x8 not measurable: ${JSON.stringify(rows)}`).toBeTruthy()
       expect(row?.deltaPt).toBe(0)
-      // ...and it really is the big atomic block the regressions are about.
+      // ...and it really is the big block the regressions are about.
       expect(Number(row?.observed)).toBeGreaterThan(500)
+
+      // The split half. `contact` is cut: its head shares page 1 with referees
+      // (and is the undifferenceable page tail, as always), while its CONTINUED
+      // slice opens page 2 under a `CONTACT (CONT.)` title and IS differenced,
+      // against `languages` below it. That row is the one C3b assertion this
+      // whole harness exists to make: a continued slice, measured through the
+      // real render, at 0.00pt.
+      const contactRows = rows.filter((r) => r.key === 'contact')
+      expect(
+        contactRows.length,
+        `expected contact's continuation slice to be differenced, got ${JSON.stringify(rows)}`
+      ).toBe(1)
+      expect(contactRows[0].page).toBe(1)
+      expect(contactRows[0].deltaPt).toBe(0)
+      // ...and it really is a SLICE, not the whole section: this fixture's four
+      // contact rows measure 101.65pt whole (render-verified in
+      // layout.sidebar.test.js), so a continuation holding one of them is far
+      // shorter. A splitter that quietly re-measured the whole section here
+      // would land on 101.65 and fail.
+      expect(Number(contactRows[0].observed)).toBeLessThan(101.65)
+      expect(Number(contactRows[0].observed)).toBeGreaterThan(0)
       cleanupFixtureDirs()
     }, 30000)
   }

@@ -17,17 +17,16 @@
 // between the two IS one of this sprint's headline findings, not a pass/fail
 // check.
 //
-// WHAT THE SIDEBAR INVARIANTS HERE ACTUALLY PROVE (be precise — review caught
-// the test-side version of this overclaiming): the ids compared are expanded
-// from the section key on BOTH sides (sidebarItemIds() from the content's flow
-// order, sidebarPlanItemIds() from the plan's placed keys), so while the ids are
-// item-shaped, the FACT verified is section-level — every present section is
-// placed exactly once, in flow order, none dropped, none invented. That is a
-// real and valuable check (it is what catches the pre-C3 engine repeating whole
-// sections onto every continuation page: 100 of 329 items duplicated), but it is
-// not an item-level placement check. Item-level guarantees come from
-// contentOracle.js at render level. A true item-level plan check needs the
-// packer to emit item ranges, which is the item-splitting slice.
+// WHAT THE SIDEBAR INVARIANTS HERE PROVE, as of C3b: a genuine ITEM-level
+// fact. The expected side (sidebarItemIds()) walks the CONTENT arrays; the
+// actual side (sidebarPlanItemIds()) expands each planned slice's own
+// `[start, end)` range. Those are two different derivations, so a split that
+// drops, duplicates or reorders an item shows up on one side only. Pre-C3b both
+// sides expanded from the section key — recorded honestly at the time as
+// section-level (which is still what catches the pre-C3 engine repeating whole
+// sections onto every continuation page: 100 of 329 items duplicated). The
+// render-level guarantee (every item's text survives into the PDF) remains
+// contentOracle.js's job and is unchanged.
 //
 // MEASURER (C3): the plan is built with the REAL fontkit measurer, the same
 // one render.js injects. Pre-C3 this file called packExperiences() with no
@@ -53,7 +52,12 @@ import {
   placedExactlyOnce
 } from './invariants.js'
 import { ROOT } from './scaffold.js'
-import { sidebarItemIds, sidebarPlanItemIds } from './sidebarItems.js'
+import {
+  isSidebarHeadId,
+  sidebarItemIds,
+  sidebarLayoutPlan,
+  sidebarPlanItemIds
+} from './sidebarItems.js'
 
 let memoizedMeasurer
 /** The same measurer render.js builds (pinned Lato TTFs in src/fonts — lib/fonts is a copy of it). Memoized: opening the TTFs is pure but not free, and every fixture wants the same one. */
@@ -97,7 +101,11 @@ export function structuralFactsFor(content) {
     sidebar: {
       invariant0: invariant0(actualSidebar, expectedSidebar),
       placedExactlyOnce: placedExactlyOnce(actualSidebar),
-      orderPreserved: orderPreserved(actualSidebar, expectedSidebar)
+      orderPreserved: orderPreserved(actualSidebar, expectedSidebar),
+      // C3b: a section may now be cut at an item boundary, so "title alone at
+      // the foot of a column with its first item overleaf" is finally a state
+      // the packer could reach — and must never reach.
+      noOrphanHeading: noOrphanHeading(sidebarLayoutPlan(plan, content), 'sidebar', isSidebarHeadId)
     }
   }
 }
@@ -110,8 +118,13 @@ export const HARD_INVARIANT_KEYS = [
   'noOrphanHeading'
 ]
 
-/** Same, for the sidebar flow — no orphan-heading entry: a whole-section packer cannot separate a sidebar title from its items (that becomes possible, and asserted, only once sections split at item boundaries). */
-export const HARD_SIDEBAR_INVARIANT_KEYS = ['invariant0', 'placedExactlyOnce', 'orderPreserved']
+/** Same, for the sidebar flow. `noOrphanHeading` joined the list in C3b, when item-level splitting first made a separated title possible. */
+export const HARD_SIDEBAR_INVARIANT_KEYS = [
+  'invariant0',
+  'placedExactlyOnce',
+  'orderPreserved',
+  'noOrphanHeading'
+]
 
 /** @returns {string[]} human-readable descriptions of any hard invariant that is false, empty if all hold. */
 export function hardInvariantViolations(structural) {

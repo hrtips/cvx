@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
 import { useStyles } from '../ThemeContext.jsx'
+import { sliceItems, sliceTitle } from './sectionSlice.js'
 
 /** @param {import('../types.js').Theme} t */
 const makeStyles = (t) =>
@@ -21,14 +22,15 @@ const makeStyles = (t) =>
     }
   })
 
-/** @param {{ data: import('../types.js').CVContent }} props */
-export default function LanguagesSection({ data }) {
+/** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
+export default function LanguagesSection({ data, slice }) {
   const s = useStyles(makeStyles)
-  if (!data.languages?.length) return null
+  const items = sliceItems(data.languages, slice)
+  if (!items.length) return null
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">Languages</SectionTitle>
-      {data.languages.map((l) => (
+      <SectionTitle variant="sidebar">{sliceTitle('Languages', slice)}</SectionTitle>
+      {items.map((l) => (
         <View key={l.language} style={s.item}>
           <Text style={s.lang}>{l.language}</Text>
           {l.proficiency && <Text style={s.prof}>{l.proficiency}</Text>}

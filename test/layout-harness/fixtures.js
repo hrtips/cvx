@@ -205,6 +205,72 @@ function namedEdgeCaseFixtures() {
       textLength: 'typical',
       volume: 'fits-1-page'
     },
+    // ── The four shapes C3b's review found the corpus could not express ──────
+    //
+    // Every curated fixture above measured summaryH === 422.4pt and
+    // identityH === 67.95pt, so two of the packer's most consequential terms
+    // were effectively constants. The page-1 cliff sits at ~452pt of summary
+    // (below which the smallest legal piece of an experience entry, 177.75pt,
+    // still fits the residual) and turns NEGATIVE past ~630pt. The corpus
+    // stopped 29.6pt short of the first threshold, uniformly — which is why a
+    // scaffold with eleven summary bullets produced a 4-sheet PDF whose sheet 2
+    // held nothing but the string "1 of 3", silently, while the suite was green.
+    {
+      id: 'edge-summary-crosses-cliff',
+      description:
+        'summary long enough that page 1 has less residual room than the smallest legal piece of an experience entry (head + 1 bullet). Exercises packBlocks rule 1b: the page must end early, entry-free, rather than force-place and overflow onto an unnumbered sheet.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'typical',
+      volume: 'multi-page',
+      summaryBullets: 11
+    },
+    {
+      id: 'edge-summary-exceeds-page',
+      description:
+        "summary taller than the whole main column, so page 1's experience budget is NEGATIVE. Irreducible: the summary is fixed page-1 content, not a packed block, so no pagination fits it — the engine must report it in overflowPt and warn, not paper over it.",
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'typical',
+      volume: 'multi-page',
+      summaryBullets: 26
+    },
+    {
+      id: 'edge-tall-identity',
+      description:
+        "a long personal.title/company makes the injected identity block several hundred pt tall, shrinking every page's sidebar budget. The identity is never packed, so its height is pure subtraction — and the curated corpus held it at a constant 67.95pt.",
+      sections: {
+        certifications: 'many',
+        publications: 'many',
+        languages: 'many',
+        referees: 'many',
+        achievements: 'many'
+      },
+      textLength: 'typical',
+      volume: 'fits-1-page',
+      tallIdentity: true
+    },
+    {
+      id: 'edge-page-tall-item',
+      description:
+        "design doc G7's irreducible residual, on both flows at once: one experience bullet and one certification each taller than a whole page. Nothing can be split small enough, so packBlocks must force-place, record overflowPt, and the build must warn — the one remaining case where physical sheets legitimately exceed the plan.",
+      sections: { publications: 'one', languages: 'one', referees: 'one', achievements: 'one' },
+      textLength: 'typical',
+      volume: 'fits-1-page',
+      pageTallBullet: true,
+      oversizedSection: 'certifications',
+      oversizedItemPageTall: true
+    },
     {
       id: 'edge-forced-split-config',
       description:

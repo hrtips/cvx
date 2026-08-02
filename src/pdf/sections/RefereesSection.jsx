@@ -1,6 +1,7 @@
 import { Link, StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
 import { useStyles } from '../ThemeContext.jsx'
+import { sliceItems, sliceTitle } from './sectionSlice.js'
 
 /** @param {import('../types.js').Theme} t */
 const makeStyles = (t) =>
@@ -60,27 +61,23 @@ function Referee({ r, s }) {
   )
 }
 
-/** @param {{ data: import('../types.js').CVContent }} props */
-export default function RefereesSection({ data }) {
+/** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
+export default function RefereesSection({ data, slice }) {
   const s = useStyles(makeStyles)
-  const { referees } = data
+  const referees = sliceItems(data.referees, slice)
   return (
     <View>
-      <SectionTitle variant="sidebar">Referees</SectionTitle>
-      {
-        /** @type {import('../types.js').RefereeEntry[]} */ (referees)?.length > 0 ? (
-          /** @type {import('../types.js').RefereeEntry[]} */ (referees).map((r, i) => (
-            <View key={r.name}>
-              <Referee r={r} s={s} />
-              {i < /** @type {import('../types.js').RefereeEntry[]} */ (referees).length - 1 && (
-                <View style={s.divider} />
-              )}
-            </View>
-          ))
-        ) : (
-          <Text style={s.empty}>References available upon request.</Text>
-        )
-      }
+      <SectionTitle variant="sidebar">{sliceTitle('Referees', slice)}</SectionTitle>
+      {referees.length > 0 ? (
+        referees.map((r, i) => (
+          <View key={r.name}>
+            <Referee r={r} s={s} />
+            {i < referees.length - 1 && <View style={s.divider} />}
+          </View>
+        ))
+      ) : (
+        <Text style={s.empty}>References available upon request.</Text>
+      )}
     </View>
   )
 }

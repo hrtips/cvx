@@ -275,6 +275,27 @@ export interface ColumnFill {
 }
 
 /**
+ * A contiguous run of one sidebar section's items, as placed on one page
+ * (layout.js packSidebar, C3b). A section that fits whole is a single slice
+ * spanning `[0, itemCount)`; a section too tall for the remaining room is cut
+ * at an item boundary into two or more slices on consecutive pages, every one
+ * of them repeating the section title (the later ones with the `(cont.)`
+ * marker — see layout.js `sectionTitleLabel`).
+ */
+export interface SidebarSlice {
+  /** Sidebar slot key (registry.js). */
+  key: string
+  /** First item index rendered on this page. */
+  start: number
+  /** One-past-the-last item index rendered on this page. */
+  end: number
+  /** True when an earlier page already showed part of this section. */
+  continued: boolean
+  /** Total items in the section, so `end - start` reads as a fraction of it. */
+  itemCount: number
+}
+
+/**
  * One page of a pagination plan. Deliberately symmetric across the two flows —
  * `mainBlocks`/`sidebarKeys` are what each flow packs (the main column packs
  * measured experience blocks, the sidebar packs whole section keys) and
@@ -287,7 +308,10 @@ export interface LayoutPlanPage {
   /** Identity slot keys injected at the top of this page's sidebar (never packed). */
   identity: string[]
   mainBlocks: ExperienceEntry[]
+  /** Which sections this page shows, in order — one entry per slice (see `sidebarSlices`). */
   sidebarKeys: string[]
+  /** The same sections with their item ranges: `sidebarKeys[i] === sidebarSlices[i].key`. */
+  sidebarSlices: SidebarSlice[]
   mainFill: ColumnFill | null
   sidebarFill: ColumnFill | null
   /** pt past budget on this page across both columns; 0 unless Invariant 0 forced an over-tall block. */
@@ -308,6 +332,8 @@ export interface LayoutPlan {
 /** Extra per-slot render props (registry.js renderSlot). */
 export interface SlotExtra {
   entries?: ExperienceEntry[]
+  /** Which items of a sidebar section this slot renders (C3b); absent = all of them. */
+  slice?: SidebarSlice
 }
 
 /** Options for validateContent(). */

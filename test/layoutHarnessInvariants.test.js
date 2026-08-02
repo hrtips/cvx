@@ -14,22 +14,29 @@
 //      stop (see layoutRenderOracle.test.js, where this runs across the
 //      whole curated fixture set, not just the scaffold). As of C3a the
 //      SIDEBAR is packed for real too (layout.js's packSidebar() +
-//      planTwoColumn()), so three of C0's four deferred sidebar assertions
-//      are now real assertions against a real per-page plan. The fourth
-//      (heading orphaned by an item-level split) stays `.todo`: with
-//      whole-section granularity a title and its items are one atomic block,
-//      so that state is unreachable — see its reason.
+//      planTwoColumn()); as of C3b it is packed at ITEM granularity, so all
+//      four of C0's deferred sidebar assertions — including the two that were
+//      unreachable while a section was one atomic block (item-level placement,
+//      and a heading orphaned by a split) — are now real assertions against a
+//      real per-page plan carrying real item ranges.
 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
+import { TWO_COLUMN_LAYOUT } from '../src/pdf/defaultLayouts.js'
 import {
+  deriveMetrics,
   deriveSidebarMetrics,
+  entryH,
   identityH,
+  overflowWarnings,
   packExperiences,
-  sidebarSectionH
+  sidebarFlowKeys,
+  sidebarItemCount,
+  sidebarSectionH,
+  sidebarSliceH
 } from '../src/pdf/layout.js'
 import { tealTheme } from '../src/pdf/themes/teal.js'
 import {
@@ -53,19 +60,45 @@ import {
   placedExactlyOnce
 } from './layout-harness/invariants.js'
 import {
+  continuedTitleRows,
   expectedIdentityH,
   expectedRefereesH,
   expectedSectionH,
   expectedSidebarBudget,
   multiLineRows,
+  oracleApplies,
   SECTION_DIVIDER_H,
   singleLineRowsFor
 } from './layout-harness/sidebarBudget.js'
+import {
+  isSidebarHeadId,
+  sidebarItemIds,
+  sidebarPlanItemIds
+} from './layout-harness/sidebarItems.js'
 import { presentSidebarKeys, realSidebarPlan } from './layout-harness/sidebarPlan.js'
 import { harnessMeasurer } from './layout-harness/structuralFacts.js'
 
 /** layout.js quantizes every height/budget to hundredths before comparing; the oracle's raw arithmetic must be put on the same footing. */
 const quantized = (/** @type {number} */ n) => Math.round(n * 100) / 100
+
+/**
+ * Fixtures whose content deliberately breaks sidebarBudget.js's single-line
+ * assumption, so its token arithmetic cannot describe them. Named, not
+ * detected-and-forgotten: they are the shapes C3b added to reach the page-1
+ * cliff and G7's residual, and every check that skips them says how many it
+ * skipped. Their heights are still verified — by render, in
+ * layoutSidebarMeasureDiff.test.js, and by the render oracle's page counts.
+ */
+const NOT_TOKEN_DERIVABLE_FIXTURES = new Set(['edge-tall-identity', 'edge-page-tall-item'])
+
+/** Every curated fixture, paired with its content bag and whether the token oracle applies. */
+function fixtureContents() {
+  const measure = harnessMeasurer()
+  return buildFixturePlan().fixtures.map((spec) => {
+    const content = buildContent(spec)
+    return { spec, content, tokenDerivable: oracleApplies(measure, content) }
+  })
+}
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
@@ -292,9 +325,10 @@ describe('main-column plan (packExperiences really packs this — testable today
 // packSidebar() measures every section and planTwoColumn() distributes the
 // flow across P = max(P_main, P_sidebar) pages, so these assertions run
 // against a real per-page plan (see test/layout-harness/sidebarPlan.js).
-// Granularity: a section is ATOMIC in this slice — item-level splitting of an
-// over-tall section is the next slice, and exactly one assertion below still
-// waits on it (see its `.todo` reason).
+// Granularity as of C3b: a section is a LIST, not an atom — packSidebar may cut
+// it at an item boundary and emit `{ key, start, end, continued, itemCount }`
+// per page, so item-level placement and split-induced heading orphans are both
+// assertable here (they were the two `it.todo`s C0 left for this slice).
 
 describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)', () => {
   /** The shipped scaffold, as a content bag (minus the photo — see below). */
@@ -315,24 +349,41 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     }
   }
 
-  it('every present section key is placed on exactly one page, on the shipped scaffold', () => {
+  /**
+   * The sequence of section keys a plan places, collapsing a split section's
+   * consecutive slices into ONE occurrence. C3b makes a repeated key legal —
+   * but only as an immediately-following continuation, never as a section
+   * revisited later (which is exactly the pre-C3 duplication bug).
+   */
+  function sectionRuns(plan) {
+    const runs = []
+    for (const page of plan.pages) {
+      for (const slice of page.sidebarSlices) {
+        if (runs[runs.length - 1] !== slice.key) runs.push(slice.key)
+      }
+    }
+    return runs
+  }
+
+  it('every present section key is placed on exactly one contiguous run of pages, on the shipped scaffold', () => {
     const content = scaffoldContent()
     const { plan } = realSidebarPlan(content)
-    const placed = plan.pages.flatMap((p) => p.sidebarKeys)
+    const runs = sectionRuns(plan)
 
-    expect(invariant0(placed, presentSidebarKeys(content)).ok).toBe(true)
-    expect(placedExactlyOnce(placed).ok).toBe(true)
+    expect(invariant0(runs, presentSidebarKeys(content)).ok).toBe(true)
+    // Collapsing consecutive slices leaves each key exactly once: a section
+    // that reappeared on a LATER page (the pre-C3 "repeat the whole section on
+    // every continuation page" bug) survives the collapse and fails here.
+    expect(placedExactlyOnce(runs).ok).toBe(true)
   })
 
-  // NAMED FOR WHAT IT CHECKS. Review's finding: the previous version of this
-  // test expanded item ids from the section key on BOTH sides
-  // (sectionBlockIds() in the expected AND the actual), so no item-level fact
-  // was verified — it was a section-level check wearing an item-level name.
-  // What IS real here, and what caught the pre-C3 engine rendering 100 of 329
-  // sidebar items more than once, is section-level: every present section
-  // appears on exactly one page, in flow order, none dropped, none invented.
-  // The genuine item-level check (every item's text survives the render) lives
-  // in contentOracle.js; the item-level *plan* check is `.todo` below.
+  // What this checks, precisely: every present section appears, in flow order,
+  // none dropped and none invented, and no section is visited twice. C3b allows
+  // a section to span consecutive pages as slices (that is the whole point), so
+  // `sectionRuns` collapses THOSE and only those. The item-level counterpart —
+  // every ITEM placed exactly once, which needs the plan's item ranges — is
+  // asserted further down, and the render-level one (every item's text survives
+  // into the PDF) lives in contentOracle.js.
   it('every present sidebar SECTION is placed exactly once, in flow order, none dropped or invented (section-level Invariant 0)', () => {
     for (const content of [
       scaffoldContent(),
@@ -345,7 +396,7 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
       buildContent(buildFixturePlan().fixtures.find((f) => f.id === 'edge-minimal'))
     ]) {
       const { plan } = realSidebarPlan(content)
-      const actual = plan.pages.flatMap((p) => p.sidebarKeys)
+      const actual = sectionRuns(plan)
       const expected = presentSidebarKeys(content)
 
       expect(invariant0(actual, expected)).toEqual({ ok: true, missing: [], unexpected: [] })
@@ -484,15 +535,18 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     expect(expectedRefereesH(8, shape)).toBeGreaterThan(500)
   })
 
-  it('the single-line assumption every expected number above rests on actually holds for the fixture corpus — and the guard is not vacuous (the shipped scaffold DOES wrap, which is why its numbers are render-verified instead)', () => {
+  it('the single-line assumption every expected number above rests on holds for the corpus, except the named fixtures that deliberately break it', () => {
     const measure = harnessMeasurer()
     const offenders = []
     for (const spec of buildFixturePlan().fixtures) {
       const content = buildContent(spec)
       const bad = multiLineRows(measure, singleLineRowsFor(content))
-      if (bad.length > 0) offenders.push({ id: spec.id, bad })
+      if (bad.length > 0) offenders.push(spec.id)
     }
-    expect(offenders).toEqual([])
+    // Exactly the fixtures C3b added to reach the cliff and G7's residual —
+    // named, so a NEW fixture that quietly invalidates the token arithmetic
+    // fails here instead of silently shrinking what the oracle covers.
+    expect(new Set(offenders)).toEqual(NOT_TOKEN_DERIVABLE_FIXTURES)
 
     // The guard has teeth: real content wraps. The scaffold's long publication
     // title and degree names are exactly why sidebarBudget.js's arithmetic is
@@ -513,8 +567,15 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
   // number, so they mean something too.
   it("packSidebar's page budgets match an independently derived bodyHeight - identity - padding - safety", () => {
     const rows = []
-    for (const spec of buildFixturePlan().fixtures) {
-      const content = buildContent(spec)
+    let skipped = 0
+    for (const { spec, content, tokenDerivable } of fixtureContents()) {
+      // A fixture with a multi-line personal.title/company has an identity
+      // block this oracle's single-line NAME_BLOCK_H cannot describe; its
+      // budget is verified by render instead (0.00pt, layoutSidebarMeasureDiff).
+      if (!tokenDerivable) {
+        skipped++
+        continue
+      }
       const { pageFills } = realSidebarPlan(content)
       pageFills.forEach((p, i) => {
         if (p.packerBudget === null) return // a residual page the sidebar never reached
@@ -528,6 +589,7 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     }
     expect(rows.length).toBeGreaterThan(30)
     expect(rows.filter((r) => r.packer !== r.independent)).toEqual([])
+    expect(skipped).toBe(NOT_TOKEN_DERIVABLE_FIXTURES.size)
   })
 
   it('the same holds with a profile photo on page 1, which is the term that makes page 1 much tighter', () => {
@@ -543,13 +605,19 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
 
   it("the sidebar column front-loads across pages: every page is maximal against the INDEPENDENT budget — the next page's first section provably did not fit, and no multi-section page exceeds it", () => {
     const failures = []
-    for (const spec of buildFixturePlan().fixtures) {
-      const content = buildContent(spec)
+    let checked = 0
+    for (const { spec, content, tokenDerivable } of fixtureContents()) {
+      // The maximality question is asked with `minUnit`, which is token-derived
+      // — so a fixture the token oracle cannot describe is skipped LOUDLY here
+      // rather than checked against numbers that do not apply to it.
+      if (!tokenDerivable) continue
+      checked++
       const { pageFills } = realSidebarPlan(content)
       const result = frontLoadMaximal(pageFills)
       if (!result.ok) failures.push({ id: spec.id, violations: result.violations })
     }
     expect(failures).toEqual([])
+    expect(checked).toBe(buildFixturePlan().fixtures.length - NOT_TOKEN_DERIVABLE_FIXTURES.size)
   })
 
   it("G1: each flow runs out only at the tail (no interior page has an empty column), and the residual is exactly the two flows' page-count difference", () => {
@@ -558,14 +626,35 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     const wrongResidual = []
     const beyondResidual = []
 
+    let endedEarly = 0
     for (const spec of buildFixturePlan().fixtures) {
       const content = buildContent(spec)
       const { plan, layoutPlan } = realSidebarPlan(content)
 
+      // C3b rule 1b: a page the packer produced but deliberately left empty,
+      // because nothing of the next block fitted it. Structurally identifiable
+      // — the flow is empty yet the packer recorded a fill for that page, which
+      // it only does for pages it actually produced. (A page the flow never
+      // reached at all has a null fill: that is the G1 residual, case (c).)
+      const endedEarlyIn = (/** @type {'main'|'sidebar'} */ flow) =>
+        new Set(
+          plan.pages
+            .filter(
+              (p) =>
+                (flow === 'main' ? p.mainBlocks.length : p.sidebarSlices.length) === 0 &&
+                (flow === 'main' ? p.mainFill : p.sidebarFill) !== null
+            )
+            .map((p) => p.index)
+        )
+
       // (a) An interior blank column would mean the coordinator mis-zipped the
       // two independently-packed flows. This is the falsifiable half of G1.
-      for (const flow of ['main', 'sidebar']) {
-        const r = contentFormsPrefix(layoutPlan, flow)
+      // Rule-1b pages are exempted HERE and justified separately (the
+      // "entry-free ONLY when..." test below proves each was necessary).
+      for (const flow of /** @type {const} */ (['main', 'sidebar'])) {
+        const allowedEmptyPages = endedEarlyIn(flow)
+        endedEarly += allowedEmptyPages.size
+        const r = contentFormsPrefix(layoutPlan, flow, { allowedEmptyPages })
         if (!r.ok) holes.push({ id: spec.id, flow, holes: r.holes })
       }
 
@@ -581,17 +670,24 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
       const empties = layoutPlan.pages.filter(
         (p) => ((p.main ?? []).length === 0) !== ((p.sidebar ?? []).length === 0)
       ).length
-      const wantEmpties = Math.abs(plan.mainPageCount - plan.sidebarPageCount)
+      // ...plus the pages rule 1b deliberately ended early, which are a second,
+      // separately-justified source of a blank column.
+      const earlyMain = endedEarlyIn('main')
+      const earlySidebar = endedEarlyIn('sidebar')
+      const wantEmpties =
+        Math.abs(plan.mainPageCount - plan.sidebarPageCount) + earlyMain.size + earlySidebar.size
       if (empties !== wantEmpties) {
         wrongResidual.push({ id: spec.id, got: empties, want: wantEmpties })
       }
 
-      // (d) and no empty column before the shorter flow ended
-      const residual = new Set(
-        layoutPlan.pages
+      // (d) and no empty column before the shorter flow ended, other than those
+      const residual = new Set([
+        ...layoutPlan.pages
           .filter((p) => p.index >= Math.min(plan.mainPageCount, plan.sidebarPageCount))
-          .map((p) => p.index)
-      )
+          .map((p) => p.index),
+        ...earlyMain,
+        ...earlySidebar
+      ])
       const v = noEmptyColumn(layoutPlan, { allowedResidualPages: residual }).violations
       if (v.length > 0) beyondResidual.push({ id: spec.id, violations: v })
     }
@@ -600,35 +696,326 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     expect(wrongTotal).toEqual([])
     expect(wrongResidual).toEqual([])
     expect(beyondResidual).toEqual([])
+    // The exemption is exercised, so it is not silently covering nothing.
+    expect(endedEarly).toBeGreaterThan(0)
   })
 
-  // The one assertion still blocked, and honestly so: with whole-section
-  // granularity a section title and its items are ONE atomic block, so "the
-  // heading got separated from its items by a split" is not a state the packer
-  // can reach — there is nothing to assert yet. It becomes reachable (and this
-  // must be implemented) in the item-splitting slice, where a section may be
-  // cut between items and its title repeated with a "cont." marker.
+  // ── The two assertions C0 deferred to C3b, now implemented ────────────────
   //
-  // `.todo` (not `.skip`) and NOT empty-bodied: the body calls expect.fail() so
-  // that deleting `.todo` without writing the real assertion fails loudly
-  // instead of passing vacuously (vitest never executes a `.todo` body).
-  // Also back to `.todo` after review, honestly: an item-level PLACEMENT check
-  // needs the plan to carry item ranges. While a section is atomic, the only
-  // way to say "which page is item k on" is to expand it from the section key —
-  // which is what the expected side does too, so the check would compare a
-  // derivation against itself. The item-level guarantee is currently carried by
-  // contentOracle.js (every item's text found in the rendered PDF, 0 violations
-  // across 58 variant checks) and, for measurement, by the per-item-increment
-  // test above.
-  it.todo('every sidebar ITEM is placed exactly once across pages — pending the item-splitting slice (C3b: the plan carries section keys, not item ranges, so both sides of the comparison would expand from the same key; render-level item completeness is covered by contentOracle.js meanwhile)', () => {
-    expect.fail(
-      'implement once packSidebar emits item ranges (startItem/endItem) — do not un-todo without one'
+  // Both were `.todo` because a whole-section packer could not reach the states
+  // they describe: a section was one atomic block, so no item could be placed
+  // on a different page from its siblings and no title could be separated from
+  // its items. `packSidebar` now emits per-page item RANGES, so both are real.
+
+  it('every sidebar ITEM is placed exactly once, in flow order, across every fixture (item-level Invariant 0)', () => {
+    // The two sides are derived DIFFERENTLY, which is what makes this
+    // falsifiable: `sidebarItemIds` walks the content arrays, while
+    // `sidebarPlanItemIds` expands each planned slice's own [start, end). A
+    // split that drops its last item, repeats one across the boundary, or
+    // emits its slices out of order changes the plan side only.
+    const failures = []
+    for (const spec of buildFixturePlan().fixtures) {
+      const content = buildContent(spec)
+      const { plan } = realSidebarPlan(content)
+      const actual = sidebarPlanItemIds(plan, content)
+      const expected = sidebarItemIds(content)
+      const checks = {
+        invariant0: invariant0(actual, expected),
+        placedExactlyOnce: placedExactlyOnce(actual),
+        orderPreserved: orderPreserved(actual, expected)
+      }
+      for (const [name, r] of Object.entries(checks)) {
+        if (!r.ok) failures.push({ id: spec.id, check: name, detail: r })
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('the item-level check really is item-level: it reaches sections that were genuinely SPLIT across pages, and their ranges tile the section exactly', () => {
+    // Guard against the whole assertion above going quiet if splitting ever
+    // stops happening (or stops being exercised by the corpus): name the
+    // fixtures that split, and check the tiling property directly.
+    const splitSections = []
+    for (const spec of buildFixturePlan().fixtures) {
+      const content = buildContent(spec)
+      const { plan } = realSidebarPlan(content)
+      const byKey = new Map()
+      for (const page of plan.pages) {
+        for (const s of page.sidebarSlices) {
+          if (!byKey.has(s.key)) byKey.set(s.key, [])
+          byKey.get(s.key).push(s)
+        }
+      }
+      for (const [key, slices] of byKey) {
+        if (slices.length === 1) continue
+        splitSections.push(`${spec.id}:${key}x${slices.length}`)
+        // tiles [0, itemCount): starts at 0, ends at itemCount, each slice
+        // begins exactly where the previous ended, only the first is a head.
+        expect(slices[0].start).toBe(0)
+        expect(slices[slices.length - 1].end).toBe(slices[0].itemCount)
+        expect(slices.map((s) => s.start).slice(1)).toEqual(slices.map((s) => s.end).slice(0, -1))
+        expect(slices.map((s) => s.continued)).toEqual(slices.map((_, i) => i > 0))
+        for (const s of slices) expect(s.end - s.start).toBeGreaterThan(0)
+      }
+    }
+    expect(splitSections.length).toBeGreaterThan(0)
+  })
+
+  it('no sidebar section heading is orphaned by an item-level split — every title has at least one of its own items under it, on the same page', () => {
+    const orphans = []
+    for (const spec of buildFixturePlan().fixtures) {
+      const content = buildContent(spec)
+      const { layoutPlan } = realSidebarPlan(content)
+      const r = noOrphanHeading(layoutPlan, 'sidebar', isSidebarHeadId)
+      if (!r.ok) orphans.push({ id: spec.id, orphans: r.orphans })
+    }
+    expect(orphans).toEqual([])
+
+    // ...and the check is not vacuous: fed a plan where a split put the title
+    // on one page and its first item on the next, it fires.
+    const orphanedBySplit = {
+      pages: [
+        { index: 0, sidebar: ['sb:certifications::head@0'] },
+        { index: 1, sidebar: ['sb:certifications::head@0', 'sb:certifications::item:0:C0'] }
+      ]
+    }
+    expect(noOrphanHeading(orphanedBySplit, 'sidebar', isSidebarHeadId).ok).toBe(false)
+  })
+
+  // ── The split's own budget arithmetic, against the INDEPENDENT oracle ─────
+
+  it('a SPLIT page is filled to exactly the height the theme tokens say, and one more item would have overflowed it (split maximality)', () => {
+    const rows = []
+    const failures = []
+    const skipped = []
+    for (const { spec, content, tokenDerivable } of fixtureContents()) {
+      if (!tokenDerivable) continue
+      const { pageFills } = realSidebarPlan(content)
+      pageFills.forEach((page, i) => {
+        const next = pageFills[i + 1]
+        if (!next?.continuesPrevious) return
+        if (next.itemIncrement == null) {
+          // competencies: its per-item height needs glyph widths, so this
+          // oracle cannot derive it. Skipped LOUDLY, never waved through.
+          skipped.push({ id: spec.id, page: i })
+          return
+        }
+        // `budget` and `itemIncrement` are both sidebarBudget.js arithmetic over
+        // the theme's raw tokens — no call into layout.js — so a wrong budget or
+        // a mis-measured continued slice fails here.
+        const used = page.oracleUsed === null ? page.used : quantized(page.oracleUsed)
+        rows.push({ id: spec.id, page: i, oracleDerived: page.oracleUsed !== null })
+        if (used > quantized(page.budget)) {
+          failures.push({ id: spec.id, page: i, kind: 'over-budget', used, budget: page.budget })
+        }
+        if (used + next.itemIncrement <= quantized(page.budget)) {
+          failures.push({
+            id: spec.id,
+            page: i,
+            kind: 'under-split',
+            used,
+            increment: next.itemIncrement,
+            budget: page.budget
+          })
+        }
+      })
+    }
+    expect(failures).toEqual([])
+    // The corpus really does exercise splits, and enough of them are fully
+    // token-derivable that this is not resting on the packer's own `used`.
+    expect(rows.length).toBeGreaterThan(3)
+    expect(rows.filter((r) => r.oracleDerived).length).toBeGreaterThan(0)
+    console.log(
+      `split-maximality: ${rows.length} split boundaries checked ` +
+        `(${rows.filter((r) => r.oracleDerived).length} with a fully token-derived page height), ` +
+        `${skipped.length} skipped as not token-derivable`
     )
   })
 
-  it.todo('no sidebar section heading is orphaned by an item-level split — pending the item-splitting slice (C3b: sections are atomic today, so a title can never be separated from its items; the failure mode does not exist to be exercised)', () => {
-    expect.fail(
-      'implement the real orphan-heading assertion when sections split at item boundaries — do not un-todo without one'
-    )
+  it("the packer's own page fill equals the independently derived one wherever the oracle can derive it — including on split pages", () => {
+    const mismatches = []
+    let checked = 0
+    let splitPagesChecked = 0
+    for (const { spec, content, tokenDerivable } of fixtureContents()) {
+      if (!tokenDerivable) continue
+      const { pageFills } = realSidebarPlan(content)
+      pageFills.forEach((page, i) => {
+        if (page.oracleUsed === null) return
+        checked++
+        if (page.continuesPrevious || pageFills[i + 1]?.continuesPrevious) splitPagesChecked++
+        if (page.used !== quantized(page.oracleUsed)) {
+          mismatches.push({ id: spec.id, page: i, packer: page.used, oracle: page.oracleUsed })
+        }
+      })
+    }
+    expect(mismatches).toEqual([])
+    expect(checked).toBeGreaterThan(5)
+    expect(splitPagesChecked).toBeGreaterThan(0)
+  })
+
+  it('the "(cont.)" title a split renders measures as one line, which is what lets the oracle charge one title height per slice', () => {
+    const measure = harnessMeasurer()
+    expect(multiLineRows(measure, continuedTitleRows())).toEqual([])
+  })
+
+  // ── Slice heights are MONOTONIC in item count ─────────────────────────────
+  //
+  // `largestFittingPrefix`'s binary search is exact only because
+  // `sidebarSliceH(key, …, start, start + k)` is non-decreasing in `k`. That
+  // obligation was documented in the CONSUMER (the search) and asserted
+  // nowhere, which is backwards: it is a property of `SIDEBAR_SECTIONS`'
+  // per-section height formulas, and C4's `glueAbove.shrink` is exactly the
+  // kind of change that would quietly break it and turn every split
+  // suboptimal-but-green. Swept here over the whole corpus, both measurers.
+  it("every section's slice height is non-decreasing in item count, for every start offset (what makes the split search exact)", () => {
+    const sm = deriveSidebarMetrics(tealTheme)
+    const violations = []
+    let comparisons = 0
+    for (const measure of [harnessMeasurer(), undefined]) {
+      for (const spec of buildFixturePlan().fixtures) {
+        const content = buildContent(spec)
+        for (const key of sidebarFlowKeys(TWO_COLUMN_LAYOUT)) {
+          const n = sidebarItemCount(key, content)
+          if (n < 2) continue
+          for (let start = 0; start < n; start++) {
+            let prev = Number.NEGATIVE_INFINITY
+            for (let end = start + 1; end <= n; end++) {
+              const h = Number(sidebarSliceH(key, content, sm, measure, start, end))
+              comparisons++
+              if (h < prev) violations.push({ id: spec.id, key, start, end, h, prev })
+              prev = h
+            }
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([])
+    expect(comparisons).toBeGreaterThan(2000)
+  })
+
+  // ── Overflow is now a closed, named set ───────────────────────────────────
+  //
+  // Before C3b's rule 1b, seven pages across the corpus reached past their
+  // budget and each produced a physical sheet the plan never numbered — the
+  // headline F3 defect. Rule 1b removes every REDUCIBLE one, so a non-zero
+  // `overflowPt` should now be reachable only through content nothing can
+  // paginate. This pins that set by name: a new entry means a regression or a
+  // new deliberate case, and either way it has to be argued, not absorbed.
+  const OVERFLOW_ALLOWED = {
+    'edge-forced-split-config':
+      "the user's own page1ExperienceCount/page1SplitBullets force more onto page 1 than fits; honouring a documented arrangement lever beats silently overriding it, and render.js warns",
+    'edge-summary-exceeds-page':
+      'the summary alone is taller than the main column. It is fixed page-1 content, not a packed block, so no pagination can help (see the packed-vs-fixed note in layout.js)',
+    'edge-page-tall-item':
+      "design doc G7's irreducible residual: one bullet and one certification each taller than a whole page"
+  }
+
+  it('no page reaches past its budget except the three named, argued cases — and each of those warns', () => {
+    const unexpected = []
+    const silent = []
+    const noLongerOverflowing = []
+    for (const spec of buildFixturePlan().fixtures) {
+      const content = buildContent(spec)
+      const { plan } = realSidebarPlan(content)
+      const over = plan.pages.filter((p) => p.overflowPt > 0)
+      const allowed = spec.id in OVERFLOW_ALLOWED
+      if (over.length > 0 && !allowed) {
+        unexpected.push({ id: spec.id, pages: over.map((p) => `p${p.index}+${p.overflowPt}`) })
+      }
+      if (over.length === 0 && allowed) noLongerOverflowing.push(spec.id)
+      // Whatever overflows must be REPORTED: an unnumbered sheet with no
+      // diagnostic is the exact shape of the defect this slice is closing.
+      const warnings = overflowWarnings(plan, content.config)
+      if (over.length > 0 && warnings.length === 0) silent.push(spec.id)
+    }
+    expect(unexpected).toEqual([])
+    expect(silent).toEqual([])
+    // ...and the allow-list is not stale: every entry still reproduces.
+    expect(noLongerOverflowing).toEqual([])
+  })
+
+  it('the overflow warning names the page and the amount, and says something different for each of the three causes', () => {
+    const byId = {}
+    for (const id of Object.keys(OVERFLOW_ALLOWED)) {
+      const content = buildContent(buildFixturePlan().fixtures.find((f) => f.id === id))
+      const { plan } = realSidebarPlan(content)
+      byId[id] = overflowWarnings(plan, content.config)
+    }
+    // one warning per overflowing page, never two for the same page
+    for (const [id, ws] of Object.entries(byId)) {
+      const pages = ws.map((w) => w.page)
+      expect(new Set(pages).size, `${id}: duplicate warnings for one page`).toBe(pages.length)
+      for (const w of ws) {
+        expect(w.message).toContain(`page ${w.page}`)
+        expect(w.message).toMatch(/~\d+pt over budget/)
+      }
+    }
+    expect(byId['edge-forced-split-config'][0].forcedByConfig).toBe(true)
+    expect(byId['edge-forced-split-config'][0].message).toContain('page1ExperienceCount')
+    expect(byId['edge-summary-exceeds-page'][0].message).toContain('summary alone')
+    expect(byId['edge-page-tall-item'][0].message).toContain('cannot be split any further')
+  })
+
+  // ── Rule 1b: a page that ends early has to justify itself ────────────────
+  it('a main-column page is left entry-free ONLY when the smallest legal piece of the next entry could not fit it', () => {
+    const m = deriveMetrics(tealTheme)
+    const measure = harnessMeasurer()
+    const unjustified = []
+    let ended = 0
+    for (const spec of buildFixturePlan().fixtures) {
+      const content = buildContent(spec)
+      if (content.config?.page1ExperienceCount != null) continue // the forced branch does not pack page 1
+      const { plan } = realSidebarPlan(content)
+      plan.pages.forEach((page, i) => {
+        if (page.mainBlocks.length > 0) return
+        const next = plan.pages.slice(i + 1).find((p) => p.mainBlocks.length > 0)
+        if (!next) return // the flow simply ran out — the G1 residual, not a deferral
+        ended++
+        // The smallest legal piece of the entry that DID start later: its head
+        // plus one bullet (zero bullets would orphan the head). `entryH` is the
+        // packer's own measurement — the independent term here is the BUDGET,
+        // which comes from the theme arithmetic below.
+        const entry = next.mainBlocks[0]
+        const minUnit = entryH(
+          {
+            ...entry,
+            startBullet: entry.startBullet ?? 0,
+            endBullet: (entry.startBullet ?? 0) + 1
+          },
+          m,
+          measure
+        )
+        const budget = Number(page.mainFill?.budget)
+        if (minUnit <= budget) {
+          unjustified.push({ id: spec.id, page: i, minUnit, budget })
+        }
+        // ...and it must have fitted where it actually went, or ending the page
+        // early bought nothing.
+        if (minUnit > Number(next.mainFill?.budget) && next.overflowPt === 0) {
+          unjustified.push({ id: spec.id, page: i, kind: 'pointless-deferral' })
+        }
+      })
+    }
+    expect(unjustified).toEqual([])
+    // The corpus really does exercise this now (it could not before C3b's
+    // summary-length fixtures — every summary measured exactly 422.4pt).
+    expect(ended).toBeGreaterThan(0)
+  })
+
+  it("page 1's experience budget really does go below the smallest legal entry piece on the cliff fixtures — the corpus can express the defect now", () => {
+    const m = deriveMetrics(tealTheme)
+    const measure = harnessMeasurer()
+    const rows = []
+    for (const id of ['edge-summary-crosses-cliff', 'edge-summary-exceeds-page']) {
+      const content = buildContent(buildFixturePlan().fixtures.find((f) => f.id === id))
+      const { plan } = realSidebarPlan(content)
+      const entry = plan.pages.flatMap((p) => p.mainBlocks)[0]
+      const minUnit = entryH({ ...entry, startBullet: 0, endBullet: 1 }, m, measure)
+      rows.push({ id, budget: Number(plan.pages[0].mainFill?.budget), minUnit })
+    }
+    for (const r of rows) expect(r.budget).toBeLessThan(r.minUnit)
+    // and one of them goes negative outright — the shape that used to cut the
+    // first entry to a one-bullet prefix and make the page worse
+    expect(rows.some((r) => r.budget < 0)).toBe(true)
   })
 })

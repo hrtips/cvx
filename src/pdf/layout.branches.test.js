@@ -2,14 +2,15 @@
 // split branches that the packing-focused layout.test.js does not reach. Uses
 // the char-width estimate (no measurer injected) so every result is
 // deterministic and dependency-free.
+//
+// The `estimatePage1Overflow` block that used to live here went with the
+// function in C3b: `overflowWarnings()` supersedes it (it reads the real plan
+// and covers every page, not just a config-forced page 1), and keeping a dead
+// export alive purely so its own test could exercise it is what knip exists to
+// catch. The lever's warning is now covered by render.test.js and
+// validateContent.test.js against the real build path.
 import { describe, expect, it } from 'vitest'
-import {
-  deriveMetrics,
-  entryH,
-  estimatePage1Overflow,
-  packExperiences,
-  summaryH
-} from './layout.js'
+import { deriveMetrics, entryH, packExperiences, summaryH } from './layout.js'
 import { tealTheme } from './themes/teal.js'
 
 const M = deriveMetrics(tealTheme)
@@ -48,23 +49,6 @@ describe('entryH', () => {
 describe('summaryH', () => {
   it('measures string and object summary bullets', () => {
     expect(summaryH(['One line.', { text: 'Object line.' }], M)).toBeGreaterThan(0)
-  })
-})
-
-describe('estimatePage1Overflow', () => {
-  it('returns 0 when no page1ExperienceCount is forced', () => {
-    expect(estimatePage1Overflow([{ role: 'R', bullets: ['b'] }], ['s'], {}, tealTheme)).toBe(0)
-  })
-
-  it('applies page1SplitBullets to the last forced entry', () => {
-    const experience = [{ role: 'R', bullets: ['a', 'b', 'c', 'd'] }]
-    const overflow = estimatePage1Overflow(
-      experience,
-      ['s'],
-      { page1ExperienceCount: 1, page1SplitBullets: 1 },
-      tealTheme
-    )
-    expect(overflow).toBeGreaterThanOrEqual(0)
   })
 })
 

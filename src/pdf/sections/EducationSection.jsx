@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
 import { useStyles } from '../ThemeContext.jsx'
+import { sliceItems, sliceTitle } from './sectionSlice.js'
 
 /** @param {import('../types.js').Theme} t */
 const makeStyles = (t) =>
@@ -27,14 +28,15 @@ const makeStyles = (t) =>
     }
   })
 
-/** @param {{ data: import('../types.js').CVContent }} props */
-export default function EducationSection({ data }) {
+/** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
+export default function EducationSection({ data, slice }) {
   const s = useStyles(makeStyles)
-  if (!data.education?.length) return null
+  const items = sliceItems(data.education, slice)
+  if (!items.length) return null
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">Education</SectionTitle>
-      {data.education.map((edu) => (
+      <SectionTitle variant="sidebar">{sliceTitle('Education', slice)}</SectionTitle>
+      {items.map((edu) => (
         <View key={edu.degree} style={s.item}>
           <Text style={s.degree}>{edu.degree}</Text>
           <Text style={s.institution}>{edu.institution}</Text>

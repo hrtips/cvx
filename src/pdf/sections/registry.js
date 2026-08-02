@@ -80,12 +80,14 @@ export function renderSlot(keys, data, extra = {}) {
       })
     }
 
-    // Standard section
+    // Standard section. `extra.slice` (C3b) is which items of it to render —
+    // absent means all of them, which is every caller but the two-column
+    // sidebar (CVDocument.buildSidebar passes one slice per packed section).
     const Component = SECTION_REGISTRY[/** @type {keyof typeof SECTION_REGISTRY} */ (key)]
     if (!Component) {
       console.warn(`[section-registry] Unknown section key: "${key}"`)
       return null
     }
-    return createElement(Component, { key: `${key}-${i}`, data })
+    return createElement(Component, { key: `${key}-${i}`, data, slice: extra.slice })
   })
 }

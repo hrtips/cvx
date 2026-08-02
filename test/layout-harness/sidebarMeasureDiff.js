@@ -29,10 +29,11 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import {
+  CONTINUED_SUFFIX,
   deriveSidebarMetrics,
   identityH,
   planTwoColumn,
-  sidebarSectionH
+  sidebarSliceH
 } from '../../src/pdf/layout.js'
 import { tealTheme } from '../../src/pdf/themes/teal.js'
 import { buildAll } from './scaffold.js'
@@ -48,6 +49,21 @@ export const SECTION_TITLE_TEXT = {
   languages: 'LANGUAGES',
   publications: 'PUBLICATIONS',
   referees: 'REFEREES'
+}
+
+/**
+ * The title text one planned SLICE renders, as it comes back out of the PDF.
+ * `sidebarRowsByPage` joins a row's `<word>`s with no separator (a letter-
+ * spaced title arrives one glyph per word), so the rendered spaces vanish —
+ * hence `CERTIFICATIONS(CONT.)` rather than `CERTIFICATIONS (CONT.)`. The
+ * marker itself is imported from layout.js, never re-typed, so a continuation
+ * whose title the renderer and the packer disagree about fails HERE.
+ *
+ * @param {{ key: string, continued: boolean }} slice
+ */
+export function sliceTitleText(slice) {
+  const base = SECTION_TITLE_TEXT[slice.key]
+  return slice.continued ? `${base}${CONTINUED_SUFFIX.toUpperCase()}` : base
 }
 
 const WORD_RE =
@@ -152,11 +168,13 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
       skipped.push({ page: i, reason: 'no-physical-page', keys: planPage.sidebarKeys })
       return
     }
-    // Where each of this page's section titles actually landed, in order.
-    const titleTops = planPage.sidebarKeys.map((key) => {
-      const label = SECTION_TITLE_TEXT[key]
-      const hit = pageRows.find((r) => r.text === label)
-      return { key, top: hit?.yMin }
+    // Where each of this page's section titles actually landed, in order. C3b:
+    // one entry per SLICE, so a section split across two pages is differenced
+    // on each of them and its continuation title is looked up by the marked
+    // text the renderer actually emits.
+    const titleTops = planPage.sidebarSlices.map((slice) => {
+      const hit = pageRows.find((r) => r.text === sliceTitleText(slice))
+      return { slice, key: slice.key, top: hit?.yMin }
     })
     const notFound = titleTops.filter((t) => t.top === undefined).map((t) => t.key)
     if (notFound.length > 0) {
@@ -196,7 +214,8 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
     if (titleTops.length < 2) return
     pagesChecked++
     for (let k = 0; k < titleTops.length - 1; k++) {
-      const predicted = Number(sidebarSectionH(titleTops[k].key, content, sm, measure))
+      const { key, start, end } = titleTops[k].slice
+      const predicted = Number(sidebarSliceH(key, content, sm, measure, start, end))
       const observed = Number(titleTops[k + 1].top) - Number(titleTops[k].top) - sm.sectionDividerH
       sectionsFound++
       rows.push({

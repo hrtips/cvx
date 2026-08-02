@@ -1,6 +1,8 @@
 import { Link, Path, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
 import SectionTitle from '../components/SectionTitle.jsx'
+import { contactRows } from '../layout.js'
 import { useStyles, useTheme } from '../ThemeContext.jsx'
+import { sliceItems, sliceTitle } from './sectionSlice.js'
 
 const ICONS = {
   phone: {
@@ -70,31 +72,33 @@ function Icon({ name, color, spacing }) {
   )
 }
 
-/** @param {{ data: import('../types.js').CVContent }} props */
-export default function ContactSection({ data }) {
+/** Row identity -> icon. Presentation only; the ROW ORDER lives in layout.js's contactRows(). */
+const FIELD_ICON = {
+  phone: 'phone',
+  email: 'envelope',
+  linkedin: 'linkedin',
+  facebook: 'facebook',
+  location: 'location',
+  link: 'link'
+}
+
+/** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
+export default function ContactSection({ data, slice }) {
   const theme = useTheme()
   const s = useStyles(makeStyles)
-  const { personal } = data
 
-  const rows = [
-    { icon: 'phone', value: personal.phone, href: personal.phoneHref },
-    {
-      icon: 'envelope',
-      value: personal.email,
-      href: personal.email ? `mailto:${personal.email}` : null
-    },
-    { icon: 'linkedin', value: personal.linkedin, href: personal.linkedinHref },
-    { icon: 'facebook', value: personal.facebook, href: personal.facebookHref },
-    { icon: 'location', value: personal.location },
-    ...(personal.links ?? []).map((l) => ({ icon: 'link', value: l.label || l.href, href: l.href }))
-  ].filter((r) => r.value)
+  // The row list comes from the PACKER's own definition (layout.js
+  // contactRows), not a copy of it: a slice's [start, end) then indexes exactly
+  // the rows the packer measured. This used to be a hand-mirrored second array,
+  // where a pure reorder was invisible to every test in the suite.
+  const rows = sliceItems(contactRows(data), slice)
 
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">Contact</SectionTitle>
-      {rows.map(({ icon, value, href }) => (
+      <SectionTitle variant="sidebar">{sliceTitle('Contact', slice)}</SectionTitle>
+      {rows.map(({ field, value, href }) => (
         <View key={value} style={s.row}>
-          <Icon name={icon} color={theme.palette.accent} spacing={theme.spacing} />
+          <Icon name={FIELD_ICON[field]} color={theme.palette.accent} spacing={theme.spacing} />
           {href ? (
             <Link src={href} style={s.link}>
               {value}

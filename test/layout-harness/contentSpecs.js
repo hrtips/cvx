@@ -11,11 +11,22 @@ const LEVEL_COUNT = { absent: 0, one: 1, many: 8 }
 
 // ── personal / summary / experience ─────────────────────────────────────────
 
+/**
+ * `tallIdentity` repeats the title/company until the injected identity block —
+ * which every page's sidebar budget is reduced by, and which is never packed —
+ * is several hundred pt tall. The curated corpus tops out at 67.95pt against a
+ * ~762pt budget, so the identity term was effectively a constant and no fixture
+ * could exercise a sidebar page whose budget the identity had eaten (C3b review).
+ */
 function buildPersonal(spec) {
   const personal = {
     name: spec.personalName ?? 'Jordan Rivera',
-    title: 'Senior Programme Lead',
-    company: 'Example Holdings',
+    title: spec.tallIdentity
+      ? 'Senior Programme Lead and Field Commander of Continental Operations '.repeat(6).trim()
+      : 'Senior Programme Lead',
+    company: spec.tallIdentity
+      ? 'Example Holdings International Group and Subsidiaries Worldwide '.repeat(6).trim()
+      : 'Example Holdings',
     phone: '+1 (555) 010-0100',
     phoneHref: 'tel:+15550100100',
     email: 'jordan.rivera@example.com',
@@ -27,19 +38,41 @@ function buildPersonal(spec) {
   return personal
 }
 
+/**
+ * Summary length. `summaryBullets` overrides the per-textLength default, which
+ * is what lets a fixture cross the page-1 CLIFF (C3b review): the summary is
+ * subtracted from page 1's experience budget before anything is packed, so
+ * `summaryH` past ~452pt leaves less room than the smallest legal piece of an
+ * experience entry (its head plus one bullet, 177.75pt), and past ~630pt it
+ * makes the budget NEGATIVE. Both were unreachable before — every curated
+ * fixture's summary measured exactly 422.4pt, 29.6pt short of the cliff,
+ * because this function had no length axis at all.
+ */
 function buildSummary(spec) {
-  const n = { short: 2, typical: 5, long: 4, overflowing: 5 }[spec.textLength] ?? 3
+  const n =
+    spec.summaryBullets ?? { short: 2, typical: 5, long: 4, overflowing: 5 }[spec.textLength] ?? 3
   return sentencesFor(spec.textLength, 'summary', n)
 }
 
+/**
+ * `pageTallBullet` makes ONE bullet taller than a whole page. That is design
+ * doc G7's irreducible residual — the one shape no packer can paginate, since
+ * the smallest legal unit is already too big — and the corpus could not express
+ * it, so the branch that force-places and records `overflowPt` was never
+ * exercised end to end.
+ */
 function buildExperienceEntry(i, spec) {
   const bulletsN = { short: 2, typical: 4, long: 5, overflowing: 7 }[spec.textLength] ?? 3
+  const bullets = bulletsFor(spec.textLength, `exp${i}`, bulletsN)
+  if (spec.pageTallBullet && i === 0) {
+    bullets[0] = `${bullets[0]} ${'One more clause of the same delivery, spelled out at length. '.repeat(30).trim()}`
+  }
   return {
     role: `Role Title ${i}`,
     company: `Company ${i}`,
     period: `20${10 + i} – 20${11 + i}`,
     description: sentencesFor(spec.textLength, `desc${i}`, 1)[0],
-    bullets: bulletsFor(spec.textLength, `exp${i}`, bulletsN)
+    bullets
   }
 }
 
@@ -150,6 +183,18 @@ export function buildContent(spec) {
   for (const key of SECTION_KEYS) {
     if (spec.oversizedSection === key) {
       files[key] = ITEM_BUILDERS[key](spec.oversizedCount ?? 60)
+      // A section whose SINGLE item is taller than a page: G7's residual on the
+      // sidebar side. `oversizedCount: 1` alone is not enough — the item has to
+      // be long, and a 60-item section splits cleanly, so it never reaches the
+      // force-place branch.
+      if (spec.oversizedItemPageTall) {
+        files[key] = [
+          {
+            ...files[key][0],
+            name: `${'Certification of Extended Professional Standing '.repeat(60).trim()}`
+          }
+        ]
+      }
       continue
     }
     const level = spec.minimal ? 'absent' : (sections[key] ?? 'one')

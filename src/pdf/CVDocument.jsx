@@ -15,13 +15,17 @@ import TwoColumnTemplate from './templates/TwoColumnTemplate.jsx'
 // ── Sidebar builder ─────────────────────────────────────────────────────────
 
 /**
- * @param {string[]} keys
+ * One page's sidebar: the injected identity block, then the section SLICES the
+ * packer assigned to this page (C3b — a section too tall for the remaining room
+ * is cut at an item boundary, so a page may hold `[0, k)` of a section and the
+ * next page `[k, n)`, each with its own title).
+ *
+ * @param {string[]} identityKeys   injected, never packed (layout.js identityH)
+ * @param {import('./types.js').SidebarSlice[]} slices
  * @param {import('./types.js').CVContent} data
  * @param {import('./types.js').Theme} theme
  */
-function buildSidebar(keys, data, theme) {
-  const identityKeys = keys.filter(isIdentityKey)
-  const contentKeys = keys.filter((k) => !isIdentityKey(k))
+function buildSidebar(identityKeys, slices, data, theme) {
   const g = theme.geometry.sidebarPad
 
   const dividerStyle = {
@@ -32,8 +36,8 @@ function buildSidebar(keys, data, theme) {
 
   return (
     <View style={{ flex: 1 }}>
-      {renderSlot(identityKeys, data)}
-      {contentKeys.length > 0 && (
+      {renderSlot(identityKeys.filter(isIdentityKey), data)}
+      {slices.length > 0 && (
         <View
           style={{
             flex: 1,
@@ -43,10 +47,13 @@ function buildSidebar(keys, data, theme) {
             paddingBottom: g.bottom
           }}
         >
-          {contentKeys.map((key, i) => (
-            <View key={key}>
+          {slices.map((slice, i) => (
+            // A slice is identified by its section AND its first item: one
+            // section can legitimately appear on two consecutive pages, and on
+            // the same page it never appears twice.
+            <View key={`${slice.key}@${slice.start}`}>
               {i > 0 && <View style={dividerStyle} />}
-              {renderSlot([key], data)}
+              {renderSlot([slice.key], data, { slice })}
             </View>
           ))}
         </View>
@@ -103,7 +110,7 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, plan }) {
   // browser preview, which has no renderCV.
   return (
     <>
-      {plan.pages.map(({ index, identity, sidebarKeys, mainBlocks }) => (
+      {plan.pages.map(({ index, identity, sidebarSlices, mainBlocks }) => (
         // A page is identified by its ordinal — that IS its stable identity,
         // not a positional proxy for one.
         <TwoColumnTemplate
@@ -111,7 +118,7 @@ function TwoColumnDocument({ data, activeLayout, activeTheme, plan }) {
           isFirst={index === 0}
           pageNum={index + 1}
           totalPages={plan.totalPages}
-          sidebarSlot={buildSidebar([...identity, ...sidebarKeys], data, activeTheme)}
+          sidebarSlot={buildSidebar(identity, sidebarSlices, data, activeTheme)}
           mainSlot={renderSlot(mainSlotKeys(activeLayout, index, plan.totalPages), data, {
             entries: mainBlocks
           })}

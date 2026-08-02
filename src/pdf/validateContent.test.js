@@ -176,7 +176,7 @@ describe('validateContent — real-metric checks', () => {
       }),
       fontsDir: FONTS
     })
-    expect(codes(res.warnings)).toContain('page1-overflow')
+    expect(codes(res.warnings)).toContain('page-overflow')
   })
 
   it('warns about unsupported glyphs only when a fontsDir is supplied', () => {

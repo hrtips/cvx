@@ -2,10 +2,10 @@
   "schemaVersion": 2,
   "note": "Recorded 2026-07-28, POST-C2 (real fontkit measurement — src/pdf/measure.js) and its round-2 review fixes: per-bullet/per-sidebar-item content-completeness sentinels (contentOracle.js), the shipped scaffold's forced page-1 split removed (template/cv-content/config.yaml + the root cv-content/config.yaml demo — automatic pagination fits this content without a wasted page), a broadened measure-vs-render corpus (bold role, italic description, sidebar row, bold name — at real layout.js widths, not an arbitrary 200pt), and quantized page-budget comparisons (layout.js). This note previously (incorrectly) claimed \"the CURRENT (pre-C1/C2/C3) engine\" — false as of C2; corrected here rather than left stale. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff — that diff IS the evidence the fix worked (or, if unexpected, evidence of a regression to stop and investigate, not launder in). See research/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.",
   "fixturePlan": {
-    "totalFixtures": 28,
+    "totalFixtures": 32,
     "pairwiseRows": 18,
     "riskScenarios": 3,
-    "namedEdgeCases": 7,
+    "namedEdgeCases": 11,
     "totalCartesianCombinations": 1944,
     "droppedCombinations": 1926
   },
@@ -70,12 +70,7 @@
         "designed": {
           "pageCount": 6,
           "blankPages": [],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 5,
@@ -85,7 +80,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 5
+      "logicalTotalPages": 6
     },
     "pw-04": {
       "description": "pairwise: certifications=one,publications=one,languages=absent,referees=absent,achievements=many, textLength=typical, volume=fits-1-page",
@@ -143,7 +138,7 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 5,
+          "pageCount": 4,
           "blankPages": [],
           "emptyColumns": []
         },
@@ -155,21 +150,16 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 5
+      "logicalTotalPages": 4
     },
     "pw-08": {
       "description": "pairwise: certifications=many,publications=many,languages=one,referees=absent,achievements=many, textLength=overflowing, volume=fits-1-page",
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 4,
+          "pageCount": 3,
           "blankPages": [],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 3,
@@ -186,12 +176,7 @@
         "designed": {
           "pageCount": 6,
           "blankPages": [],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 4,
@@ -199,7 +184,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 5
+      "logicalTotalPages": 6
     },
     "pw-10": {
       "description": "pairwise: certifications=absent,publications=absent,languages=absent,referees=one,achievements=many, textLength=overflowing, volume=multi-page",
@@ -208,12 +193,7 @@
         "designed": {
           "pageCount": 6,
           "blankPages": [],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 4,
@@ -221,7 +201,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 5
+      "logicalTotalPages": 6
     },
     "pw-11": {
       "description": "pairwise: certifications=one,publications=absent,languages=one,referees=absent,achievements=absent, textLength=long, volume=fits-1-page",
@@ -368,12 +348,7 @@
         "designed": {
           "pageCount": 6,
           "blankPages": [],
-          "emptyColumns": [
-            {
-              "page": 1,
-              "side": "sidebar"
-            }
-          ]
+          "emptyColumns": []
         },
         "ats": {
           "pageCount": 5,
@@ -381,10 +356,10 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 5
+      "logicalTotalPages": 6
     },
     "risk-sparse-1-page": {
-      "description": "sparse: every optional section absent, short text, fits-1-page volume — the opposite extreme (near-empty CV; checks resolveFirstSidebar's single-page fold does not misbehave when there is almost nothing to fold).",
+      "description": "sparse: every optional section absent, short text, fits-1-page volume — the opposite extreme (near-empty CV; checks the sidebar packer does not misbehave when there is almost nothing to pack).",
       "oracle": {
         "ok": true,
         "designed": {
@@ -406,9 +381,7 @@
         "ok": true,
         "designed": {
           "pageCount": 6,
-          "blankPages": [
-            4
-          ],
+          "blankPages": [],
           "emptyColumns": []
         },
         "ats": {
@@ -417,7 +390,7 @@
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 3
+      "logicalTotalPages": 6
     },
     "edge-minimal": {
       "description": "all-optional-absent minimal CV: only personal + summary + experience (no education, competencies, or any of the five optional sections).",
@@ -503,6 +476,88 @@
         }
       },
       "logicalTotalPages": 2
+    },
+    "edge-summary-crosses-cliff": {
+      "description": "summary long enough that page 1 has less residual room than the smallest legal piece of an experience entry (head + 1 bullet). Exercises packBlocks rule 1b: the page must end early, entry-free, rather than force-place and overflow onto an unnumbered sheet.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 4
+    },
+    "edge-summary-exceeds-page": {
+      "description": "summary taller than the whole main column, so page 1's experience budget is NEGATIVE. Irreducible: the summary is fixed page-1 content, not a packed block, so no pagination fits it — the engine must report it in overflowPt and warn, not paper over it.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 5,
+          "blankPages": [],
+          "emptyColumns": [
+            {
+              "page": 1,
+              "side": "sidebar"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 4
+    },
+    "edge-tall-identity": {
+      "description": "a long personal.title/company makes the injected identity block several hundred pt tall, shrinking every page's sidebar budget. The identity is never packed, so its height is pure subtraction — and the curated corpus held it at a constant 67.95pt.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 5,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 5
+    },
+    "edge-page-tall-item": {
+      "description": "design doc G7's irreducible residual, on both flows at once: one experience bullet and one certification each taller than a whole page. Nothing can be split small enough, so packBlocks must force-place, record overflowPt, and the build must warn — the one remaining case where physical sheets legitimately exceed the plan.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": [
+            {
+              "page": 2,
+              "side": "both"
+            }
+          ]
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 3
     },
     "edge-forced-split-config": {
       "description": "config-driven page1ExperienceCount + page1SplitBullets (mirrors the shipped scaffold's own config.yaml) — a distinct packExperiences() branch with no budget check of its own.",
