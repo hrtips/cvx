@@ -8,3 +8,4 @@ dist/
 .claude/
 research/
 lib/
+coverage/
