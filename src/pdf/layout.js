@@ -35,19 +35,82 @@
 // reason a whole class of overflow exists: a summary taller than the main
 // column cannot be paginated by anything here, because the summary is not a
 // block. `overflowWarnings()` reports exactly that case in words, and
-// `edge-summary-exceeds-page` pins it. Making the summary a packed, splittable
-// block is a coherent future change (it would also let page 1 start an entry
-// mid-summary), but it moves content the layout YAML currently places, so it
-// belongs to C4's objective model rather than to a checkpoint slice.
+// `edge-summary-exceeds-page` pins it.
+//
+// C4 REVISITED "make the summary a packed block" AND DECIDED AGAINST IT, with
+// the cost measured on both sides (2026-08-02):
+//
+//   What it would buy. Sweeping the shipped scaffold's summary length: the
+//   defect starts at 14 bullets (summaryH 651.9pt), where page 1's experience
+//   budget goes negative. At 14 the render still comes out at the planned 3
+//   sheets with correct badges (the overshoot is 22pt, absorbed); at 20
+//   bullets (296pt over) it is 4 physical sheets whose FIRST sheet carries no
+//   badge at all and whose second reads "1 of 3". That numbering defect — not
+//   wasted space — is the whole prize. Every one of the 32 curated fixtures
+//   measures summaryH 422.4pt, a third of the cliff; only the synthetic
+//   `edge-summary-exceeds-page` reaches it.
+//
+//   What it would cost. The summary would become flow[0] of the main column
+//   with a bullet-level splitter, which makes that flow HETEROGENEOUS — and
+//   `packExperiences` returns `page1Experiences`/`continuationChunks` typed as
+//   ExperienceEntry[]. Changing that shape reaches `LayoutPlanPage.mainBlocks`,
+//   `CVDocument.mainSlotKeys` + `registry.renderSlot('summary')` (which today
+//   renders every bullet and would need a per-page slice, like the sidebar),
+//   the "Experience" title (fixed page-1 content that must move with the
+//   summary if the summary spills), `page1ExperienceCount`'s meaning, and four
+//   harness modules (blocks.js, structuralFacts.js, contentOracle.js, the
+//   mirror test). It also changes the layout YAML's meaning a second time:
+//   after C3a made `pages.*.sidebar` mean ORDER rather than PAGE, this would do
+//   the same to `pages.first.main` — a user who wrote `first: [summary]` would
+//   find the summary continuing overleaf.
+//
+//   The decision: NOT WORTH IT NOW. It is a C3a-sized change to the plan/render
+//   contract, in exchange for correct page numbering on documents whose summary
+//   is taller than a full column — a shape no real CV in the corpus has, and
+//   one the build already warns about by name. Revisit it if and when the main
+//   flow has to become heterogeneous for another reason (per-page main buckets,
+//   or a `summary` that the agent loop may repaginate); doing it then costs the
+//   plumbing once instead of twice.
 //
 // The theme argument provides all typography/spacing/geometry values so the
 // estimator stays in sync with what components actually render.
 //
-// deriveMetrics/lineCount/entryH/summaryH are exported (in addition to the
-// public API below) purely so the C0 test harness (test/layout-harness/
-// estimator.js) can compute page-fill estimates without maintaining a
-// hand-copied duplicate of this file's private formulas — no behavior
-// change, this is the same code that packExperiences() itself calls.
+// ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
+//
+// This module exports 25 names. Only nine of them are API. The rest are
+// exported so the C0 harness can measure the engine with the engine's own
+// formulas instead of a hand-copied second implementation (C0's mirror-drift
+// finding) — a testing affordance, not a commitment, and C7 must not document
+// them as one.
+//
+//   PUBLIC — imported by shipped code, or part of the plan shape C6's
+//   diagnostics and C7's docs are built on. Changing one of these is a
+//   breaking change:
+//     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
+//     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel
+//
+//   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
+//   first cut listed `identityH` here and review caught it: its `sm` parameter
+//   is `SidebarMetrics`, i.e. `ReturnType<typeof deriveSidebarMetrics>`, and
+//   that function is harness-only — a promise no caller could keep without an
+//   unpromised one. It is demoted below. C6 does not lose anything: the plan
+//   already carries `page.identity` (which slots are injected), and identity
+//   HEIGHT is already inside `sidebarFill.budget`. `layout.api.test.js`
+//   enforces this rule for every public name, not just that one.
+//
+//   EXPORTED FOR THE HARNESS, no compatibility promise — every one of these
+//   carries `@internal` in its own docblock, and `layout.api.test.js` proves
+//   the two lists agree AND that no shipped module imports one of them:
+//     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
+//     summaryH, entryH, packBlocks, packExperiences, packSidebar, identityH,
+//     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
+//     SIDEBAR_SECTION_KEYS, CONTINUED_SUFFIX, assertShrinks
+//
+// `packBlocks`/`packExperiences`/`packSidebar` are internal on purpose despite
+// being the engine's heart: they are reachable through `planTwoColumn`, and
+// pinning their signatures would freeze the packer's shape before the sprint
+// has decided what it is (C4's evaluation moved `packSidebar`'s and
+// `packExperiences`' argument lists twice in one afternoon).
 //
 // MEASUREMENT INJECTION (C2 / design doc §5): this file ships in the Vite
 // browser bundle (the in-app preview), so it must stay isomorphic — no
@@ -65,6 +128,12 @@ import { TWO_COLUMN_LAYOUT } from './defaultLayouts.js'
 import { tealTheme } from './themes/teal.js'
 
 /** @typedef {ReturnType<typeof deriveMetrics>} Metrics */
+
+/**
+ * Flatten one theme into the numbers every height formula in this file reads.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
 export function deriveMetrics(/** @type {import('./types.js').Theme | undefined} */ theme) {
   const t = theme ?? tealTheme
   const ty = t.typography
@@ -184,6 +253,8 @@ function quantize(/** @type {number} */ pt) {
  * diff harness), this overshoots ordinary English text by roughly 20-34% —
  * safe-direction-loose, never under-shoots on the corpus tested — which is
  * exactly why it's a fallback now rather than the only option.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function lineCount(
   /** @type {string} */ text,
@@ -221,6 +292,8 @@ function countLines(
  * font instead (`measure.naturalLineHeight`), so a font swap changes the
  * measurement rather than silently invalidating it. measure.test.js pins the
  * two together, so a font or fontkit bump that shifts the metrics fails loudly.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export const NATURAL_LINE_HEIGHT = 1.2
 
@@ -285,6 +358,11 @@ const BODY_STYLE = { weight: 400, italic: false }
 // component fact rather than deriving from theme data that doesn't exist.
 const DESC_STYLE = { weight: 400, italic: true }
 
+/**
+ * Measured height of the whole summary block (title + bullet list).
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
 export function summaryH(
   /** @type {import('./types.js').Summary} */ summary,
   /** @type {Metrics} */ m,
@@ -301,6 +379,12 @@ export function summaryH(
   return quantize(h)
 }
 
+/**
+ * Measured height of one experience entry — whole, or the `[startBullet,
+ * endBullet)` slice of it a split produced.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
 export function entryH(
   /** @type {import('./types.js').ExperienceEntry} */ e,
   /** @type {Metrics} */ m,
@@ -382,6 +466,16 @@ export function entryH(
  * second line of defence, so a violation surfaces as a named error rather than
  * a hang.
  *
+ * KNOWN DEBT, carried out of C3b and still open after C4 (recorded here rather
+ * than in a planning doc, because this typedef is the thing that would change):
+ * this is a DECISION function — "given this much room, where would you cut?" —
+ * where design doc §4.1 specifies an ENUMERABLE `splittable: { offsets,
+ * costPerSplit }`. Nothing needs the enumeration today; the objective that
+ * would have priced each offset (`breakPenalty`) was C4's, and C4 was deferred.
+ * The next consumer is C6's split diagnostics ("this section was cut here, and
+ * these were the alternatives") — whoever builds that must reshape this first,
+ * because a decision function cannot report the road not taken.
+ *
  * @template B
  * @typedef {(room: number, forceMinimum: boolean) => { head: B, tail: B } | null} SplitFn
  */
@@ -403,6 +497,8 @@ export function entryH(
  * @param {B} tail
  * @param {number} beforeHeight
  * @returns {void}
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function assertShrinks(what, beforeItems, afterItems, tail, beforeHeight) {
   if (afterItems >= beforeItems || quantize(tail.height) > quantize(beforeHeight)) {
@@ -472,6 +568,8 @@ export function assertShrinks(what, beforeItems, afterItems, tail, beforeHeight)
  * @param {(pageIndex: number) => number} budgetFn  usable height of page `i`, pt
  * @param {'frontload'} [policy]
  * @returns {PackedPage<B>[]}
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function packBlocks(flow, budgetFn, policy = 'frontload') {
   if (policy !== 'frontload') {
@@ -892,6 +990,8 @@ function experienceBlocks(entries, m, measure) {
  *   `pageMetrics[i]` is page `i`'s packed experience height and its budget —
  *   the per-page fill signal the C0 harness's front-load / over-budget
  *   invariants need (and, later, C6's `plan_layout` diagnostics).
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function packExperiences(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
@@ -995,6 +1095,8 @@ export function packExperiences(
  * Sidebar geometry for one theme. Carries the theme itself so the per-section
  * formulas below can read `t.typography.degree.size` and visibly line up
  * with the component they mirror instead of going through a flattened alias.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function deriveSidebarMetrics(/** @type {import('./types.js').Theme | undefined} */ theme) {
   const t = theme ?? tealTheme
@@ -1462,16 +1564,58 @@ const SIDEBAR_SECTIONS = {
  * uppercased form from this constant. The only other consumer of the literal
  * itself is `test/layout-harness/sidebarBudget.js`, which re-states it on
  * purpose (it is the deliberately-independent oracle, see its docblock).
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export const CONTINUED_SUFFIX = '(cont.)'
 
 /**
- * Is a slice starting at item `start` a continuation? The ONE definition —
- * `SidebarSlice.continued` is set from it, and `sidebarSliceH` titles from it,
- * so the height measured and the title rendered can never disagree about which
- * string is on the page.
+ * The one line that decides what "continued" means. Module-private: exactly ONE
+ * predicate crosses the plan/render boundary — the exported `isContinuedSlice`
+ * below — and it delegates its meaning here, so the two call sites inside this
+ * file that already hold `start` as a scalar can ask without allocating a
+ * `{ start }` wrapper to ask with.
  */
-const isContinuedSlice = (/** @type {number} */ start) => start > 0
+const isContinuedStart = (/** @type {number} */ start) => start > 0
+
+/**
+ * Does this slice continue a section an earlier page began? **The one
+ * definition**, exported so both sides of the plan/render boundary ask the same
+ * question of the same field.
+ *
+ * C3b carried the answer twice: as a derived `SidebarSlice.continued` boolean
+ * AND as `start > 0`, which is what it was computed from. Two predicates for
+ * one fact is how a measured title ("Referees (cont.)") and a rendered title
+ * ("Referees") come to disagree — the packer charges for one string and the
+ * component draws the other, and nothing in the type system notices. C4 deletes
+ * the boolean: `start` is the fact, this is the question, `sectionTitleLabel`
+ * is the answer.
+ *
+ * THROWS on a scalar. This function REPLACED one that took `start` as a number,
+ * and `isContinuedSlice(2)` under a `slice?.start` implementation would answer
+ * `false` — the safe-looking answer, no "(cont.)" marker, which is precisely
+ * the measured-vs-rendered title disagreement the collapse exists to prevent.
+ * The heaviest consumer is the harness, and `test/` is outside tsconfig's
+ * include, so the type annotation alone would not have caught it. `null` and
+ * `undefined` stay legal: that is the ATS/browser-preview path, where a section
+ * renders whole and has no slice at all.
+ *
+ * @param {{ start: number } | undefined | null} slice
+ * @returns {boolean}
+ */
+export function isContinuedSlice(slice) {
+  if (slice === undefined || slice === null) return false
+  const start = /** @type {{ start?: unknown }} */ (slice).start
+  if (typeof slice !== 'object' || typeof start !== 'number') {
+    throw new TypeError(
+      `isContinuedSlice expects a slice object with a numeric \`start\` (or null/undefined for ` +
+        `"no slice"), got ${typeof slice} ${JSON.stringify(slice)}. It takes the SLICE, not its ` +
+        `start index — C3b's predicate took the number, and passing one here would silently ` +
+        `answer "not a continuation" and drop the "${CONTINUED_SUFFIX}" marker.`
+    )
+  }
+  return isContinuedStart(start)
+}
 
 /** The title one slice renders: the plain label, or the label plus the continuation marker. */
 export function sectionTitleLabel(/** @type {string} */ label, /** @type {boolean} */ continued) {
@@ -1492,12 +1636,18 @@ export function sectionTitleLabel(/** @type {string} */ label, /** @type {boolea
  * @param {string} key
  * @param {import('./types.js').CVContent} data
  * @returns {unknown[] | null}
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function sidebarSectionItems(key, data) {
   return SIDEBAR_SECTIONS[key]?.items(data) ?? null
 }
 
-/** How many items a sidebar section holds (0 for an unknown key, or a section with no items). */
+/**
+ * How many items a sidebar section holds (0 for an unknown key, or a section with no items).
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
 export function sidebarItemCount(
   /** @type {string} */ key,
   /** @type {import('./types.js').CVContent} */ data
@@ -1505,7 +1655,11 @@ export function sidebarItemCount(
   return sidebarSectionItems(key, data)?.length ?? 0
 }
 
-/** Every sidebar slot key the packer knows how to measure and slice, in registry order. */
+/**
+ * Every sidebar slot key the packer knows how to measure and slice, in registry order.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
 export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
 
 /**
@@ -1524,6 +1678,8 @@ export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
  * @param {number} [start]
  * @param {number} [end]
  * @returns {number | null}
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function sidebarSliceH(key, data, sm, measure = undefined, start = 0, end = undefined) {
   const def = SIDEBAR_SECTIONS[key]
@@ -1534,7 +1690,7 @@ export function sidebarSliceH(key, data, sm, measure = undefined, start = 0, end
   if (!def.always && all.length === 0) return null
   const items = /** @type {never[]} */ (all.slice(start, end ?? all.length))
   return quantize(
-    def.height(items, sm, measure, sectionTitleLabel(def.label, isContinuedSlice(start)))
+    def.height(items, sm, measure, sectionTitleLabel(def.label, isContinuedStart(start)))
   )
 }
 
@@ -1548,6 +1704,8 @@ export function sidebarSliceH(key, data, sm, measure = undefined, start = 0, end
  * @param {SidebarMetrics} sm
  * @param {import('./types.js').Measurer} [measure]
  * @returns {number | null}
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function sidebarSectionH(key, data, sm, measure = undefined) {
   return sidebarSliceH(key, data, sm, measure)
@@ -1563,6 +1721,11 @@ export function sidebarSectionH(key, data, sm, measure = undefined) {
  * @param {import('./types.js').CVContent} data
  * @param {SidebarMetrics} sm
  * @param {import('./types.js').Measurer} [measure]
+ *
+ * @internal exported for the C0 harness only — not API (see the module
+ * docblock): it cannot be called without `deriveSidebarMetrics`, which is
+ * itself harness-only. The plan publishes `page.identity` and folds the height
+ * into `sidebarFill.budget`; a diagnostics consumer wants those, not this.
  */
 export function identityH(keys, data, sm, measure = undefined) {
   const { t } = sm
@@ -1670,12 +1833,11 @@ function identityKeysFor(
  * continuation title differs from the original, so the two halves do not sum to
  * the whole) behind `largestFittingPrefix`'s binary search.
  *
- * `continued` is DERIVED from `start`, never passed: "an earlier page already
- * showed part of this section" and "this slice does not begin at item 0" are
- * the same fact, and the title string depends on it on both sides of the
- * plan/render boundary (`sectionTitleLabel` here, `sliceTitle` in
- * sections/sectionSlice.js). Two independent predicates for one string is how
- * a measured title and a rendered title come to disagree.
+ * "Continued" is not a field: it is `isContinuedSlice(slice)`, asked of `start`
+ * wherever it is needed (the title measured here, the title rendered by
+ * `sliceTitle` in sections/sectionSlice.js). C3b shipped it as a derived
+ * boolean alongside the `start` it derived from; C4 deleted that second copy,
+ * because two carriers of one fact are two things to keep in agreement.
  *
  * @param {{
  *   key: string,
@@ -1697,7 +1859,6 @@ function sidebarBlock(ctx, start, end) {
     key: ctx.key,
     start,
     end,
-    continued: isContinuedSlice(start),
     itemCount: ctx.itemCount,
     height,
     gapBefore: ctx.gapBefore,
@@ -1736,7 +1897,10 @@ function sidebarBlock(ctx, start, end) {
  * @param {import('./types.js').Measurer} [measure]
  * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number }[], totalPages: number }}
  *   `pages[i]` is page `i`'s ordered slices. A section that fits whole is a
- *   single slice spanning `[0, itemCount)` with `continued: false`.
+ *   single slice spanning `[0, itemCount)`; a slice with `start > 0` is a
+ *   continuation (`isContinuedSlice`).
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
  */
 export function packSidebar(keys, data, layout, theme = undefined, measure = undefined) {
   const sm = deriveSidebarMetrics(theme)
@@ -1766,13 +1930,7 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
   const packed = packBlocks(flow, budgetFn)
   return {
     pages: packed.map((p) =>
-      p.blocks.map(({ key, start, end, continued, itemCount }) => ({
-        key,
-        start,
-        end,
-        continued,
-        itemCount
-      }))
+      p.blocks.map(({ key, start, end, itemCount }) => ({ key, start, end, itemCount }))
     ),
     pageMetrics: packed.map(({ used, budget }) => ({ used, budget })),
     totalPages: packed.length
@@ -1826,24 +1984,26 @@ export function planTwoColumn({
     sidebarPageCount: sidebar.totalPages,
     pages: Array.from({ length: totalPages }, (_, index) => {
       const mainBlocks = mainChunks[index] ?? []
+      // `sidebarSlices` is the ONLY per-page sidebar field (C4). C3b also
+      // published `sidebarKeys = sidebarSlices.map(s => s.key)`, a projection
+      // of this array carried as a second array; consumers had already started
+      // choosing between them inconsistently (the render-diff harness read the
+      // keys, the renderer read the slices), which is a shape C6 must not
+      // publish and C7 must not document. "Which sections are on this page, in
+      // order" is `page.sidebarSlices.map(s => s.key)` — derived at the point
+      // of use, never stored.
       const sidebarSlices = sidebar.pages[index] ?? []
-      // Kept alongside `sidebarSlices` (never replaced by it): it is the field
-      // C6's diagnostics are specified against, and it stays exactly "which
-      // sections are on this page, in order" — one entry per slice, so a
-      // section split across two pages appears once on each.
-      const sidebarKeys = sidebarSlices.map((s) => s.key)
       const mainFill = main.pageMetrics[index] ?? null
       const sidebarFill = sidebar.pageMetrics[index] ?? null
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>
         f ? Math.max(0, quantize(f.used - f.budget)) : 0
       const mainEmpty = mainBlocks.length === 0
-      const sidebarEmpty = sidebarKeys.length === 0
+      const sidebarEmpty = sidebarSlices.length === 0
       return {
         index,
         // Injected, never packed — see identityH().
         identity: identityKeysFor(layout, index),
         mainBlocks,
-        sidebarKeys,
         sidebarSlices,
         mainFill,
         sidebarFill,

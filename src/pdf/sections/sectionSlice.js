@@ -18,7 +18,7 @@
 // path and the browser preview, neither of which slices anything.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { sectionTitleLabel } from '../layout.js'
+import { isContinuedSlice, sectionTitleLabel } from '../layout.js'
 
 /**
  * The items one slice renders. `undefined` slice (or `undefined` items) is the
@@ -55,9 +55,14 @@ export function sliceItems(items, slice) {
  * The title one slice renders: the section's label, plus the continuation
  * marker when an earlier page already showed part of this section.
  *
+ * Both the predicate (`isContinuedSlice`) and the composer
+ * (`sectionTitleLabel`) come from layout.js, so the string drawn here is
+ * assembled by the same two functions that measured it. Nothing about
+ * "continued" is decided on this side of the boundary.
+ *
  * @param {string} label
  * @param {import('../types.js').SidebarSlice} [slice]
  */
 export function sliceTitle(label, slice) {
-  return sectionTitleLabel(label, slice?.continued === true)
+  return sectionTitleLabel(label, isContinuedSlice(slice))
 }

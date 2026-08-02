@@ -22,6 +22,6 @@ try {
   writeFileSync(filename, buffer)
   console.log(`✅ ATS PDF saved: ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB)`)
 } catch (err) {
-  console.error(err.message)
+  console.error(/** @type {Error} */ (err).message)
   process.exit(1)
 }

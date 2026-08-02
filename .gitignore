@@ -4,6 +4,14 @@ dist/
 *.local
 *.pdf
 
+# Patch/merge backups. `patch` and `git` drop these next to the file they came
+# from, so a `git add -A` while one exists commits a byte-for-byte duplicate of
+# a source file under a name nothing imports — silent, and easy to miss in a
+# large diff. Observed during the C4 review, when a prototype patch left
+# src/pdf/layout.js.orig behind.
+*.orig
+*.rej
+
 # AI assistant session data — never commit (may contain full transcripts)
 .claude/
 research/

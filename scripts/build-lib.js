@@ -14,6 +14,7 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { dirname, extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { transform } from 'esbuild'
+import { BUILD_MANIFEST, esbuildVersion, hashBuildInputs } from './libFreshness.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const LIB = join(root, 'lib')
@@ -25,6 +26,7 @@ const TREES = [
 
 rmSync(LIB, { recursive: true, force: true })
 
+/** @param {string} dir @returns {Generator<string>} */
 function* walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name)
@@ -66,5 +68,23 @@ for (const f of readdirSync(join(root, 'src', 'fonts')).filter((name) =>
   copyFileSync(join(root, 'src', 'fonts', f), join(fontsOut, f))
   fonts++
 }
+
+// The stale-build guard's other half (see scripts/libFreshness.js): record
+// exactly which src/ this lib/ was produced from, so a test suite that
+// shells out to bin/cvx.js (which imports lib/, not src/) can refuse to
+// compare fresh predictions against a stale build instead of passing
+// vacuously. `npx vitest` does not run the `pretest` hook, so without this
+// the two are free to drift — both C3 reviewers hit it.
+// Shipped in the tarball on purpose (see package.json "files"): 115 bytes of
+// provenance that answers "which src/ and which esbuild produced this lib/?"
+// for a published artifact, which is the same question the guard asks locally.
+writeFileSync(
+  join(LIB, BUILD_MANIFEST),
+  `${JSON.stringify(
+    { srcHash: hashBuildInputs(root), esbuild: esbuildVersion(root), modules: count, fonts },
+    null,
+    2
+  )}\n`
+)
 
 console.log(`✅ lib/ built: ${count} modules, ${fonts} fonts`)

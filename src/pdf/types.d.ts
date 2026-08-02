@@ -285,20 +285,24 @@ export interface ColumnFill {
 export interface SidebarSlice {
   /** Sidebar slot key (registry.js). */
   key: string
-  /** First item index rendered on this page. */
+  /**
+   * First item index rendered on this page — and, therefore, whether this
+   * slice is a continuation: `start > 0` IS that fact. Ask it through
+   * layout.js's `isContinuedSlice()`, which both the measured title and the
+   * rendered title go through. (C3b also carried a derived `continued`
+   * boolean here; C4 removed it — one fact, one field, one predicate.)
+   */
   start: number
   /** One-past-the-last item index rendered on this page. */
   end: number
-  /** True when an earlier page already showed part of this section. */
-  continued: boolean
   /** Total items in the section, so `end - start` reads as a fraction of it. */
   itemCount: number
 }
 
 /**
  * One page of a pagination plan. Deliberately symmetric across the two flows —
- * `mainBlocks`/`sidebarKeys` are what each flow packs (the main column packs
- * measured experience blocks, the sidebar packs whole section keys) and
+ * `mainBlocks`/`sidebarSlices` are what each flow packs (the main column packs
+ * measured experience blocks, the sidebar packs runs of section items) and
  * `mainFill`/`sidebarFill` are the matching per-column numbers. This shape is
  * the contract a later chunk's `plan_layout` diagnostics is built from
  * (layout-packing-design.md §7.2), so it is named for that from the start.
@@ -308,9 +312,10 @@ export interface LayoutPlanPage {
   /** Identity slot keys injected at the top of this page's sidebar (never packed). */
   identity: string[]
   mainBlocks: ExperienceEntry[]
-  /** Which sections this page shows, in order — one entry per slice (see `sidebarSlices`). */
-  sidebarKeys: string[]
-  /** The same sections with their item ranges: `sidebarKeys[i] === sidebarSlices[i].key`. */
+  /**
+   * Which sections this page shows, in order, with their item ranges — the one
+   * per-page sidebar field. "Just the keys" is `sidebarSlices.map(s => s.key)`.
+   */
   sidebarSlices: SidebarSlice[]
   mainFill: ColumnFill | null
   sidebarFill: ColumnFill | null

@@ -32,6 +32,7 @@ import {
   CONTINUED_SUFFIX,
   deriveSidebarMetrics,
   identityH,
+  isContinuedSlice,
   planTwoColumn,
   sidebarSliceH
 } from '../../src/pdf/layout.js'
@@ -59,12 +60,24 @@ export const SECTION_TITLE_TEXT = {
  * marker itself is imported from layout.js, never re-typed, so a continuation
  * whose title the renderer and the packer disagree about fails HERE.
  *
- * @param {{ key: string, continued: boolean }} slice
+ * @param {{ key: string, start: number }} slice
  */
 export function sliceTitleText(slice) {
   const base = SECTION_TITLE_TEXT[slice.key]
-  return slice.continued ? `${base}${CONTINUED_SUFFIX.toUpperCase()}` : base
+  // Continuation is asked of the slice through layout.js's own predicate (C4),
+  // not re-derived here: the packer measured whichever string that predicate
+  // chose, so this side must ask the same question of the same field.
+  return isContinuedSlice(slice) ? `${base}${CONTINUED_SUFFIX.toUpperCase()}` : base
 }
+
+/**
+ * Which sections a planned page shows, in order — derived from the slices at
+ * the point of use (C4 removed the second, stored copy of this list from
+ * `LayoutPlanPage`).
+ *
+ * @param {{ sidebarSlices: { key: string }[] }} planPage
+ */
+const sliceKeys = (planPage) => planPage.sidebarSlices.map((s) => s.key)
 
 const WORD_RE =
   /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g
@@ -165,7 +178,7 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
   plan.pages.forEach((planPage, i) => {
     const pageRows = pages[i]
     if (!pageRows) {
-      skipped.push({ page: i, reason: 'no-physical-page', keys: planPage.sidebarKeys })
+      skipped.push({ page: i, reason: 'no-physical-page', keys: sliceKeys(planPage) })
       return
     }
     // Where each of this page's section titles actually landed, in order. C3b:
@@ -186,16 +199,23 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
       skipped.push({ page: i, reason: 'title-not-on-planned-page', keys: notFound })
       return
     }
-    if (planPage.sidebarKeys.length === 1) {
-      skipped.push({
-        page: i,
-        reason: 'single-section-no-following-title',
-        keys: planPage.sidebarKeys
-      })
+    const keys = sliceKeys(planPage)
+    if (keys.length === 1) {
+      skipped.push({ page: i, reason: 'single-section-no-following-title', keys })
     }
-    if (planPage.sidebarKeys.length > 0) {
+    if (keys.length > 0) {
       // The LAST section on any page is never differenced (nothing follows it).
-      unmeasuredTail.push({ page: i, key: planPage.sidebarKeys[planPage.sidebarKeys.length - 1] })
+      //
+      // KNOWN GAP, and it is not evenly distributed: a SPLIT HEAD is always its
+      // page's last block (that is why the page ended), so title-to-title
+      // differencing structurally never reaches one. Every 0.00pt result this
+      // harness reports about split sections is about TAILS. Heads are
+      // unverified against a render — low risk (head and tail are measured by
+      // the same `sidebarSliceH` call with different indices, and the tails
+      // agree exactly), but unverified is unverified. Closing it needs a
+      // different probe: the head's own first ITEM row vs the title above it,
+      // rather than the next title below.
+      unmeasuredTail.push({ page: i, key: keys[keys.length - 1] })
     }
 
     if (pagesAlign && titleTops.length > 0) {

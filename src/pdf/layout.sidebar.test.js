@@ -22,6 +22,7 @@ import {
   deriveMetrics,
   deriveSidebarMetrics,
   identityH,
+  isContinuedSlice,
   packBlocks,
   packSidebar,
   planTwoColumn,
@@ -706,7 +707,9 @@ describe('packSidebar', () => {
       expect(own[0].start).toBe(0)
       expect(own[own.length - 1].end).toBe(sidebarItemCount(key, CONTENT))
       expect(own.map((s) => s.start).slice(1)).toEqual(own.map((s) => s.end).slice(0, -1))
-      expect(own.map((s) => s.continued)).toEqual(own.map((_, i) => i > 0))
+      // "continued" is not a stored field (C4): it IS start > 0, asked through
+      // the one exported predicate both the measurement and the render use.
+      expect(own.map(isContinuedSlice)).toEqual(own.map((_, i) => i > 0))
     }
   })
 
@@ -718,7 +721,6 @@ describe('packSidebar', () => {
         key: 'education',
         start: 0,
         end: CONTENT.education.length,
-        continued: false,
         itemCount: CONTENT.education.length
       }
     ])
@@ -748,7 +750,7 @@ describe('packSidebar', () => {
     // item rendered twice), and they run in order across consecutive pages.
     expect(certs.map((s) => s.start)).toEqual(certs.map((_, i) => (i === 0 ? 0 : certs[i - 1].end)))
     expect(certs[certs.length - 1].end).toBe(60)
-    expect(certs.map((s) => s.continued)).toEqual(certs.map((_, i) => i > 0))
+    expect(certs.map(isContinuedSlice)).toEqual(certs.map((_, i) => i > 0))
     expect(certs.map((s) => s.page)).toEqual(certs.map((_, i) => certs[0].page + i))
 
     // Every slice carries at least one item — a title alone would be an
@@ -776,7 +778,8 @@ describe('packSidebar', () => {
     const packed = packSidebar(keys, huge, TWO_COLUMN_LAYOUT, tealTheme, measure)
     const page = packed.pages.findIndex((p) => p.some((s) => s.key === 'certifications'))
     expect(packed.pages[page].map((s) => s.key)).toEqual(['certifications'])
-    expect(packed.pages[page][0]).toMatchObject({ start: 0, end: 1, continued: false })
+    expect(packed.pages[page][0]).toMatchObject({ start: 0, end: 1 })
+    expect(isContinuedSlice(packed.pages[page][0])).toBe(false)
     expect(packed.pageMetrics[page].used).toBeGreaterThan(packed.pageMetrics[page].budget)
   })
 
@@ -862,7 +865,7 @@ describe('planTwoColumn — P = max(P_main, P_sidebar)', () => {
     expect(plan.mainPageCount).toBeGreaterThan(plan.sidebarPageCount)
     expect(plan.totalPages).toBe(plan.mainPageCount)
     for (const page of plan.pages.slice(plan.sidebarPageCount)) {
-      expect(page.sidebarKeys).toEqual([])
+      expect(page.sidebarSlices).toEqual([])
       expect(page.sidebarFill).toBe(null)
       // identity is still injected on every page — that is not "empty column"
       expect(page.identity).toEqual(['identity-compact'])
@@ -889,13 +892,13 @@ describe('planTwoColumn — P = max(P_main, P_sidebar)', () => {
     })
     expect(plan.totalPages).toBe(1)
     expect(plan.pages[0].mainBlocks).toEqual([])
-    expect(plan.pages[0].sidebarKeys).toEqual([])
+    expect(plan.pages[0].sidebarSlices).toEqual([])
     expect(plan.pages[0].mainFill).toBe(null)
   })
 
   it('defaults to the built-in two-column layout rather than planning an empty sidebar', () => {
     const plan = planTwoColumn({ content: CONTENT, theme: tealTheme, measure })
-    expect(plan.pages[0].sidebarKeys.length).toBeGreaterThan(0)
+    expect(plan.pages[0].sidebarSlices.length).toBeGreaterThan(0)
     expect(plan.pages[0].identity).toEqual(['identity-photo'])
   })
 

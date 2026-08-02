@@ -8,13 +8,24 @@
 // (Math.random subset tags, object write order, wall-clock CreationDate; see
 // src/pdf/reproducible.js) on whatever machine `npm test` runs on.
 //
-// The TWO-ARCHITECTURE leg (x86 + ARM producing identical bytes) is NOT, and
-// cannot be, exercised here: that needs a CI matrix (e.g. GitHub Actions
-// `runs-on: [ubuntu-latest, macos-14]` or an x86_64/aarch64 container pair)
-// running this same fixture and diffing the two artifacts — a CI
-// configuration task, not a unit test, and out of reach of this sandbox
-// (single architecture). Tracked for whoever wires the CI matrix; see
-// research/c0-baseline.md.
+// The TWO-ARCHITECTURE leg (x86_64 + arm64 producing identical bytes) is not,
+// and cannot be, exercised here — one `npm test` run sees one architecture.
+// It is a CI-shaped question and it now has a CI-shaped answer: ci.yml's
+// `repro-arch` / `repro-arch-compare` jobs render this same scaffold on
+// ubuntu-latest (x86_64) and macos-latest (arm64), upload each leg's PDFs +
+// a manifest, and diff the hashes — refusing to pass if a leg is missing or
+// if both legs turn out to be the same architecture.
+//
+// WHAT THAT LEG ACTUALLY MEASURES, verified locally 2026-08-02 (C4) with
+// official nodejs.org v26.5.0 darwin-x64 vs darwin-arm64 binaries on one
+// machine: **the PDFs are byte-identical across architectures.** The variable
+// is not the CPU — it is the zlib linked into the node binary. The same
+// content built by Homebrew's arm64 node (zlib 1.2.12, vs node's bundled
+// 1.3.2.1-motley) produces a DIFFERENT byte stream while every decompressed
+// PDF object is identical: the layout, the glyph positions and the font
+// subsets agree exactly, only the deflate encoding differs. So CVX's
+// byte-for-byte promise is "same content + same node build", and the
+// compare job decompresses on failure to say which of the two it is hitting.
 
 import { cpSync, readFileSync } from 'node:fs'
 import path from 'node:path'

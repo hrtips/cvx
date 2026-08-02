@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "bin", "cv-content/index.js"],
+  "include": ["src", "bin", "scripts", "cv-content/index.js"],
   "exclude": ["node_modules", "lib"]
 }

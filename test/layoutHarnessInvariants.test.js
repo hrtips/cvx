@@ -31,6 +31,7 @@ import {
   deriveSidebarMetrics,
   entryH,
   identityH,
+  isContinuedSlice,
   overflowWarnings,
   packExperiences,
   sidebarFlowKeys,
@@ -754,7 +755,7 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
         expect(slices[0].start).toBe(0)
         expect(slices[slices.length - 1].end).toBe(slices[0].itemCount)
         expect(slices.map((s) => s.start).slice(1)).toEqual(slices.map((s) => s.end).slice(0, -1))
-        expect(slices.map((s) => s.continued)).toEqual(slices.map((_, i) => i > 0))
+        expect(slices.map(isContinuedSlice)).toEqual(slices.map((_, i) => i > 0))
         for (const s of slices) expect(s.end - s.start).toBeGreaterThan(0)
       }
     }

@@ -38,6 +38,7 @@
 import { TWO_COLUMN_LAYOUT } from '../../src/pdf/defaultLayouts.js'
 import {
   deriveSidebarMetrics,
+  isContinuedSlice,
   planTwoColumn,
   sidebarFlowKeys,
   sidebarSectionH
@@ -96,9 +97,8 @@ export function realSidebarPlan(content, layout = TWO_COLUMN_LAYOUT) {
       oracleUsed: page.sidebarSlices.length ? expectedPageUsedH(page.sidebarSlices, content) : null,
       blockCount: page.sidebarSlices.length,
       /** True when this page opens with the tail of a section the previous page started. */
-      continuesPrevious: first?.continued === true,
-      itemIncrement:
-        first?.continued === true ? independentItemIncrement(first, content) : undefined,
+      continuesPrevious: isContinuedSlice(first),
+      itemIncrement: isContinuedSlice(first) ? independentItemIncrement(first, content) : undefined,
       /**
        * Could a lone over-budget block have been cut smaller? Only a one-item
        * slice could not — that is Invariant 0's irreducible residual.
@@ -109,7 +109,9 @@ export function realSidebarPlan(content, layout = TWO_COLUMN_LAYOUT) {
       // Only meaningful for a section that STARTS on that page (a continuation
       // is handled by `itemIncrement` above), so it is the whole-section height.
       firstBlockHeight:
-        first == null || first.continued ? null : sidebarSectionH(first.key, content, sm, measure),
+        first == null || isContinuedSlice(first)
+          ? null
+          : sidebarSectionH(first.key, content, sm, measure),
       /**
        * The SMALLEST placeable piece of that section (title + one item), from
        * theme tokens. C3b splits, so "the whole section did not fit" stopped
@@ -117,7 +119,8 @@ export function realSidebarPlan(content, layout = TWO_COLUMN_LAYOUT) {
        * rule 1b (a page ending early) falsifiable rather than a free pass: an
        * empty page is legal only if even this did not fit on it.
        */
-      minUnit: first == null || first.continued ? null : expectedMinUnitH(first.key, content),
+      minUnit:
+        first == null || isContinuedSlice(first) ? null : expectedMinUnitH(first.key, content),
       gapBefore: sm.sectionDividerH
     }
   })

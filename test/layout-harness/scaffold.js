@@ -10,10 +10,38 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dump } from 'js-yaml'
+import { libBuiltAt, libStaleReason } from '../../scripts/libFreshness.js'
 import { pickProfilePhoto } from '../../src/pdf/profilePhoto.js'
 
 export const ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))))
 export const CLI = path.join(ROOT, 'bin', 'cvx.js')
+
+/** Has this process already verified lib/ against src/? One hash per run, not one per fixture. */
+let libChecked = false
+
+/**
+ * STALE-BUILD GUARD (C4). `CLI` imports `lib/`, every prediction in this
+ * harness comes from `src/`, and only `npm test`'s `pretest` hook rebuilds one
+ * from the other — `npx vitest` does not. Comparing a fresh prediction against
+ * a stale engine is a FALSE PASS, and both C3 reviewers hit it by accident, so
+ * the first CLI invocation of a run refuses to proceed when the two disagree.
+ * See scripts/libFreshness.js for what "disagree" means (a content hash of
+ * exactly build-lib.js's inputs, not an mtime).
+ *
+ * @returns {void}
+ */
+export function assertLibMatchesSrc() {
+  if (libChecked) return
+  const reason = libStaleReason(ROOT)
+  if (reason !== null) {
+    const built = libBuiltAt(ROOT)
+    throw new Error(
+      `STALE BUILD — refusing to run a render test against it.\n  ${reason}` +
+        (built === null ? '' : `\n  (lib/ was last built ${built}.)`)
+    )
+  }
+  libChecked = true
+}
 
 /**
  * Is `pdftoppm` on PATH? CI runs `npm test` on ubuntu/macOS/Windows with no
@@ -93,6 +121,7 @@ export function writeFixtureContent(dir, content) {
  * so process failures (non-zero exit) become data, not a thrown exception.
  */
 export function runCli(dir, args, { env } = {}) {
+  assertLibMatchesSrc()
   try {
     // stdio: pipe stderr too (default would inherit it into the test
     // runner's own stderr) — our fixtures deliberately omit cv-content/

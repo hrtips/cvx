@@ -49,6 +49,21 @@ export function resolveDocument({ config, theme, layout } = {}) {
     isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column',
     // Normalised to the shape the packer reads: explicit nulls, never undefined,
     // so "unset" is one value rather than two.
+    //
+    // THIS IS A WHITELIST, and a future layout lever has to be added here or it
+    // does not exist. C4 learned it the expensive way: a `fill: 'balance'`
+    // prototype was gated on `config.fill` inside `planTwoColumn`, and because
+    // this object never carried `fill`, the gate was DEAD on the real render
+    // path — the evaluation only reached it by calling `planTwoColumn` directly
+    // and passing a hand-built config. So the rule for any C6 lever
+    // (`fill`, `density`, `weights`, `targetPages`, `order`, `buckets`) is
+    // three things in ONE commit: the key plumbed through here, the key added
+    // to `schema/v1/cvx.schema.json` (config is `additionalProperties: false`,
+    // so an un-schema'd key fails `cvx validate`), and a lever axis in
+    // `test/layout-harness/fixtures.js`. Miss the first and the lever silently
+    // does nothing; miss the third and every invariant in the C0 suite passes
+    // without ever executing the new code path (demonstrated in C4: a `balance`
+    // mode seeded to DROP a block left the whole suite green).
     packing: {
       page1ExperienceCount: config?.page1ExperienceCount ?? null,
       page1SplitBullets: config?.page1SplitBullets ?? null

@@ -1,7 +1,10 @@
 // cvx build --all: validate first, then render BOTH variants in one command,
 // emitting exactly one JSON object. Spawns the real bin so the CLI wiring
 // (arg parsing → validate gate → renderCV twice) is covered end to end.
-// Requires lib/ (the pretest build:lib step produces it before vitest runs).
+// Requires lib/ (the pretest build:lib step produces it before vitest runs) —
+// and, since C4, SAYS SO: `run()` goes through the stale-build guard, so a
+// bare `npx vitest` over an edited src/ fails by name instead of testing
+// whatever engine lib/ happens to hold.
 
 import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs'
@@ -9,6 +12,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { assertLibMatchesSrc } from './layout-harness/scaffold.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
@@ -22,6 +26,7 @@ function scaffold(mutate) {
 }
 
 function run(dir, args) {
+  assertLibMatchesSrc()
   try {
     return { code: 0, stdout: execFileSync('node', [CLI, ...args], { cwd: dir, encoding: 'utf8' }) }
   } catch (e) {

@@ -133,6 +133,225 @@ jobs:
           echo "run2: $H2"
           test "$H1" = "$H2"
 
+  # ── Cross-ARCHITECTURE byte-reproducibility (design doc §0 G-b) ───────────
+  #
+  # The `test` job's repro step proves SAME-machine determinism (two builds,
+  # one runner). This pair of jobs proves the other half the design doc asks
+  # for and that C0–C3 carried unfixed: an x86_64 build and an arm64 build of
+  # the SAME commit are byte-identical. ubuntu-latest is x86_64,
+  # macos-latest is Apple-silicon arm64, so the two architectures already
+  # exist in the matrix — what was missing is the artifact hand-off between
+  # them, which is what this adds.
+  #
+  # The comparison is deliberately NOT vacuous. Three ways it refuses to pass:
+  #   1. fewer than two manifests arrived;
+  #   2. the two legs report the SAME `process.arch` (the runner images
+  #      changed under us and the "cross-architecture" claim had quietly
+  #      become a same-architecture one);
+  #   3. the two legs are not otherwise IDENTICAL environments — same node
+  #      version, same `process.versions.zlib`. That check is the difference
+  #      between a result and a coincidence: every PDF object is deflated by
+  #      the zlib linked into the node binary, so two legs on different node
+  #      builds are comparing two variables at once, and both answers are
+  #      worthless (a green run would not establish architecture-independence;
+  #      a red one would be reported as an architecture divergence when it was
+  #      a patch bump). This is also why `node-version` below is an EXACT
+  #      version and not the floating `22` the other jobs use — the ubuntu and
+  #      macOS runner images roll independently.
+  #
+  # Measured locally on 2026-08-02 with official nodejs.org v26.5.0
+  # darwin-x64 vs darwin-arm64: the PDFs are byte-identical. The same content
+  # built by Homebrew's arm64 node (zlib 1.2.12 rather than node's bundled
+  # 1.3.2.1-motley) differs in raw bytes while every DECOMPRESSED stream stays
+  # identical — so on a mismatch the compare step decompresses and reports
+  # which of the two it is looking at.
+  repro-arch:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # EXACT, not `22`: see anti-vacuity check 3 above. Both legs must run
+          # the same node build or the comparison has two variables in it.
+          node-version: 22.23.2
+          cache: npm
+      - run: npm ci
+      - run: npm run build:lib
+
+      - name: Render the pinned scaffold on this architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/repro-out"
+          mkdir -p "$OUT"
+          DIR="$(mktemp -d)"
+          cd "$DIR"
+          node "$GITHUB_WORKSPACE/bin/cvx.js" init
+          # Two separate processes, never `build --all`: rendering both
+          # variants in one process corrupts the second document's ToUnicode
+          # CMap (see test/layout-harness/scaffold.js).
+          SOURCE_DATE_EPOCH=1700000000 node "$GITHUB_WORKSPACE/bin/cvx.js" build
+          SOURCE_DATE_EPOCH=1700000000 node "$GITHUB_WORKSPACE/bin/cvx.js" build --ats
+          test -s bruce-wayne.pdf && test -s bruce-wayne-ats.pdf
+          cp bruce-wayne.pdf bruce-wayne-ats.pdf "$OUT/"
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const sha = (f) => createHash("sha256").update(readFileSync(f)).digest("hex");
+            writeFileSync(process.argv[1] + "/manifest.json", JSON.stringify({
+              arch: process.arch,
+              platform: process.platform,
+              node: process.version,
+              zlib: process.versions.zlib,
+              hashes: {
+                "bruce-wayne.pdf": sha("bruce-wayne.pdf"),
+                "bruce-wayne-ats.pdf": sha("bruce-wayne-ats.pdf"),
+              },
+            }, null, 2) + "\n");
+          ' "$OUT"
+          cat "$OUT/manifest.json"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repro-${{ matrix.os }}
+          path: repro-out
+          if-no-files-found: error
+          retention-days: 7
+
+  repro-arch-compare:
+    needs: repro-arch
+    # `always()`, because the default `success()` would SKIP this job when a
+    # render leg dies — and branch protection counts a skipped required check
+    # as passing, so the gate would be bypassable exactly when something broke.
+    # Skipped is not passed; the first step turns a dead leg into a failure.
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: The render legs must have succeeded (a skipped gate is not a passed gate)
+        env:
+          RESULT: ${{ needs.repro-arch.result }}
+        run: |
+          echo "repro-arch result: $RESULT"
+          test "$RESULT" = "success"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: repro-*
+          path: artifacts
+
+      - name: x86_64 and arm64 must agree, byte for byte
+        shell: bash
+        run: |
+          set -euo pipefail
+          find artifacts -type f | sort
+          cat > compare.cjs <<'CMP'
+          const { readdirSync, readFileSync, statSync } = require("node:fs");
+          const { inflateSync } = require("node:zlib");
+          const { createHash } = require("node:crypto");
+          const path = require("node:path");
+
+          const legs = readdirSync("artifacts")
+            .map((d) => path.join("artifacts", d))
+            .filter((d) => statSync(d).isDirectory())
+            .map((dir) => ({ dir, ...JSON.parse(readFileSync(path.join(dir, "manifest.json"), "utf8")) }));
+
+          // Anti-vacuity 1: both legs must actually have reported.
+          if (legs.length !== 2) {
+            console.error(`expected 2 architecture legs, got ${legs.length}: ${legs.map((l) => l.dir)}`);
+            process.exit(1);
+          }
+          const [a, b] = legs;
+          console.log(`${a.arch}/${a.platform} node ${a.node} zlib ${a.zlib}`);
+          console.log(`${b.arch}/${b.platform} node ${b.node} zlib ${b.zlib}`);
+          // Anti-vacuity 2: two legs of the SAME architecture prove nothing.
+          if (a.arch === b.arch) {
+            console.error(`both legs are ${a.arch} — this job no longer compares two architectures.`);
+            process.exit(1);
+          }
+          // Anti-vacuity 3: architecture must be the ONLY difference. Different
+          // node builds (hence possibly different zlib) make the comparison
+          // two-variable, and neither answer would mean anything.
+          if (a.node !== b.node || a.zlib !== b.zlib) {
+            console.error(
+              `not a valid comparison: the legs differ by more than architecture — ` +
+              `node ${a.node}/zlib ${a.zlib} (${a.arch}) vs node ${b.node}/zlib ${b.zlib} (${b.arch}). ` +
+              `Pin the same exact node-version on both legs.`
+            );
+            process.exit(1);
+          }
+
+          /**
+           * Every stream object in a PDF, decompressed — the CONTENT, independent of
+           * how it was compressed. Object numbers are read from the object header the
+           * stream actually belongs to (walk the objects, then look inside), not from
+           * a lazy regex that can span two objects and mislabel every owner.
+           *
+           * NOT covered: dictionary-level geometry that never enters a stream —
+           * /MediaBox, link /Rect annotations. A divergence confined to those would
+           * still print the "compression only" branch, so that message says "no
+           * STREAM differs", not "the layout is identical".
+           */
+          function streamDigests(file) {
+            const buf = readFileSync(file);
+            const text = buf.toString("latin1");
+            const out = [];
+            const objRe = /(?:^|[^\d])(\d+)\s+0\s+obj\b/g;
+            let m;
+            while ((m = objRe.exec(text)) !== null) {
+              const objStart = m.index + m[0].length;
+              const endObj = text.indexOf("endobj", objStart);
+              const streamAt = text.indexOf("stream\n", objStart);
+              if (streamAt === -1) break;
+              if (endObj !== -1 && streamAt > endObj) continue; // this object has no stream
+              const dict = text.slice(objStart, streamAt);
+              const start = streamAt + "stream\n".length;
+              const end = buf.indexOf("\nendstream", start);
+              if (end === -1) continue;
+              const raw = buf.subarray(start, end);
+              let body = raw;
+              if (dict.includes("FlateDecode")) {
+                try { body = inflateSync(raw); } catch { body = raw; }
+              }
+              out.push(`${m[1]}:${createHash("sha256").update(body).digest("hex").slice(0, 16)}`);
+            }
+            // A parser that finds nothing would make two PDFs "equal" and turn every
+            // real divergence into a reassuring "compression only" message. react-pdf
+            // can change its serialisation; this must fail loudly when it does.
+            if (out.length === 0) {
+              throw new Error(`streamDigests found no stream objects in ${file} — the PDF serialisation changed and this comparison can no longer characterise a mismatch.`);
+            }
+            return out.join(" ");
+          }
+
+          let failed = false;
+          for (const name of Object.keys(a.hashes)) {
+            const ha = a.hashes[name], hb = b.hashes[name];
+            if (!ha || !hb) { console.error(`${name}: a hash is missing (${ha} / ${hb})`); failed = true; continue; }
+            if (ha === hb) { console.log(`OK  ${name}  ${ha}`); continue; }
+            failed = true;
+            const fa = path.join(a.dir, name), fb = path.join(b.dir, name);
+            console.error(`FAIL ${name}\n  ${a.arch}: ${ha} (${statSync(fa).size} bytes)\n  ${b.arch}: ${hb} (${statSync(fb).size} bytes)`);
+            // Characterise: did the CONTENT diverge, or only the compression?
+            console.error(
+              streamDigests(fa) === streamDigests(fb)
+                ? `  no STREAM differs — every decompressed object is identical, so the divergence is ` +
+                  `in the deflate encoder (zlib ${a.zlib} vs ${b.zlib}) rather than in anything the ` +
+                  `packer decided. Check the dictionaries too before concluding: /MediaBox and link ` +
+                  `/Rect annotations live outside streams and are not covered by this digest.`
+                : `  the decompressed streams DIFFER — this is a real layout/measurement divergence. ` +
+                  `Do not paper over it: bisect layout.js's quantize() boundaries and measure.js's glyph advances.`
+            );
+          }
+          process.exit(failed ? 1 : 0);
+          CMP
+          node compare.cjs
+
   # Alert-only: does the upcoming @react-pdf/renderer break rendering or
   # byte-identical reproducibility? Never fails the workflow — it exists to
   # surface upstream drift before a dependency bump lands.
