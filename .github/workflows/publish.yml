@@ -47,6 +47,14 @@ jobs:
       # Pinned rather than @latest: this job produces a published artifact, so
       # the same reasoning that pins every action SHA above applies to the
       # publisher itself. Bump deliberately.
+      #
+      # zizmor flags this as `adhoc-packages` (installing outside a lockfile in
+      # a release job) and it is right to. Accepted, because the alternative is
+      # worse: without npm >= 11.5.1 there is no OIDC publishing, which means
+      # going back to a long-lived npm token in a repo secret — a standing
+      # credential to leak or expire, versus one pinned install of the publisher
+      # itself. The exact version is pinned so the install is reproducible.
+      # zizmor: ignore[adhoc-packages]
       - run: npm install -g npm@11.19.0
       - run: npm ci
       - run: npm test
