@@ -24,6 +24,6 @@ updates:
       # js-yaml directly, the browser/Vite preview parses through the plugin —
       # so the preview and the exported PDF could disagree on YAML parsing
       # semantics. test/deps.test.js guards this and correctly failed PR #3.
-      # Lift this once @rollup/plugin-yaml supports js-yaml 5.
+      # Lift this once @rollup/plugin-yaml supports js-yaml 5 — see issue #5.
       - dependency-name: js-yaml
         update-types: [version-update:semver-major]
