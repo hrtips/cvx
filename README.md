@@ -25,7 +25,7 @@ Here is my LinkedIn profile: <your profile URL> (or attach your current CV and a
 <p align="center">
   <img src="assets/hero-two-column.png" alt="Designed two-column CV produced by CVX — teal theme, photo sidebar, achievements" width="720">
 </p>
-<p align="center"><sub>The scaffolded example CV, exactly as <code>npx @hrtips/cvx build</code> renders it — plus an <a href="assets/hero-ats.png">ATS-safe single-column variant</a> via <code>--ats</code>.</sub></p>
+<p align="center"><sub>Page 1 of the scaffolded example CV — plus an <a href="assets/hero-ats.png">ATS-safe single-column variant</a> via <code>--ats</code>. Pagination has improved since these were captured; your build may split pages differently.</sub></p>
 
 ---
 
