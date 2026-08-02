@@ -17,3 +17,13 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # js-yaml 5 removed the CommonJS default export that @rollup/plugin-yaml
+      # still relies on. Bumping only our direct dependency splits the majors
+      # between the two content-loading paths — the Node export path imports
+      # js-yaml directly, the browser/Vite preview parses through the plugin —
+      # so the preview and the exported PDF could disagree on YAML parsing
+      # semantics. test/deps.test.js guards this and correctly failed PR #3.
+      # Lift this once @rollup/plugin-yaml supports js-yaml 5.
+      - dependency-name: js-yaml
+        update-types: [version-update:semver-major]
