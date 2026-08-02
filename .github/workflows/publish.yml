@@ -5,7 +5,18 @@ name: Publish
 #                  versioned <version>-next.<short-sha>, safe to test via
 #                  `npx @hrtips/cvx@next` without touching latest.
 #
-# Requires the NPM_TOKEN_MAKECV secret (npm granular token, read/write packages).
+# Auth: npm Trusted Publishing (OIDC) — no token, no secret. The package is
+# linked on npmjs.com to this repo + this workflow filename, and npm accepts
+# the job's short-lived OIDC identity instead of a credential. `id-token: write`
+# below is what mints it (it already had to be there for provenance).
+#
+# Replaces the NPM_TOKEN_MAKECV granular token, which expired between the 1.5.0
+# and 1.6.0 releases and failed the publish with a misleading `E404 Not Found -
+# PUT` (npm reports unauthorized as 404 so it can't be used to probe for private
+# packages). Nothing to rotate now — there is no credential to expire.
+#
+# If publishing ever 404s again, check the Trusted Publisher config on npmjs.com
+# still names this exact workflow file; renaming this file breaks the link.
 
 on:
   push:
@@ -32,6 +43,11 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      # Node 22 bundles npm 10.x; Trusted Publishing (OIDC) needs >= 11.5.1.
+      # Pinned rather than @latest: this job produces a published artifact, so
+      # the same reasoning that pins every action SHA above applies to the
+      # publisher itself. Bump deliberately.
+      - run: npm install -g npm@11.19.0
       - run: npm ci
       - run: npm test
 
@@ -39,14 +55,13 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: npm version --no-git-tag-version "$(node -p "require('./package.json').version")-next.$(git rev-parse --short HEAD)"
 
+      # No NODE_AUTH_TOKEN on either step: OIDC is the credential. Provenance is
+      # implied by Trusted Publishing, but stays explicit so the intent survives
+      # someone reading only this line.
       - name: Publish canary (--tag next)
         if: github.event_name == 'workflow_dispatch'
         run: npm publish --provenance --access public --tag next
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_MAKECV }}
 
       - name: Publish stable
         if: github.event_name == 'push'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_MAKECV }}
