@@ -41,21 +41,14 @@ jobs:
       # zizmor: ignore[cache-poisoning]
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          # Node 24, not 22, purely for the bundled npm: Trusted Publishing
+          # (OIDC) needs npm >= 11.5.1, and Node 22 still ships npm 10.x while
+          # Node 24 ships 11.16+. Taking it from the runtime avoids installing
+          # a publisher outside any lockfile in the one job that emits a
+          # published artifact — which zizmor flags as `adhoc-packages`, and
+          # rightly so. Node 24 is already covered by the CI test matrix.
+          node-version: 24
           registry-url: https://registry.npmjs.org
-      # Node 22 bundles npm 10.x; Trusted Publishing (OIDC) needs >= 11.5.1.
-      # Pinned rather than @latest: this job produces a published artifact, so
-      # the same reasoning that pins every action SHA above applies to the
-      # publisher itself. Bump deliberately.
-      #
-      # zizmor flags this as `adhoc-packages` (installing outside a lockfile in
-      # a release job) and it is right to. Accepted, because the alternative is
-      # worse: without npm >= 11.5.1 there is no OIDC publishing, which means
-      # going back to a long-lived npm token in a repo secret — a standing
-      # credential to leak or expire, versus one pinned install of the publisher
-      # itself. The exact version is pinned so the install is reproducible.
-      # zizmor: ignore[adhoc-packages]
-      - run: npm install -g npm@11.19.0
       - run: npm ci
       - run: npm test
 
