@@ -17,3 +17,6 @@ dist/
 research/
 lib/
 coverage/
+
+# npm pack output — a local verification artifact, never committed
+*.tgz

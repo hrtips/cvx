@@ -487,7 +487,7 @@ The build is deliberately hostile — a change lands only if it clears every gat
 |---|---|---|
 | Lint + format | `npm run lint` | [Oxlint](https://oxc.rs) (fast correctness/`suspicious`, incl. `rules-of-hooks`, `no-focused-tests`) **+** [Biome](https://biomejs.dev) (format, imports, deeper lint) — zero warnings |
 | Types | `npm run typecheck` | `tsc --noEmit` with `checkJs` + full `strict` over the JS/JSX sources (types via JSDoc + `src/pdf/types.d.ts`, derived from the JSON schema) |
-| Coverage | `npm run test:cov` | [Vitest](https://vitest.dev) v8, **per-file ≥ 90%** lines/functions/statements, ≥ 85% branches — no global averaging |
+| Coverage | `npm run test:cov` | [Vitest](https://vitest.dev) v8, **per-file ≥ 90%** lines/functions/statements, ≥ 85% branches — no global averaging, no per-file waivers |
 | Dead code | `npm run knip` | no unused files, exports, or dependencies |
 | Package | `npm run publint` · `npm run attw` | [publint](https://publint.dev) packaging + [arethetypeswrong](https://arethetypeswrong.github.io) resolution |
 | Supply chain | `security` CI job | [actionlint](https://github.com/rhysd/actionlint) · [zizmor](https://docs.zizmor.sh) (SHA-pinned actions, least-privilege) · [gitleaks](https://gitleaks.io) · [osv-scanner](https://google.github.io/osv-scanner/) |

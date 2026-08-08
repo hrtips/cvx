@@ -30,9 +30,10 @@ const BASE = {
 
 function makeDir(
   /** @type {Record<string, string>} */ files = {},
-  /** @type {{ layouts?: Record<string, string>, images?: Record<string, string|undefined> }} */ {
+  /** @type {{ layouts?: Record<string, string>, images?: Record<string, string|undefined>, dirs?: string[] }} */ {
     layouts,
-    images
+    images,
+    dirs
   } = {}
 ) {
   const dir = mkdtempSync(join(tmpdir(), 'cvx-validate-'))
@@ -43,6 +44,10 @@ function makeDir(
     for (const [name, content] of Object.entries(layouts))
       writeFileSync(join(dir, 'layouts', name), content)
   }
+  // Entries that LOOK like content files but cannot be read as one (a
+  // directory named *.yaml). readdirSync lists them, so validateContent must
+  // report them per-file instead of throwing out of the whole run.
+  for (const d of dirs ?? []) mkdirSync(join(dir, d), { recursive: true })
   if (images) {
     mkdirSync(join(dir, 'images'), { recursive: true })
     for (const [name, content] of Object.entries(images))
@@ -379,5 +384,281 @@ describe('validateContent — root-level + parse-position branches', () => {
       fontsDir: FONTS
     })
     expect(res).toBeTruthy()
+  })
+})
+
+// The `oneOf` reporting path: which branch's complaint a user is shown when a
+// value matches none of a subschema's alternatives. mapAjvErrors() keeps only
+// the branch errors whose declared type matches the instance's ACTUAL type
+// (jsonType()), so a wrong-shaped value gets one shape finding instead of one
+// "must be <type>" per alternative.
+describe('validateContent — oneOf shape reporting', () => {
+  it('reports a null and a nested-list layout slot as one shape error each, not one per alternative', () => {
+    // `- ` (an empty list item → null) and a nested list are the two ways a
+    // slot can be neither of layoutSlot's alternatives (string / one-key
+    // object). Both must read as "invalid shape", never as the string
+    // branch's "must be string" plus the object branch's "must be object".
+    //
+    // The same two shapes in summary.yaml or an entry's bullets would be the
+    // more obvious fixture, but a null bullet currently throws out of the
+    // page-overflow estimate (planTwoColumn → summaryH) before validation can
+    // report anything, so this exercises the identical code path through a
+    // layout file, which the estimate never touches.
+    const res = validateContent({
+      contentDir: makeDir(BASE, {
+        layouts: { 'custom.yaml': 'template: two-column\nfirst:\n  main:\n    - ~\n    - [a, b]\n' }
+      }),
+      fontsDir: FONTS
+    })
+    const slots = res.errors.filter((e) => e.file === 'layouts/custom.yaml')
+    expect(slots.map((e) => e.path)).toEqual(['/first/main/0', '/first/main/1'])
+    for (const f of slots) expect(f.message).toMatch(/^invalid shape — one slot in a page region/)
+    expect(slots.some((f) => /must be (string|object)/.test(f.message))).toBe(false)
+  })
+
+  it('reports a root-level shape violation at (root), quoting the schema description', () => {
+    // keywords.yaml is the one file whose ROOT is a oneOf (string / group map /
+    // list), so a bare scalar fails at the document root: instancePath is
+    // empty and the finding must name the file as a whole, not a field in it.
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'keywords.yaml': '42\n' }),
+      fontsDir: FONTS
+    })
+    const f = res.errors.find((e) => e.file === 'keywords.yaml')
+    expect(res.ok).toBe(false)
+    expect(f?.path).toBe('(root)')
+    expect(f?.message).toMatch(/^invalid shape — optional ats keywords/)
+  })
+
+  it('falls back to a bare "invalid shape" when the failing alternative has no description', () => {
+    // A keyword group's value must be a string or a list of strings. That
+    // inner oneOf carries no description, so there is nothing to append — the
+    // finding still has to point at the offending group by path.
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'keywords.yaml': 'languages: 5\n' }),
+      fontsDir: FONTS
+    })
+    const f = res.errors.find((e) => e.path === '/languages')
+    expect(f?.file).toBe('keywords.yaml')
+    expect(f?.message).toBe('invalid shape')
+  })
+})
+
+// Suggestions are offered only when they are likely to be right, and ajv
+// keywords without a bespoke message still have to reach the user.
+describe('validateContent — suggestion + fallback messages', () => {
+  it('offers no did-you-mean for an unknown key that resembles nothing', () => {
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'personal.yaml': 'name: X\nquuxfrobnicator: 1\n' }),
+      fontsDir: FONTS
+    })
+    const f = res.warnings.find((w) => w.code === 'unknown-key')
+    expect(f?.message).toBe('unknown key "quuxfrobnicator"')
+    expect(f?.suggestion).toBeUndefined()
+    expect(res.ok).toBe(true)
+  })
+
+  it('offers no did-you-mean for a non-string enum value', () => {
+    // didYouMean() is string-edit-distance; a number has no spelling to fix,
+    // so the finding lists the allowed values and stops there.
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'config.yaml': 'theme: 3\n' }),
+      fontsDir: FONTS
+    })
+    const f = res.errors.find((e) => e.message.includes('not one of'))
+    expect(f?.path).toBe('/theme')
+    expect(f?.message).toBe('"3" is not one of: teal, coral, mono')
+    expect(f?.suggestion).toBeUndefined()
+    expect(res.errors.some((e) => e.path === '/theme' && e.message === 'must be string')).toBe(true)
+  })
+
+  it("passes through ajv's own message for a keyword it has no bespoke wording for", () => {
+    // A slot object must carry exactly one key: `{}` names no section and
+    // `{a: …, b: …}` names two. Neither keyword (minProperties/maxProperties)
+    // has a hand-written message, so the raw ajv text is what a user sees —
+    // silently dropping these findings would be the alternative.
+    const res = validateContent({
+      contentDir: makeDir(BASE, {
+        layouts: {
+          'custom.yaml':
+            'template: two-column\nfirst:\n  main:\n    - {}\n    - {summary: {}, experience: {}}\n'
+        }
+      }),
+      fontsDir: FONTS
+    })
+    expect(res.errors.map((e) => [e.path, e.message])).toEqual([
+      ['/first/main/0', 'must NOT have fewer than 1 properties'],
+      ['/first/main/1', 'must NOT have more than 1 properties']
+    ])
+  })
+})
+
+// Reading a file can fail for reasons js-yaml never sees (the entry is a
+// directory, a broken symlink, permissions). Those errors carry no source
+// position and no `reason`, so the finding must fall back to "(root)" and to
+// the raw message — and, either way, must not take the rest of the run down.
+describe('validateContent — unreadable files', () => {
+  it('reports an unreadable content file without inventing a line number', () => {
+    const res = validateContent({
+      contentDir: makeDir(BASE, { dirs: ['education.yaml'] }),
+      fontsDir: FONTS
+    })
+    expect(codes(res.errors)).toEqual(['yaml-parse'])
+    const f = res.errors[0]
+    expect(f.file).toBe('education.yaml')
+    expect(f.path).toBe('(root)')
+    expect(f.message).toMatch(/^YAML parse error: [A-Z]+:/)
+    expect(res.checked).toEqual(expect.arrayContaining(['personal.yaml', 'summary.yaml']))
+  })
+
+  it('reports an unreadable layout file without inventing a line number', () => {
+    const res = validateContent({
+      contentDir: makeDir(BASE, { dirs: ['layouts/broken.yaml'] }),
+      fontsDir: FONTS
+    })
+    expect(codes(res.errors)).toEqual(['yaml-parse'])
+    const f = res.errors[0]
+    expect(f.file).toBe('layouts/broken.yaml')
+    expect(f.path).toBe('(root)')
+    expect(f.message).toMatch(/^YAML parse error: [A-Z]+:/)
+  })
+})
+
+describe('validateContent — layout files', () => {
+  it('reports a malformed layout file at its line, and keeps checking the others', () => {
+    const res = validateContent({
+      contentDir: makeDir(BASE, {
+        layouts: {
+          'bad.yaml': 'template: two-column\n\tbad: tab\n',
+          'good.yaml': 'template: two-column\nfirst:\n  main: [summary]\n'
+        }
+      }),
+      fontsDir: FONTS
+    })
+    expect(codes(res.errors)).toEqual(['yaml-parse'])
+    const f = res.errors[0]
+    expect(f.file).toBe('layouts/bad.yaml')
+    expect(f.path).toBe('line 2')
+    expect(f.message).toBe('YAML parse error: tab characters must not be used in indentation')
+    expect(res.checked).toEqual(expect.arrayContaining(['layouts/bad.yaml', 'layouts/good.yaml']))
+  })
+
+  it('skips an empty layout file instead of failing it against the layout schema', () => {
+    // An empty file parses to null. Validating null against the layout schema
+    // would report "must be object" on a file the user has merely not written
+    // yet; it is still listed as checked.
+    const res = validateContent({
+      contentDir: makeDir(BASE, { layouts: { 'empty.yaml': '\n' } }),
+      fontsDir: FONTS
+    })
+    expect(res.ok).toBe(true)
+    expect(res.checked).toContain('layouts/empty.yaml')
+    expect(res.errors).toEqual([])
+    expect(res.warnings).toEqual([])
+  })
+
+  it('treats an unknown key in a layout file as a warning by default and an error under --strict', () => {
+    // Same severity rule as content files: a stray key keeps a human's build
+    // working, and fails an agent's --strict run.
+    const layouts = { 'extra.yaml': 'template: two-column\nmargins: 10\n' }
+    const lenient = validateContent({ contentDir: makeDir(BASE, { layouts }), fontsDir: FONTS })
+    expect(lenient.ok).toBe(true)
+    const warned = lenient.warnings.find((w) => w.code === 'unknown-key')
+    expect(warned?.file).toBe('layouts/extra.yaml')
+    expect(warned?.message).toBe('unknown key "margins"')
+
+    const strict = validateContent({
+      contentDir: makeDir(BASE, { layouts }),
+      strict: true,
+      fontsDir: FONTS
+    })
+    expect(strict.ok).toBe(false)
+    expect(strict.errors.map((e) => [e.file, e.code])).toEqual([
+      ['layouts/extra.yaml', 'unknown-key']
+    ])
+  })
+})
+
+describe('validateContent — overflow that no config forced', () => {
+  it('blames summary.yaml, not config.yaml, when a page overflows on its own', () => {
+    // Nothing here forces pagination — the summary alone is taller than the
+    // main column, so the page-1 budget goes negative before a single
+    // experience entry is placed. The finding must point at the file the user
+    // can actually shorten, and must NOT quote a page1ExperienceCount lever
+    // that this content never set.
+    const summary = Array.from(
+      { length: 24 },
+      () =>
+        '- A long summary sentence used to consume vertical space on page one so the overflow estimate triggers.\n'
+    ).join('')
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'summary.yaml': summary }),
+      fontsDir: FONTS
+    })
+    const f = res.warnings.find((w) => w.code === 'page-overflow')
+    expect(f?.file).toBe('summary.yaml')
+    expect(f?.path).toBe('(root)')
+    expect(f?.message).toMatch(/the summary alone is taller than the main column/)
+    expect(f?.message).not.toMatch(/page1ExperienceCount/)
+    expect(f?.suggestion).toMatch(/shorten the offending item/)
+  })
+})
+
+describe('validateContent — malformed content reaches the user, not the packer', () => {
+  // Regression for a crash in released 1.7.1: a bare `- ` in YAML parses to
+  // null, and the page-overflow estimate ran BEFORE the schema errors were
+  // considered. `layout.js` does `typeof b === 'string' ? b : b.text`, so null
+  // threw straight out of validate — raw `Cannot read properties of null`,
+  // exit 64 ("you used the CLI wrong"), and not one finding printed. The
+  // command whose whole job is explaining problems explained nothing.
+  //
+  // These assert the finding, not the absence of a throw: a test that only
+  // said `not.toThrow()` would pass again the moment someone wrapped the
+  // estimate in a bare try/catch and swallowed the real error with it.
+  it('reports the schema error for an empty summary bullet', () => {
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'summary.yaml': '- \n- A real bullet.\n' }),
+      fontsDir: FONTS
+    })
+    expect(res.ok).toBe(false)
+    const f = res.errors.find((e) => e.file === 'summary.yaml')
+    expect(f, 'the null bullet must be reported against summary.yaml').toBeDefined()
+    expect(f?.path).toBe('/0')
+    // No page-overflow advisory: the estimate is skipped while errors stand,
+    // so nothing is reported off content that was never validated.
+    expect(res.warnings.some((w) => w.code === 'page-overflow')).toBe(false)
+  })
+
+  it('reports the schema error for an empty experience bullet', () => {
+    const res = validateContent({
+      contentDir: makeDir({
+        ...BASE,
+        'experience.yaml':
+          '- role: Engineer\n  company: Acme\n  period: "2020"\n  bullets:\n    - \n'
+      }),
+      fontsDir: FONTS
+    })
+    expect(res.ok).toBe(false)
+    const f = res.errors.find((e) => e.file === 'experience.yaml')
+    expect(f?.path).toBe('/0/bullets/0')
+  })
+
+  it('still runs the overflow estimate when the content is clean', () => {
+    // The control. Without it, the fix above could be "never run the estimate"
+    // and every assertion here would still pass.
+    // Same sentence length as the overflow suite above — a shorter one does
+    // not actually overflow, so the control would have passed vacuously by
+    // asserting an absence rather than proving the estimate still runs.
+    const summary = Array.from(
+      { length: 24 },
+      () =>
+        '- A long summary sentence used to consume vertical space on page one so the overflow estimate triggers.\n'
+    ).join('')
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'summary.yaml': summary }),
+      fontsDir: FONTS
+    })
+    expect(res.ok).toBe(true)
+    expect(res.warnings.some((w) => w.code === 'page-overflow')).toBe(true)
   })
 })

@@ -359,23 +359,43 @@ export function validateContent(
   // overflow a page (an over-tall summary, one page-tall bullet, one page-tall
   // sidebar item) was silent. `overflowWarnings` is the general predicate and
   // emits at most one line per page.
+  // ONLY on content that already passed the schema. The packer trusts its input
+  // — `layout.js` does `typeof b === 'string' ? b : b.text` — so a bullet that
+  // is neither (a bare `- ` in YAML parses to null) threw straight out of
+  // validate: raw `Cannot read properties of null (reading 'text')`, exit 64,
+  // and NO findings at all. The schema catches that content perfectly well
+  // (`/0 must be string`); the estimate simply ran before the user was told.
+  //
+  // A crash is the worst possible failure for this command specifically: its
+  // entire job is to explain what is wrong, and 64 says "you used the CLI
+  // wrong" when the problem is in their file. Errors first, estimate second —
+  // and the estimate is an extra courtesy on top of a clean bill of health, so
+  // there is nothing to lose by skipping it when the news is already bad.
   const config = /** @type {import('./types.js').CVConfig} */ (docs.config ?? {})
-  if (Array.isArray(docs.experience) && docs.personal) {
+  if (errors.length === 0 && Array.isArray(docs.experience) && docs.personal) {
     const theme = THEMES[/** @type {string} */ (config.theme)] ?? THEMES.teal
-    const plan = planTwoColumn({
-      content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
-      config,
-      theme,
-      measure
-    })
-    for (const w of overflowWarnings(plan, config)) {
-      add('warning', w.forcedByConfig ? 'config.yaml' : 'summary.yaml', 'page-overflow', {
-        ...(w.forcedByConfig ? { path: '/page1ExperienceCount' } : {}),
-        message: w.message,
-        suggestion: w.forcedByConfig
-          ? 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
-          : `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
+    try {
+      const plan = planTwoColumn({
+        content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
+        config,
+        theme,
+        measure
       })
+      for (const w of overflowWarnings(plan, config)) {
+        add('warning', w.forcedByConfig ? 'config.yaml' : 'summary.yaml', 'page-overflow', {
+          ...(w.forcedByConfig ? { path: '/page1ExperienceCount' } : {}),
+          message: w.message,
+          suggestion: w.forcedByConfig
+            ? 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
+            : `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
+        })
+      }
+    } catch {
+      // Belt and braces, and deliberately silent. Reaching here means the
+      // packer threw on content the schema accepted — a bug in one of them,
+      // not something the user can act on. Losing one advisory warning is a
+      // fair price for `validate` never being the thing that crashes; the
+      // findings it already gathered still reach the user.
     }
   }
 

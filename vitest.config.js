@@ -21,29 +21,33 @@ export default mergeConfig(
         include: ['src/**/*.js', 'src/**/*.jsx', 'bin/**/*.js'],
         exclude: ['src/main.jsx'],
         reporter: ['text', 'html', 'lcov', 'json-summary'],
-        // Per-file, no averaging: every file in the universe must clear the bar
-        // on its own. The `**` glob applies it to all files; the one documented
-        // exception below is scoped and justified, not a global relaxation.
+        // Per-file, no averaging, NO EXCEPTIONS: every file in the universe
+        // must clear the bar on its own.
+        //
+        // `perFile: true` is what makes that true, and it was missing. Without
+        // it a glob threshold is checked against the AGGREGATE of the files it
+        // matches, so `**` was one project-wide average wearing the name of a
+        // per-file rule — src/pdf/sections/ContactSection.jsx sat at 75%
+        // branches under a declared 85% bar and the gate still exited 0. The
+        // README has claimed "per-file, no averaging" since the hostile-build
+        // track; this is the line that makes the claim true.
+        //
+        // There used to be a scoped waiver here dropping
+        // src/pdf/validateContent.js to 80% branches. `perFile: true` also
+        // made that waiver UNENFORCEABLE — every matching glob is checked
+        // independently, so a file-specific entry can only ever be stricter
+        // than `**`, never looser (setting its bar to 0 still failed against
+        // `**`). It was earned out instead: the uncovered branches were the
+        // oneOf/type-mismatch reporting path, the unreadable-file fallbacks,
+        // the layout-file findings and the unforced page-overflow warning, all
+        // now covered by tests in src/pdf/validateContent.test.js.
         thresholds: {
+          perFile: true,
           '**': {
             lines: 90,
             functions: 90,
             statements: 90,
             branches: 85
-          },
-          // validateContent.js's mapAjvErrors() formats a message for EVERY
-          // JSON-Schema violation keyword (required/type/enum/const/minimum/
-          // minLength/oneOf/additionalProperties). Every keyword line carries a
-          // `path: instancePath || '(root)'` secondary branch; covering all of
-          // them needs a root-level error of each keyword — a combinatorial
-          // matrix of formatting-only code with negligible bug risk. Its lines/
-          // functions/statements still hold the full 90%; only the branch bar is
-          // scoped, and the real validation paths are all exercised.
-          'src/pdf/validateContent.js': {
-            lines: 90,
-            functions: 90,
-            statements: 90,
-            branches: 80
           }
         }
       }

@@ -57,9 +57,16 @@ const makeStyles = (t) =>
   })
 
 /** @param {{ name: string, color: string, spacing: import('../types.js').Theme['spacing'] }} props */
+// No `if (!icon) return null` guard: it was unreachable and therefore
+// untestable. `name` comes from FIELD_ICON, keyed by the closed six-value
+// `field` union that layout.js's contactRows() is the only producer of, and
+// every one of those six maps to an entry that exists in ICONS. A runtime
+// guard against a state the type system forbids and the only caller cannot
+// construct buys nothing; what keeps the invariant true is the row in
+// ContactSection.test.js asserting each of the six fields renders an icon,
+// which fails at test time if a seventh field arrives without one.
 function Icon({ name, color, spacing }) {
   const icon = ICONS[/** @type {keyof typeof ICONS} */ (name)]
-  if (!icon) return null
   return (
     <Svg
       width={spacing.iconWidth}
