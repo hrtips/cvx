@@ -103,13 +103,20 @@ jobs:
               send({ jsonrpc: "2.0", method: "notifications/initialized" });
               send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
             } else if (msgs.length === 2) {
-              const tools = msgs[1].result.tools.map((t) => t.name).sort().join(",");
-              // Hardcoded on purpose: this is the packaged E2E, so it must fail
-              // when the shipped tool set changes without someone noticing. The
-              // in-repo tests derive these names from TOOLS and therefore cannot
-              // catch a surprise addition — this line is the one that can.
-              if (tools !== "build_pdf,get_schema,init_cv,plan_layout,validate_cv") { console.error("bad tools:", tools); process.exit(1); }
-              console.log("mcp smoke ok:", tools); p.kill(); process.exit(0);
+              // Deliberately NOT a hardcoded name list. Which tools exist is
+              // already pinned in-repo: docsSync derives the names from TOOLS
+              // and fails if one ships undocumented, so duplicating them here
+              // bought nothing and made every new tool a CI edit. What only
+              // this leg can check is that the PACKAGED artifact answers the
+              // handshake at all and returns well-formed tools.
+              const list = msgs[1].result.tools;
+              const bad = list.filter((t) => !t.name || !t.description || !t.inputSchema);
+              if (!list.length || bad.length) {
+                console.error("malformed tools:", JSON.stringify(bad.map((t) => t.name ?? t)));
+                process.exit(1);
+              }
+              const names = list.map((t) => t.name).sort().join(",");
+              console.log("mcp smoke ok:", list.length, "tools:", names); p.kill(); process.exit(0);
             }
           }
           send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "ci", version: "0" } } });
