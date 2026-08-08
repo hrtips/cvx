@@ -182,7 +182,9 @@ Save the generated files into `cv-content/`, drop in your photo, run `npx @hrtip
 
 ### Plug it into your agent (MCP)
 
-CVX ships an MCP server — any MCP client (Claude Desktop, Claude Code, Cursor, VS Code, …) can drive the whole loop with four tools: `get_schema`, `init_cv`, `validate_cv`, `build_pdf`. No API keys, fully offline.
+CVX ships an MCP server — any MCP client (Claude Desktop, Claude Code, Cursor, VS Code, …) can drive the whole loop with five tools: `get_schema`, `init_cv`, `validate_cv`, `build_pdf`, and `plan_layout` (a dry run that reports how the CV paginates — page count, per-page column fills, what landed where — without writing a PDF). No API keys, fully offline.
+
+CVX renders 100% of your YAML and never drops, clips, or hides text to fit a page — so an assistant driving it can't quietly cut a section to hit a page count either. If the CV runs longer than you want, it surfaces the trade-off and you decide what goes.
 
 ```bash
 npx @hrtips/cvx mcp init --client claude          # Claude Code (.mcp.json, project)

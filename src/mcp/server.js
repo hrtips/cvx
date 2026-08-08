@@ -1,5 +1,5 @@
 /**
- * cvx MCP server — stdio transport, 4 tools (see tools.js).
+ * cvx MCP server — stdio transport, 5 tools (see tools.js).
  *
  * Uses the SDK's low-level Server class so tool input schemas stay plain
  * JSON Schema (the same shapes documented in schema/v1) instead of a second
@@ -36,6 +36,8 @@ export async function runMcpServer(transport = new StdioServerTransport()) {
       instructions:
         'CVX renders CVs from plain YAML (cv-content/) to pixel-perfect PDFs, fully locally. ' +
         "Loop: get_schema → init_cv (if no cv-content/ yet) → edit the YAML files with the user's real details → validate_cv after every edit → build_pdf. " +
+        'plan_layout (optional, no PDF written) shows how the CV will paginate before you build it — page count, per-page fills, which roles land on page 1. ' +
+        'CVX renders 100% of the YAML: it never drops, clips, or hides content to save a page. If the CV is longer than the user wants, surface the trade-off and let them choose — never cut content for them. ' +
         "Never invent facts: every entry must be truthful to the user's real history, especially keywords.yaml (ATS parsers cross-check keywords against the CV body). " +
         'Pass the workspace folder as `dir` (absolute path) on every call.'
     }

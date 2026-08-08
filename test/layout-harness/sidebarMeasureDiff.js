@@ -83,11 +83,30 @@ const WORD_RE =
   /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g
 
 /**
- * Per physical page, the sidebar's text rows as `{ yMin, text }`, where `text`
- * is every word on that row concatenated (letter-spaced titles come back one
- * glyph per `<word>`, so joining is what makes them greppable).
+ * `pdftotext -bbox` emits XML, so a word containing `&` arrives as `&amp;` —
+ * invisible in the sidebar (no section title has one) and fatal in the main
+ * column, where "Chairman & Chief Executive Officer" would never match the role
+ * string it came from.
  */
-export function sidebarRowsByPage(pdfPath, sidebarMaxX) {
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+const decodeXml = (/** @type {string} */ s) =>
+  s.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, (whole, name) =>
+    name.startsWith('#')
+      ? String.fromCodePoint(Number(name.slice(1)))
+      : (XML_ENTITIES[/** @type {keyof typeof XML_ENTITIES} */ (name)] ?? whole)
+  )
+
+/**
+ * Per physical page, the text rows in one x-band as `{ yMin, text }`, where
+ * `text` is every word on that row concatenated (letter-spaced titles come back
+ * one glyph per `<word>`, so joining with no separator is what makes them
+ * greppable — and it makes every comparison whitespace-insensitive, which the
+ * main column needs too).
+ *
+ * @param {string} pdfPath
+ * @param {(xMin: number) => boolean} inBand  which column's words to keep
+ */
+export function rowsByPage(pdfPath, inBand) {
   const xml = execFileSync('pdftotext', ['-bbox', pdfPath, '-'], { encoding: 'utf8' })
   return xml
     .split('<page ')
@@ -97,10 +116,10 @@ export function sidebarRowsByPage(pdfPath, sidebarMaxX) {
       const rows = new Map()
       for (const m of pageXml.matchAll(WORD_RE)) {
         const xMin = Number(m[1])
-        if (xMin >= sidebarMaxX) continue
+        if (!inBand(xMin)) continue
         const key = Number(m[2]).toFixed(2)
         if (!rows.has(key)) rows.set(key, { yMin: Number(m[2]), words: [] })
-        rows.get(key)?.words.push({ x: xMin, t: m[5] })
+        rows.get(key)?.words.push({ x: xMin, t: decodeXml(m[5]) })
       }
       return [...rows.values()]
         .sort((a, b) => a.yMin - b.yMin)
@@ -112,6 +131,11 @@ export function sidebarRowsByPage(pdfPath, sidebarMaxX) {
             .join('')
         }))
     })
+}
+
+/** Per physical page, the SIDEBAR's text rows (see rowsByPage). */
+export function sidebarRowsByPage(pdfPath, sidebarMaxX) {
+  return rowsByPage(pdfPath, (xMin) => xMin < sidebarMaxX)
 }
 
 /** Round to hundredths, normalizing -0 to 0 so an exact match reads as `0` for callers using `toBe(0)`. */

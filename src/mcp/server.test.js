@@ -3,7 +3,7 @@
 // handshake, tools/list, and tools/call (success, tool-level error, unknown
 // tool, and a handler that throws) — covering server.js without touching stdio.
 
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -42,9 +42,15 @@ afterAll(async () => {
 })
 
 describe('tools/list', () => {
-  it('advertises the four cvx tools with metadata', async () => {
+  it('advertises the five cvx tools with metadata', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map((t) => t.name)).toEqual(['get_schema', 'init_cv', 'validate_cv', 'build_pdf'])
+    expect(tools.map((t) => t.name)).toEqual([
+      'get_schema',
+      'init_cv',
+      'validate_cv',
+      'build_pdf',
+      'plan_layout'
+    ])
     for (const t of tools) {
       expect(t.title).toBeTruthy()
       expect(t.description).toBeTruthy()
@@ -91,6 +97,20 @@ describe('tools/call', () => {
       const res = await client.callTool({ name: 'build_pdf', arguments: { dir } })
       expect(res.isError).toBeFalsy()
       expect(parse(res)).toMatchObject({ ok: true, filename: 'bruce-wayne.pdf' })
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'plan_layout returns diagnostics over the protocol, writing no PDF',
+    async () => {
+      const dir = freshDir()
+      await client.callTool({ name: 'init_cv', arguments: { dir } })
+      const res = await client.callTool({ name: 'plan_layout', arguments: { dir } })
+      expect(res.isError).toBeFalsy()
+      expect(parse(res)).toMatchObject({ ok: true, rendered: false })
+      expect(parse(res).diagnostics.pages.length).toBeGreaterThan(0)
+      expect(existsSync(join(dir, 'bruce-wayne.pdf'))).toBe(false)
     },
     RENDER_TIMEOUT
   )

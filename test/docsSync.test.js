@@ -7,8 +7,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { TOOLS } from '../src/mcp/tools.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
+/** Derived from the server, so a new tool cannot ship undocumented. */
+const TOOL_NAMES = TOOLS.map((t) => t.name)
 const schema = JSON.parse(readFileSync(path.join(ROOT, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
 const cvSchemaDoc = readFileSync(path.join(ROOT, 'docs', 'cv-schema.md'), 'utf8')
 const scaffoldReadme = readFileSync(path.join(ROOT, 'template', 'cv-content', 'README.md'), 'utf8')
@@ -86,7 +89,7 @@ describe('scaffold README and AI guide stay aligned', () => {
     for (const def of CONTENT_DEFS) {
       expect(skillMd, `SKILL.md missing ${def}.yaml`).toContain(`${def}.yaml`)
     }
-    for (const tool of ['get_schema', 'init_cv', 'validate_cv', 'build_pdf']) {
+    for (const tool of TOOL_NAMES) {
       expect(skillMd, `SKILL.md missing tool ${tool}`).toContain(tool)
     }
     expect(skillMd).toMatch(/[Nn]ever invent facts/)
@@ -161,6 +164,61 @@ describe('assistant entry path stays intact', () => {
     const headings = [...aiGuide.matchAll(/^#+\s+(.+)$/gm)].map(([, h]) => slug(h))
     for (const [, a] of readme.matchAll(/docs\/ai-guide\.md#([\w-]+)/g)) {
       expect(headings, `dead anchor #${a}`).toContain(a)
+    }
+  })
+})
+
+// ── The MCP tool surface, and the rules that travel with it (added C6a) ─────
+// Two different failure modes, both cheap to catch here: a tool that ships
+// without reaching any doc a model reads, and — the one C4's evidence makes
+// expensive — a diagnostic that reaches a model WITHOUT the sentence saying it
+// is not a target. An assistant optimising `emptyColumn` toward zero lands in
+// exactly the layouts the sprint measured and rejected.
+describe('MCP tools and the layout-reading rules are documented wherever a model looks', () => {
+  const MODEL_FACING = [
+    ['skills/cvx/SKILL.md', skillMd],
+    ['docs/ai-guide.md', aiGuide],
+    ['llms.txt', llms],
+    ['README.md', readme]
+  ]
+
+  it('every shipped tool is named in the docs a model reads first', () => {
+    for (const [name, text] of MODEL_FACING) {
+      for (const tool of TOOL_NAMES) {
+        expect(text, `${name} does not mention the ${tool} tool`).toContain(tool)
+      }
+    }
+  })
+
+  it('the never-drop-content rule is stated wherever the layout is discussed', () => {
+    // Invariant 0 restated for the operator: CVX never drops content to fit, so
+    // neither does the assistant driving it — it surfaces the trade-off instead.
+    for (const [name, text] of MODEL_FACING) {
+      expect(text, `${name} does not carry the never-drop-content rule`).toMatch(
+        /never drop.{0,40}content|never drops.{0,60}(to fit|to save a page)/i
+      )
+      expect(text, `${name} does not say the trade-off goes to the user`).toMatch(
+        /trade-off|let them (decide|choose)/i
+      )
+    }
+  })
+
+  it('any doc that reports emptyColumn also says it is not a target', () => {
+    const stale = MODEL_FACING.filter(
+      ([, text]) => /emptyColumn/.test(text) && !/not a target|not targets/i.test(text)
+    ).map(([name]) => name)
+    expect(stale, `reports emptyColumn without the caveat: ${stale}`).toEqual([])
+    // ...and at least one of them actually does report it, so this is not vacuous.
+    expect(MODEL_FACING.some(([, text]) => /emptyColumn/.test(text))).toBe(true)
+  })
+
+  it('SKILL.md and the AI guide both carry the layout-reading loop', () => {
+    for (const [name, text] of [
+      ['skills/cvx/SKILL.md', skillMd],
+      ['docs/ai-guide.md', aiGuide]
+    ]) {
+      expect(text, `${name} has no "reading the layout" section`).toMatch(/Reading the layout/i)
+      expect(text, `${name} does not say there are no layout levers`).toMatch(/no layout levers/i)
     }
   })
 })

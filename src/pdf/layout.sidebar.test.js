@@ -716,7 +716,9 @@ describe('packSidebar', () => {
   it('reports a whole (unsplit) section as one slice spanning all of its items', () => {
     const packed = packSidebar(keys, CONTENT, TWO_COLUMN_LAYOUT, tealTheme, measure)
     const education = packed.pages.flat().filter((s) => s.key === 'education')
-    expect(education).toEqual([
+    expect(
+      education.map(({ key, start, end, itemCount }) => ({ key, start, end, itemCount }))
+    ).toEqual([
       {
         key: 'education',
         start: 0,
@@ -724,6 +726,13 @@ describe('packSidebar', () => {
         itemCount: CONTENT.education.length
       }
     ])
+    // ...carrying the geometry the block measured (C6a): the real height, and
+    // the divider it is charged unless it leads its page.
+    expect(education[0].height).toBeCloseTo(
+      Number(sidebarSectionH('education', CONTENT, deriveSidebarMetrics(tealTheme), measure)),
+      6
+    )
+    expect(education[0].gapBefore).toBeGreaterThanOrEqual(0)
   })
 
   it('keeps no page over budget while sections still fit', () => {

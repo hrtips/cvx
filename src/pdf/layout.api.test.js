@@ -296,12 +296,46 @@ describe('LayoutPlanPage carries each fact once (C4 collapse)', () => {
     const slices = plan.pages.flatMap((p) => p.sidebarSlices)
     expect(slices.length).toBeGreaterThan(0)
     for (const slice of slices) {
-      expect(Object.keys(slice).sort()).toEqual(['end', 'itemCount', 'key', 'start'])
+      // `height`/`gapBefore` joined the slice in C6a: geometry the block
+      // already measured and `packSidebar` used to discard, so a diagnostics
+      // consumer can decompose a page's fill without re-measuring through an
+      // @internal function. `continued` stays deleted — it was DERIVED from
+      // `start`, which is the difference (see types.d.ts on itemCount).
+      expect(Object.keys(slice).sort()).toEqual([
+        'end',
+        'gapBefore',
+        'height',
+        'itemCount',
+        'key',
+        'start'
+      ])
       expect(layout.isContinuedSlice(slice)).toBe(slice.start > 0)
     }
     // The fixture genuinely splits a section, so both answers are exercised.
     expect(slices.some((s) => layout.isContinuedSlice(s))).toBe(true)
     expect(slices.some((s) => !layout.isContinuedSlice(s))).toBe(true)
+  })
+
+  it('a page`s sidebar fill decomposes into its slices exactly: used === Σ (height + gapBefore)', () => {
+    // The reason `height`/`gapBefore` are published at all (C6a). If this ever
+    // drifts, `sidebarFill.used` is a number no consumer can take apart, and a
+    // diagnostic that says "this section is 40% of the page" is guessing.
+    let checkedMultiSlicePages = 0
+    for (const page of plan.pages) {
+      if (page.sidebarSlices.length === 0) continue
+      if (page.sidebarSlices.length > 1) checkedMultiSlicePages++
+      const sum = page.sidebarSlices.reduce((n, s) => n + s.height + s.gapBefore, 0)
+      expect(Math.abs(sum - Number(page.sidebarFill?.used)), `page ${page.index + 1}`).toBeLessThan(
+        0.011 // one quantization step: heights are rounded to 0.01pt each
+      )
+      // The first slice on a page is charged no divider (nothing precedes it);
+      // every later one is. A projection that published the block's
+      // unconditional gap would break the identity above on exactly these pages.
+      expect(page.sidebarSlices.map((s) => s.gapBefore > 0)).toEqual(
+        page.sidebarSlices.map((_, i) => i > 0)
+      )
+    }
+    expect(checkedMultiSlicePages).toBeGreaterThan(0) // not vacuous
   })
 
   it('isContinuedSlice copes with the absent slice the ATS/preview path passes', () => {

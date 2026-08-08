@@ -1,18 +1,26 @@
 /**
  * MCP tool implementations — transport-agnostic.
  *
- * Four tools, each a thin wrapper over the same library functions the CLI
+ * Five tools, each a thin wrapper over the same library functions the CLI
  * uses, returning the same JSON shapes as the CLI's --json envelopes. The
  * MCP server (server.js) only marshals these in and out of the protocol.
  *
  * Every tool takes an optional `dir` — the workspace folder that contains
  * (or will receive) cv-content/. MCP clients don't reliably set the server's
  * working directory, so agents should pass it explicitly.
+ *
+ * The fifth tool (`plan_layout`, C6a) is the one that is not part of the
+ * author-a-CV loop: it answers "how will this paginate?" without writing a PDF,
+ * so an assistant can tell the user which roles land on page 1, and whether
+ * anything overflows, before it builds. The surface stayed at four for four
+ * releases on purpose; this one earns its place by being the only way to see
+ * the layout at all without rasterizing a PDF the model cannot look at.
  */
 import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { renderCV } from '../pdf/render.js'
+import { layoutDiagnostics } from '../pdf/layoutDiagnostics.js'
+import { planCV, renderCV } from '../pdf/render.js'
 import { discoverThemes } from '../pdf/themes/index.js'
 import { validateContent } from '../pdf/validateContent.js'
 
@@ -96,7 +104,7 @@ export async function buildPdf(
 ) {
   /** @type {string[]} */
   const warnings = []
-  const { buffer, filename, themeName, layoutName } = await renderCV({
+  const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
     contentDir: contentDirOf(dir),
     fontsDir: resolveFontsDir(),
     ats,
@@ -112,6 +120,96 @@ export async function buildPdf(
     ats,
     theme: ats ? null : themeName,
     layout: ats ? null : layoutName,
+    warnings,
+    // The same numbers `plan_layout` returns, for the plan THIS build rendered
+    // (C6a) — so an assistant that just built does not need a second call to
+    // see how the CV paginated. `null` for the ATS/single-column variant, which
+    // react-pdf auto-flows and CVX never packs.
+    diagnostics: layoutDiagnostics(plan, config)
+  }
+}
+
+/**
+ * How many times in a row `plan_layout` will answer for one workspace before it
+ * starts saying "nothing has changed, stop".
+ *
+ * The sprint requires an iteration cap (design doc §7.4 / G-c: "cap the agent's
+ * plan_layout iterations"), and it is worth being precise about what it guards
+ * against HERE, where there are no levers yet: `plan_layout` is a pure function
+ * of the content directory, so calling it twice without editing anything cannot
+ * produce a different answer. A loop is therefore never progress — it is an
+ * agent burning tokens against a number it cannot move, which is exactly the
+ * §12-question-5 failure ("could it burn many plan_layout calls?"). The cap
+ * does not refuse to answer: refusing would break a legitimate re-read (e.g.
+ * showing the user the plan again), and an agent that cannot get an answer
+ * tends to retry harder. It reports, in the response, that the layout is
+ * identical to last time and what the only faithful next move is.
+ */
+const PLAN_ITERATION_CAP = 5
+
+/**
+ * Consecutive `plan_layout` calls per workspace that returned the same layout.
+ * Process-scoped (one MCP server per client session), and reset the moment the
+ * answer changes — i.e. the moment an edit actually moved the layout.
+ *
+ * @type {Map<string, { fingerprint: string, count: number }>}
+ */
+const planIterations = new Map()
+
+/** Bound the map so a long-lived server that sees many workspaces cannot grow without limit. */
+const MAX_TRACKED_WORKSPACES = 32
+
+/** @param {string} dir @param {string} fingerprint */
+function trackPlanIteration(dir, fingerprint) {
+  const prev = planIterations.get(dir)
+  const count = prev?.fingerprint === fingerprint ? prev.count + 1 : 1
+  if (!planIterations.has(dir) && planIterations.size >= MAX_TRACKED_WORKSPACES) {
+    planIterations.clear()
+  }
+  planIterations.set(dir, { fingerprint, count })
+  return {
+    count,
+    cap: PLAN_ITERATION_CAP,
+    /** Did this call return the same layout as the previous one for this workspace? */
+    unchanged: count > 1,
+    capReached: count >= PLAN_ITERATION_CAP
+  }
+}
+
+export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
+  /** @type {string[]} */
+  const warnings = []
+  const { themeName, layoutName, isSingleColumn, config, plan } = await planCV({
+    contentDir: contentDirOf(dir),
+    fontsDir: resolveFontsDir(),
+    warn: (msg) => warnings.push(msg)
+  })
+  const diagnostics = layoutDiagnostics(plan, config)
+  const iteration = trackPlanIteration(workspace(dir), JSON.stringify(diagnostics))
+
+  if (iteration.capReached) {
+    warnings.push(
+      `plan_layout has returned the identical layout ${iteration.count} times for this workspace — ` +
+        `nothing you have done since the first call changed it. Stop planning and act: build the ` +
+        `PDF, or put the trade-off to the user (shorter bullets, one fewer role, a section they ` +
+        `choose to cut) and let them pick — their call, not yours. CVX has no layout levers: the ` +
+        `layout follows the content. Never drop content to fit.`
+    )
+  }
+
+  return {
+    ok: true,
+    /** Nothing was written: this is a dry run, and the PDF still has to be built. */
+    rendered: false,
+    theme: isSingleColumn ? null : themeName,
+    layout: layoutName,
+    diagnostics,
+    note: isSingleColumn
+      ? `The "${layoutName}" layout is single-column: react-pdf flows it automatically and CVX ` +
+        `does not pack it, so there is no pagination plan to report. Layout diagnostics exist ` +
+        `for the designed two-column variant only.`
+      : null,
+    iteration,
     warnings
   }
 }
@@ -185,7 +283,7 @@ export const TOOLS = [
     name: 'build_pdf',
     title: 'Render cv-content/ to a PDF',
     description:
-      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong.',
+      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong. Returns the same layout diagnostics as plan_layout (page count, per-page column fills, which roles and sections landed on which page, overflow warnings) for the PDF it just wrote, so you can report the result without a second call.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -204,5 +302,23 @@ export const TOOLS = [
       additionalProperties: false
     },
     handler: buildPdf
+  },
+  {
+    name: 'plan_layout',
+    title: 'See how the CV will paginate — without rendering a PDF',
+    description:
+      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. Returns per page: column fill ratios (0..1), the experience entries and sidebar sections placed there (with item ranges, so you can see a section continued across a break), overflow in points, and which column is empty. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide — never drop content on their behalf.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dir: {
+          type: 'string',
+          description:
+            'Absolute path of the workspace folder containing cv-content/. Nothing is written. Defaults to the server working directory.'
+        }
+      },
+      additionalProperties: false
+    },
+    handler: planLayout
   }
 ]

@@ -44,7 +44,7 @@ Usage:
   cvx build --ats      Render the ATS-safe single-column variant
   cvx build --all      Validate, then render both the designed and ATS PDFs
   cvx list [themes|layouts]   Show available themes and layouts
-  cvx mcp              Run the MCP stdio server (4 tools, fully offline)
+  cvx mcp              Run the MCP stdio server (5 tools, fully offline)
   cvx mcp init --client claude|claude-desktop|cursor|vscode
                        Write the MCP config for your client
 
@@ -267,9 +267,10 @@ export async function mcpInit(/** @type {{ client?: string, json?: boolean }} */
 
 export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, json }) {
   const { renderCV } = await import('../lib/pdf/render.js')
+  const { layoutDiagnostics } = await import('../lib/pdf/layoutDiagnostics.js')
   /** @type {string[]} */
   const warnings = []
-  const { buffer, filename, themeName, layoutName } = await renderCV({
+  const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir: join(pkgRoot, 'lib', 'fonts'),
     ats,
@@ -288,7 +289,14 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
       ats,
       theme: ats ? null : themeName,
       layout: ats ? null : layoutName,
-      warnings
+      warnings,
+      // Layout diagnostics for the plan this build rendered (C6a): page count,
+      // per-page column fills, what landed where, overflow. --json is the
+      // documented agent contract, and an agent driving the CLI is exactly as
+      // blind to the PDF as one driving the MCP server — so it gets the same
+      // numbers `build_pdf` returns, from the same function. `null` for --ats
+      // (single column, auto-flowed, never packed).
+      diagnostics: layoutDiagnostics(plan, config)
     })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
@@ -385,7 +393,10 @@ export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
       ats,
       theme: res.theme,
       layout: res.layout,
-      warnings: res.warnings ?? []
+      warnings: res.warnings ?? [],
+      // Passed straight through from the child build, so `build --all --json`
+      // carries the same layout diagnostics as `build --json` (C6a).
+      diagnostics: res.diagnostics ?? null
     })
     if (!json)
       console.log(

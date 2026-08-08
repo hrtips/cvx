@@ -295,8 +295,37 @@ export interface SidebarSlice {
   start: number
   /** One-past-the-last item index rendered on this page. */
   end: number
-  /** Total items in the section, so `end - start` reads as a fraction of it. */
+  /**
+   * Total items in the section — the denominator `end - start` is a fraction
+   * of, i.e. "items 6–8 of 8".
+   *
+   * WHY IT STAYS, when C4 deleted two other fields for being derived (C6a).
+   * `itemCount` is NOT derivable from the plan: recovering it means calling
+   * `sidebarSectionItems(key, content)`, which is `@internal` (harness-only, no
+   * compatibility promise) and needs the content bag, which a diagnostics
+   * consumer holding only the plan does not have. Without it the plan is not
+   * self-describing — a reader could see `[0, 6)` and be unable to tell a whole
+   * section from the head of a split one. `continued` and `sidebarKeys` were
+   * different: both were derivable from fields sitting right next to them
+   * (`start > 0`, `slices.map(s => s.key)`) with nothing but the plan in hand,
+   * which is what made a second carrier of the same fact pure drift risk.
+   */
   itemCount: number
+  /**
+   * Measured height of THIS slice, pt — the number `packSidebar` used to decide
+   * the page break, not a re-measurement (C6a).
+   */
+  height: number
+  /**
+   * The separator charged to this slice ON THIS PAGE: 0 for the page's first
+   * slice (nothing precedes it, so `buildSidebar` draws no rule above it), the
+   * section divider for every later one.
+   *
+   * So `page.sidebarFill.used === Σ (slice.height + slice.gapBefore)` over the
+   * page's slices, exactly (to quantization). That identity is what makes the
+   * per-page fill decomposable by a consumer that has only the plan.
+   */
+  gapBefore: number
 }
 
 /**
@@ -332,6 +361,120 @@ export interface LayoutPlan {
   /** Pages the sidebar flow alone needed. */
   sidebarPageCount: number
   pages: LayoutPlanPage[]
+}
+
+// ── Layout diagnostics (C6a — layout-packing-design.md §7.2) ─────────────────
+// The plan, re-expressed for a reader that is not the renderer: ratios instead
+// of raw points, 1-based page numbers that match the badge on the sheet, and
+// the item ranges spelled out. Derived from `LayoutPlan` and NOTHING ELSE —
+// never from CV body text (design doc G-c: content is data, never commands).
+
+/** One column of one page, as diagnostics report it (layoutDiagnostics.js). */
+export interface ColumnDiagnostics {
+  /**
+   * `used / budget`, 0..1, rounded to 3dp. `null` in two cases, both meaning
+   * "there is no ratio to report": this flow ended on an earlier page (the
+   * column is structurally empty — see `LayoutPageDiagnostics.emptyColumn`), or
+   * the budget is <= 0 because the page's FIXED content (an over-tall summary)
+   * is already taller than the column, which `warnings` reports by name.
+   */
+  fill: number | null
+  /** Measured content height on this page, pt. `null` when the flow ended earlier. */
+  usedPt: number | null
+  /** Usable height for this column on this page, pt. `null` when the flow ended earlier. */
+  budgetPt: number | null
+}
+
+/** The main column's diagnostics: the experience entries placed on this page. */
+export interface MainColumnDiagnostics extends ColumnDiagnostics {
+  entries: {
+    role: string
+    /** Bullets of that entry rendered on THIS page (an entry may be split across pages). */
+    bullets: number
+    /** True when this is the tail of an entry that started on an earlier page. */
+    continued: boolean
+  }[]
+}
+
+/** The sidebar column's diagnostics: the section slices placed on this page. */
+export interface SidebarColumnDiagnostics extends ColumnDiagnostics {
+  sections: {
+    key: string
+    /** Items rendered on this page, and the section's total. */
+    items: number
+    of: number
+    /** `[start, end)` into the section's item list. */
+    range: [number, number]
+    /** True when this slice continues a section an earlier page began. */
+    continued: boolean
+    /** This slice's measured height, pt (`SidebarSlice.height`). */
+    heightPt: number
+  }[]
+}
+
+/** One page of the plan, as diagnostics report it. */
+export interface LayoutPageDiagnostics {
+  /** 1-based — the number printed on the sheet, not the plan's 0-based index. */
+  page: number
+  main: MainColumnDiagnostics
+  sidebar: SidebarColumnDiagnostics
+  /**
+   * pt past budget across both columns. Non-zero means react-pdf will flow the
+   * surplus onto a physical sheet the page numbering does not count — the one
+   * genuine layout defect CVX can currently report. Always accompanied by a
+   * `warnings` entry naming the cause.
+   */
+  overflowPt: number
+  /**
+   * Which column has no content on this page.
+   *
+   * A DIAGNOSTIC, NOT A TARGET. It is the deliberate residual of one flow being
+   * genuinely longer than the other (design doc G1) and it is *expected* on a CV
+   * whose sidebar outlasts its experience list. Measured evidence (sprint C4,
+   * finding 3b): tuning a packer to drive this number down 42 -> 8 produced
+   * continued headings with one bullet over ~90% white space and a section
+   * fragmented across five pages. The proxy is anti-correlated with quality —
+   * report it, do not optimise it, and never drop content to remove one.
+   */
+  emptyColumn: 'main' | 'sidebar' | 'both' | null
+}
+
+/** A layout problem worth telling the user about, phrased as an action. */
+export interface LayoutDiagnosticWarning {
+  code: 'overflow'
+  /** 1-based page number. */
+  page: number
+  overflowPt: number
+  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. */
+  forcedByConfig: boolean
+  message: string
+}
+
+/**
+ * Everything `plan_layout` reports and `build_pdf` returns alongside its
+ * `warnings` — see layoutDiagnostics.js for why there is no aggregate
+ * "layout score".
+ */
+export interface LayoutDiagnostics {
+  totalPages: number
+  /** Pages the main flow alone needed (`totalPages` is the max of the two). */
+  mainPageCount: number
+  /** Pages the sidebar flow alone needed. */
+  sidebarPageCount: number
+  pages: LayoutPageDiagnostics[]
+  totals: {
+    /** Pages whose content reaches past budget (each has a `warnings` entry). */
+    overflowPages: number
+    /** Total pt past budget across the document. */
+    overflowPt: number
+    /** Pages with a structurally empty column — a diagnostic, not a target (see `emptyColumn`). */
+    emptyColumnPages: number
+    /** Sidebar sections cut across a page break (each still renders every item). */
+    splitSections: number
+    /** Experience entries cut across a page break. */
+    splitEntries: number
+  }
+  warnings: LayoutDiagnosticWarning[]
 }
 
 /** Extra per-slot render props (registry.js renderSlot). */

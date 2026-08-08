@@ -14,7 +14,7 @@ CVX renders a folder of plain YAML files (`cv-content/`) into a pixel-perfect CV
 
 ## The loop
 
-If the CVX MCP server is connected, use its tools: `get_schema` → `init_cv` → edit YAML → `validate_cv` → `build_pdf` (pass the workspace folder as `dir`, absolute path). Otherwise use the CLI:
+If the CVX MCP server is connected, use its tools: `get_schema` → `init_cv` → edit YAML → `validate_cv` → `plan_layout` (optional dry run — see below) → `build_pdf` (pass the workspace folder as `dir`, absolute path). Otherwise use the CLI:
 
 ```bash
 npx @hrtips/cvx init                      # scaffold cv-content/ with a complete example CV
@@ -37,9 +37,21 @@ After converting the user's material into YAML (and passing validation), review 
 2. **Gaps and quality.** Missing dates, roles with no outcomes or metrics, thin one-line descriptions, unexplained employment gaps, an unprofessional email address (flag it, suggest `first.last@…`), a `competencies` list that is all hard or all soft skills (aim for a truthful mix, weighted to the target role), and sections the source hints at but the draft lacks (certifications, publications, languages). Turn these into **3–5 targeted questions, batched into one message** — e.g. *"Your CEO role lists no outcomes — any truthful numbers on users, revenue, or funding? And your LinkedIn mentions three publications; want them on the CV?"*
 3. **Conflicts.** Contradictory titles or dates between sources — present both options and ask which is correct; never pick silently.
 
-4. **Pre-build preview.** Before calling `build_pdf` (or running `build`), show the user a plain-language rundown of exactly what the CV will contain and get their OK: each section with its entries — roles with companies and periods (and which land on page 1), education, the competency pills, achievements, referees or *"available upon request"*, which keywords go into the (invisible) ATS metadata — plus the theme, layout, and photo status. Summarize the YAML; don't dump it. Nothing goes on the CV the user hasn't seen.
+4. **Pre-build preview.** Before calling `build_pdf` (or running `build`), show the user a plain-language rundown of exactly what the CV will contain and get their OK: each section with its entries — roles with companies and periods (and which land on page 1), education, the competency pills, achievements, referees or *"available upon request"*, which keywords go into the (invisible) ATS metadata — plus the theme, layout, and photo status. Summarize the YAML; don't dump it. Nothing goes on the CV the user hasn't seen. Use `plan_layout` for the page-by-page part — don't guess it.
 
 Apply the answers, re-validate, then build both variants. A truthful thin bullet always beats an embellished one — never pad with invented metrics.
+
+## Reading the layout
+
+You can't see the PDF. `plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` tells you how it paginated, without rendering anything:
+
+- `totalPages`, and per page `main.fill` / `sidebar.fill` (0–1, how full each column is), the roles on that page, the sidebar sections with their item ranges (`items 6–10 of 10`, `continued: true` = a section carried over from the previous page), and `overflowPt`.
+- `warnings` is the only list that means something is *wrong*: a page whose content reaches past its budget spills onto an extra sheet the page numbering can't count. Each warning names the page and the fix (usually: shorten the longest single item, or the summary).
+- `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets**. A last page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it.
+
+**There are no layout levers.** The layout is a function of the content, so `plan_layout` returns the same answer every time until the YAML changes — calling it in a loop achieves nothing. Use it once before the build, and once after a content edit if the user asked about length.
+
+**Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither should you. If the CV is longer than the user wants, say what it would cost — *"cutting the two oldest roles to 2 bullets each, or dropping the publications section, would bring it to 2 pages — which would you prefer?"* — and let them decide. Deleting a section, or trimming bullets, is a content edit the user approves; it is never a layout fix you apply on your own.
 
 ## Tailoring to a job posting
 

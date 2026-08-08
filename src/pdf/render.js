@@ -83,6 +83,151 @@ function warnAboutUnsupportedGlyphs(
   }
 }
 
+function assertContentDir(/** @type {string} */ contentDir) {
+  if (!existsSync(contentDir)) {
+    throw new Error(`Content directory not found: ${contentDir}\nRun "cvx init" to scaffold one.`)
+  }
+}
+
+/**
+ * Load the content bag and build the measurer — the part of a build that is
+ * identical for every variant, and the whole of what a dry run needs before it
+ * can pack.
+ *
+ * Real font metrics (C2) are injected into layout.js's packing functions
+ * (isomorphic — never imported there directly) and used to detect text the
+ * bundled font has no glyph for, regardless of which variant is being built
+ * (both render through the same Lato font).
+ */
+function loadAndMeasure(
+  /** @type {string} */ contentDir,
+  /** @type {string} */ fontsDir,
+  /** @type {(msg: string) => void} */ warn
+) {
+  const { config, content, profilePhoto } = loadContent(contentDir)
+  const measure = tryCreateMeasurer(fontsDir, warn)
+  warnAboutUnsupportedGlyphs(measure, content, warn)
+  return { config, content, profilePhoto, measure }
+}
+
+/**
+ * Resolve theme + layout and PACK the document — everything `renderCV` does
+ * before it touches a glyph, and therefore everything a dry run does at all.
+ *
+ * `renderCV` and `planCV` share this rather than each doing their own: a second
+ * copy of the theme/layout/plan chain is exactly how a dry run comes to describe
+ * a document that is not the one the build renders. (Pre-C3a the chain existed
+ * three times — render.js, CVDocument.jsx and layout.js each defaulted
+ * differently; `resolveDocument.js` collapsed that, and this collapses the
+ * caller side of it.)
+ *
+ * @param {object} args
+ * @param {string} args.contentDir
+ * @param {import('./types.js').CVConfig} args.config
+ * @param {import('./types.js').CVContent} args.content
+ * @param {string | null} args.profilePhoto
+ * @param {import('./types.js').Measurer | undefined} args.measure
+ * @param {(msg: string) => void} args.warn
+ */
+async function resolveAndPlan({ contentDir, config, content, profilePhoto, measure, warn }) {
+  const themes = await discoverThemes()
+  const layouts = discoverLayouts(join(contentDir, 'layouts'))
+  const themeName = config.theme ?? 'teal'
+  const layoutName = config.layout ?? 'two-column'
+
+  const theme = themes[themeName]
+  const layout = layouts[layoutName] ?? undefined
+
+  if (!theme) {
+    throw new Error(`Unknown theme "${themeName}". Available: ${Object.keys(themes).join(', ')}`)
+  }
+  if (layoutName && !layout) {
+    warn(
+      `Layout "${layoutName}" not found in ${join(contentDir, 'layouts')}. Using built-in default.`
+    )
+  }
+
+  // Resolve theme/layout ONCE (resolveDocument.js) and plan the pagination here,
+  // outside the React tree, so the plan is a value the caller owns rather than a
+  // side effect of rendering. CVDocument receives it as a prop. Two reasons this
+  // seam matters: the `plan_layout` dry-run (plan + diagnostics, no glyphs)
+  // needs the plan without a render, and computing it twice through two
+  // different fallback chains would measure a document that is not the one
+  // drawn — which is exactly what happened before this, with render.js resolving
+  // the theme, CVDocument re-resolving the layout, and layout.js defaulting
+  // differently again.
+  const resolved = resolveDocument({ config, theme, layout })
+  const plan = resolved.isSingleColumn
+    ? undefined
+    : planTwoColumn({
+        content: /** @type {import('./types.js').CVContent} */ ({ ...content, profilePhoto }),
+        layout: resolved.activeLayout,
+        config: resolved.packing,
+        theme: resolved.activeTheme,
+        measure
+      })
+
+  // Overflow warnings come off the PLAN this build is about to render, not off
+  // a separate estimate: one warning per page that genuinely reaches past its
+  // budget, whatever caused it (C3b). The old call site warned only for the
+  // config-forced lever, so the far larger silent cases — an over-tall summary,
+  // one page-tall bullet, one page-tall sidebar item — produced an extra,
+  // unnumbered physical sheet with no diagnostic at all. `overflowWarnings`
+  // emits at most one line per page, so the lever case is not warned twice.
+  for (const { message } of overflowWarnings(plan, config)) warn(message)
+
+  return { theme, layout, themeName, layoutName, resolved, plan }
+}
+
+/**
+ * Pack a cv-content directory WITHOUT rendering it — the dry run behind the
+ * `plan_layout` MCP tool (C6a / design doc §7.3).
+ *
+ * It runs the identical load → measure → resolve → pack chain `renderCV` runs
+ * (literally the same two functions), and stops before the first glyph. So the
+ * plan it returns is the plan a build of the same directory would use, by
+ * construction rather than by agreement — `test/planLayout.test.js` still
+ * checks it against a real render, because "by construction" has been wrong
+ * here before.
+ *
+ * NO GLOBAL STATE IS TOUCHED, deliberately: no `registerFonts`, no
+ * `setupReproducibility` (which seeds `Math.random` and swaps
+ * `zlib.createDeflate` process-wide). A dry run must not be able to perturb the
+ * bytes of a build that follows it in the same process — the byte-repro promise
+ * is a gate on every chunk of this sprint, and `plan_layout` is called BETWEEN
+ * builds by design.
+ *
+ * @param {object} opts
+ * @param {string} opts.contentDir  absolute path to the cv-content directory
+ * @param {string} opts.fontsDir    absolute path to the Lato fonts directory
+ * @param {(msg: string) => void} [opts.warn]
+ * @returns {Promise<{
+ *   config: import('./types.js').CVConfig,
+ *   themeName: string,
+ *   layoutName: string,
+ *   isSingleColumn: boolean,
+ *   plan?: import('./types.js').LayoutPlan,
+ * }>}
+ *   `plan` is absent for the single-column/ATS variant: react-pdf auto-flows a
+ *   single column and CVX never packs it, so there is genuinely nothing to plan.
+ */
+export async function planCV({ contentDir, fontsDir, warn = console.warn }) {
+  assertContentDir(contentDir)
+  const loaded = loadAndMeasure(contentDir, fontsDir, warn)
+  const { themeName, layoutName, resolved, plan } = await resolveAndPlan({
+    contentDir,
+    ...loaded,
+    warn
+  })
+  return {
+    config: loaded.config,
+    themeName,
+    layoutName,
+    isSingleColumn: resolved.isSingleColumn,
+    plan
+  }
+}
+
 /**
  * Render a CV to a PDF buffer.
  *
@@ -92,11 +237,11 @@ function warnAboutUnsupportedGlyphs(
  * @param {boolean} [opts.ats]       render the standalone ATS document instead
  * @param {Record<string, string | undefined>}  [opts.env]       environment (SOURCE_DATE_EPOCH support)
  * @param {(msg: string) => void} [opts.warn]
- * @returns {Promise<{buffer: Buffer, filename: string, themeName: string|null, layoutName: string|null, plan?: import('./types.js').LayoutPlan}>}
+ * @returns {Promise<{buffer: Buffer, filename: string, themeName: string|null, layoutName: string|null, config?: import('./types.js').CVConfig, plan?: import('./types.js').LayoutPlan}>}
  *   `plan` is the two-column pagination plan (absent for the single-column/ATS
  *   variant, which auto-flows and is not packed). Returned so a caller can see
- *   what was paginated without re-deriving it — the seam a later chunk's
- *   `plan_layout` dry-run and build diagnostics hang off.
+ *   what was paginated without re-deriving it — the seam `plan_layout`'s dry run
+ *   and `build_pdf`'s layout diagnostics both hang off.
  */
 export async function renderCV({
   contentDir,
@@ -105,20 +250,11 @@ export async function renderCV({
   env = process.env,
   warn = console.warn
 }) {
-  if (!existsSync(contentDir)) {
-    throw new Error(`Content directory not found: ${contentDir}\nRun "cvx init" to scaffold one.`)
-  }
+  assertContentDir(contentDir)
 
   registerFonts(fontsDir)
   const { creationDate } = setupReproducibility(env)
-  const { config, content, profilePhoto } = loadContent(contentDir)
-
-  // Real font metrics (C2): injected into layout.js's packing functions
-  // (isomorphic — never imported there directly) and used to detect text
-  // the bundled font has no glyph for, regardless of which variant is
-  // being built (both render through the same Lato font).
-  const measure = tryCreateMeasurer(fontsDir, warn)
-  warnAboutUnsupportedGlyphs(measure, content, warn)
+  const { config, content, profilePhoto, measure } = loadAndMeasure(contentDir, fontsDir, warn)
 
   if (ats) {
     const buffer = await renderToBuffer(
@@ -142,51 +278,14 @@ export async function renderCV({
     }
   }
 
-  const themes = await discoverThemes()
-  const layouts = discoverLayouts(join(contentDir, 'layouts'))
-  const themeName = config.theme ?? 'teal'
-  const layoutName = config.layout ?? 'two-column'
-
-  const theme = themes[themeName]
-  const layout = layouts[layoutName] ?? undefined
-
-  if (!theme) {
-    throw new Error(`Unknown theme "${themeName}". Available: ${Object.keys(themes).join(', ')}`)
-  }
-  if (layoutName && !layout) {
-    warn(
-      `Layout "${layoutName}" not found in ${join(contentDir, 'layouts')}. Using built-in default.`
-    )
-  }
-
-  // Resolve theme/layout ONCE (resolveDocument.js) and plan the pagination here,
-  // outside the React tree, so the plan is a value this function owns rather
-  // than a side effect of rendering. CVDocument receives it as a prop. Two
-  // reasons this seam matters: a later chunk's dry-run (`plan_layout`: plan +
-  // diagnostics, no glyphs) needs the plan without a render, and computing it
-  // twice through two different fallback chains would measure a document that
-  // is not the one drawn — which is exactly what happened before this, with
-  // render.js resolving the theme, CVDocument re-resolving the layout, and
-  // layout.js defaulting differently again.
-  const resolved = resolveDocument({ config, theme, layout })
-  const plan = resolved.isSingleColumn
-    ? undefined
-    : planTwoColumn({
-        content: /** @type {import('./types.js').CVContent} */ ({ ...content, profilePhoto }),
-        layout: resolved.activeLayout,
-        config: resolved.packing,
-        theme: resolved.activeTheme,
-        measure
-      })
-
-  // Overflow warnings come off the PLAN this build is about to render, not off
-  // a separate estimate: one warning per page that genuinely reaches past its
-  // budget, whatever caused it (C3b). The old call site warned only for the
-  // config-forced lever, so the far larger silent cases — an over-tall summary,
-  // one page-tall bullet, one page-tall sidebar item — produced an extra,
-  // unnumbered physical sheet with no diagnostic at all. `overflowWarnings`
-  // emits at most one line per page, so the lever case is not warned twice.
-  for (const { message } of overflowWarnings(plan, config)) warn(message)
+  const { theme, layout, themeName, layoutName, plan } = await resolveAndPlan({
+    contentDir,
+    config,
+    content,
+    profilePhoto,
+    measure,
+    warn
+  })
 
   const buffer = await renderToBuffer(
     /** @type {Parameters<typeof renderToBuffer>[0]} */ (
@@ -211,6 +310,11 @@ export async function renderCV({
     filename: deriveFilename(content.personal?.name, suffix),
     themeName,
     layoutName,
+    // The config this build used, so a caller can turn `plan` into diagnostics
+    // with the same overflow attribution `cvx build` warns with (a page-1
+    // overflow caused by the user's own page1ExperienceCount reads differently
+    // from one caused by an over-tall bullet — layout.js `overflowWarnings`).
+    config,
     plan
   }
 }

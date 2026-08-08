@@ -13,13 +13,23 @@
 import { describe, expect, it } from 'vitest'
 import { sliceItems, sliceTitle } from './sectionSlice.js'
 
-/** @param {number} start @param {number} end @param {number} itemCount */
+/**
+ * A planned slice. `height`/`gapBefore` are the plan's per-slice geometry (C6a)
+ * — the renderer never reads them (it draws whatever the items measure to), so
+ * they are filled with placeholders here rather than measured: if a future
+ * sectionSlice.js started reading them, these values would make it wrong
+ * loudly, which is the right direction for a guard.
+ *
+ * @param {number} start @param {number} end @param {number} itemCount
+ * @returns {import('../types.js').SidebarSlice}
+ */
 const slice = (start, end, itemCount = 4) => ({
   key: 'certifications',
   start,
   end,
-  continued: start > 0,
-  itemCount
+  itemCount,
+  height: 0,
+  gapBefore: 0
 })
 
 describe('sliceItems', () => {

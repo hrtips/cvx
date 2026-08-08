@@ -1929,8 +1929,30 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
 
   const packed = packBlocks(flow, budgetFn)
   return {
+    // The projection publishes the two geometry terms the block already
+    // measured (C6a). It used to drop both, which made the plan not
+    // self-describing: `sidebarFill.used` was a number no consumer could take
+    // apart, so anything wanting "how much of this page is THIS section" had to
+    // re-measure through `sidebarSliceH` — an @internal function taking an
+    // @internal metrics object. Publishing them costs nothing (they are already
+    // computed, and `packSidebar` was deleting them) and makes the per-page
+    // arithmetic checkable from outside: `used === Σ (height + gapBefore)`,
+    // exactly, which is asserted by both the unit suite and the render-agreement
+    // test rather than left as a comment.
+    //
+    // `gapBefore` is the gap ACTUALLY CHARGED on this page — zero for the first
+    // slice (nothing precedes it, so buildSidebar draws no rule above it), the
+    // section divider for every later one. Publishing the block's unconditional
+    // `sm.sectionDividerH` instead would be a number that does not add up.
     pages: packed.map((p) =>
-      p.blocks.map(({ key, start, end, itemCount }) => ({ key, start, end, itemCount }))
+      p.blocks.map(({ key, start, end, itemCount, height, gapBefore }, i) => ({
+        key,
+        start,
+        end,
+        itemCount,
+        height,
+        gapBefore: i === 0 ? 0 : gapBefore
+      }))
     ),
     pageMetrics: packed.map(({ used, budget }) => ({ used, budget })),
     totalPages: packed.length

@@ -209,7 +209,7 @@ The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder i
 
 ## Route E — MCP: any client, native tools
 
-CVX ships an MCP stdio server with four tools — `get_schema`, `init_cv`, `validate_cv`, `build_pdf` — thin wrappers over the same engine as the CLI. No API keys, fully offline; the server's instructions teach the model the loop and the truthfulness rules.
+CVX ships an MCP stdio server with five tools — `get_schema`, `init_cv`, `validate_cv`, `build_pdf`, `plan_layout` — thin wrappers over the same engine as the CLI. No API keys, fully offline; the server's instructions teach the model the loop and the truthfulness rules.
 
 One-time setup (writes/merges the client's config, never clobbers other servers):
 
@@ -231,6 +231,17 @@ Useful follow-up prompts once the first PDF renders:
 - *"Set page1ExperienceCount: 2 and page1SplitBullets: 3 in config.yaml"* (page-1 layout control)
 - *"Generate keywords.yaml for this job description, using only skills I actually list."*
 - *"Produce the ATS variant too"* → `npx @hrtips/cvx build --ats` for job portals.
+
+## Reading the layout
+
+An assistant can't see the PDF. It doesn't have to: the MCP `plan_layout` tool (a dry run — no PDF written) and the `diagnostics` block in `build --json` / `build_pdf` report how the CV paginated.
+
+Per page: how full each column is (`main.fill` / `sidebar.fill`, 0–1), which roles landed there, which sidebar sections and which of their items (`items 6–10 of 10`, `continued: true` for a section carried over the break), and `overflowPt`. Plus `warnings` — the only entries that mean something is wrong: a page reaching past its budget spills onto a sheet the page numbering can't count, and the warning names the page and the fix.
+
+Two things worth knowing before you act on any of it:
+
+- **`emptyColumn` is a diagnostic, not a target.** A final page whose sidebar outlasts the experience list is normal. CVX was measured against a packer tuned to eliminate those, and the result was worse CVs — sections fragmented across five pages, headings with a single bullet under them. Report the number; don't optimise it.
+- **There are no layout levers, so nothing changes between two `plan_layout` calls.** The layout follows the content. If the CV is longer than you want, that is a content decision — and it is the user's, not the assistant's: **never drop content to fit; surface the trade-off** (*"dropping publications, or trimming the two oldest roles to 2 bullets, gets this to 2 pages — which would you prefer?"*) and let them choose. CVX renders 100% of the YAML and never clips or hides text to save a page.
 
 ## For AI assistants reading this
 

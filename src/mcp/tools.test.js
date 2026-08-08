@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { buildPdf, getSchema, initCv, TOOLS, validateCv } from './tools.js'
+import { buildPdf, getSchema, initCv, planLayout, TOOLS, validateCv } from './tools.js'
 
 const RENDER_TIMEOUT = 30000
 /** @type {string} */
@@ -104,9 +104,40 @@ describe('buildPdf', () => {
   )
 })
 
+describe('planLayout', () => {
+  it(
+    'reports the pagination of a scaffolded folder without writing anything',
+    async () => {
+      await initCv({ dir: tmp })
+      const res = await planLayout({ dir: tmp })
+      expect(res).toMatchObject({ ok: true, rendered: false, theme: 'teal', layout: 'two-column' })
+      expect(res.diagnostics?.totalPages).toBeGreaterThan(1)
+      expect(existsSync(join(tmp, 'bruce-wayne.pdf'))).toBe(false)
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'agrees with what buildPdf renders from the same folder',
+    async () => {
+      await initCv({ dir: tmp })
+      const planned = await planLayout({ dir: tmp })
+      const built = await buildPdf({ dir: tmp })
+      expect(built.diagnostics).toEqual(planned.diagnostics)
+    },
+    RENDER_TIMEOUT
+  )
+})
+
 describe('TOOLS metadata', () => {
-  it('exposes exactly the four documented tools', () => {
-    expect(TOOLS.map((t) => t.name)).toEqual(['get_schema', 'init_cv', 'validate_cv', 'build_pdf'])
+  it('exposes exactly the five documented tools', () => {
+    expect(TOOLS.map((t) => t.name)).toEqual([
+      'get_schema',
+      'init_cv',
+      'validate_cv',
+      'build_pdf',
+      'plan_layout'
+    ])
     for (const tool of TOOLS) {
       expect(typeof tool.handler).toBe('function')
       expect(tool.inputSchema.type).toBe('object')

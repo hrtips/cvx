@@ -3,7 +3,7 @@
 // Requires lib/ (built by the pretest hook).
 
 import { spawn } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,13 +69,14 @@ describe('cvx mcp over stdio', () => {
     await send('notifications/initialized', undefined, { notification: true })
   })
 
-  it('lists exactly the four tools with schemas', async () => {
+  it('lists exactly the five tools with schemas', async () => {
     const result = await send('tools/list')
     expect(result.tools.map((t) => t.name)).toEqual([
       'get_schema',
       'init_cv',
       'validate_cv',
-      'build_pdf'
+      'build_pdf',
+      'plan_layout'
     ])
     for (const tool of result.tools) {
       expect(tool.inputSchema.type).toBe('object')
@@ -83,7 +84,7 @@ describe('cvx mcp over stdio', () => {
     }
   })
 
-  it('runs the full loop: init_cv → validate_cv → build_pdf in a temp workspace', async () => {
+  it('runs the full loop: init_cv → validate_cv → plan_layout → build_pdf in a temp workspace', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'cvx-mcp-e2e-'))
 
     const init = await send('tools/call', { name: 'init_cv', arguments: { dir } })
@@ -95,10 +96,22 @@ describe('cvx mcp over stdio', () => {
     expect(validation.ok).toBe(true)
     expect(validation.strict).toBe(true)
 
+    // The dry run, over the real protocol: JSON-serializable end to end, and
+    // still no PDF on disk afterwards.
+    const planned = await send('tools/call', { name: 'plan_layout', arguments: { dir } })
+    expect(planned.isError ?? false).toBe(false)
+    const plan = JSON.parse(planned.content[0].text)
+    expect(plan.ok).toBe(true)
+    expect(plan.rendered).toBe(false)
+    expect(plan.diagnostics.totalPages).toBeGreaterThan(0)
+    expect(existsSync(path.join(dir, 'bruce-wayne.pdf'))).toBe(false)
+
     const build = await send('tools/call', { name: 'build_pdf', arguments: { dir } })
     const built = JSON.parse(build.content[0].text)
     expect(built.ok).toBe(true)
     expect(built.filename).toBe('bruce-wayne.pdf')
+    // What the dry run promised is what the build delivered.
+    expect(built.diagnostics).toEqual(plan.diagnostics)
   }, 30_000)
 
   it('surfaces tool errors as isError with a structured payload', async () => {

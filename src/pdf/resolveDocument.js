@@ -64,6 +64,18 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // does nothing; miss the third and every invariant in the C0 suite passes
     // without ever executing the new code path (demonstrated in C4: a `balance`
     // mode seeded to DROP a block left the whole suite green).
+    //
+    // C6a adds a FOURTH place, and a warning about which lever. The fourth: the
+    // `plan_layout` MCP tool's `inputSchema` (src/mcp/tools.js), which today
+    // accepts `dir` and nothing else — a lever an agent cannot pass to the dry
+    // run cannot be tuned in the loop the tool exists for, and
+    // `test/mcpTools.test.js` fails if that argument list grows silently. The
+    // warning: `fill: 'balance'` specifically must NOT be the first lever
+    // exposed to an agent. C4 measured it — driving "planned pages with an empty
+    // column" from 42 to 8 produced continued headings with one bullet over ~90%
+    // white space and a section fragmented across five pages. The diagnostics
+    // C6a publishes deliberately carry no score for an agent to optimise there
+    // (see layoutDiagnostics.js), and a `balance` lever would hand it one anyway.
     packing: {
       page1ExperienceCount: config?.page1ExperienceCount ?? null,
       page1SplitBullets: config?.page1SplitBullets ?? null
