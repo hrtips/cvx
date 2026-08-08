@@ -128,7 +128,7 @@ describe('scaffoldContent', () => {
     ]
     expect(yamls.length).toBeGreaterThan(10)
     for (const rel of yamls) {
-      expect(readFileSync(join(dest, rel), 'utf8').split('\n')[0]).toBe(
+      expect(readFileSync(join(dest, rel), 'utf8').split(/\r?\n/)[0]).toBe(
         `# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/v1.7.0/schema/v1/${
           rel.startsWith('layouts') ? 'layout' : rel.replace(/\.yaml$/, '')
         }.schema.json`

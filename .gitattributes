@@ -1,0 +1,24 @@
+# Normalise line endings so a Windows checkout doesn't change file contents.
+#
+# Without this, git's autocrlf can hand Windows a CRLF working copy, and any
+# code that splits on '\n' then carries a trailing '\r' it never asked for.
+# That is exactly how v1.7.1 broke: two scaffold assertions compared a
+# `$schema` header against an expected string and failed on Windows only,
+# with both sides looking identical in the diff.
+* text=auto eol=lf
+
+# Belt and braces for the files whose exact bytes are load-bearing: the
+# scaffold templates are copied verbatim into a user's workspace, and the
+# schemas are fetched and parsed by editors.
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+
+# Binary — never touch these, and never try to diff them as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.pdf  binary
+*.ttf  binary

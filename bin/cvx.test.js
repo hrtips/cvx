@@ -142,7 +142,7 @@ describe('init', () => {
   it('pins the scaffolded $schema headers to the running release', async () => {
     await init({ json: true })
     const { schemaRef } = jsonOut()
-    const header = readFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'utf8').split('\n')[0]
+    const header = readFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'utf8').split(/\r?\n/)[0]
     expect(header).toBe(
       `# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/${schemaRef}/schema/v1/personal.schema.json`
     )
