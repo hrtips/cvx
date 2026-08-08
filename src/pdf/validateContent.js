@@ -36,6 +36,17 @@ const SCHEMA_PATH = join(
   'v1',
   'cvx.schema.json'
 )
+/**
+ * The key the canonical schema is registered under inside this Ajv instance.
+ *
+ * A literal, NOT `canonicalSchema.$id`: schema/v1/*.json deliberately declare
+ * no `$id` (see the `$comment` at the top of cvx.schema.json — an `$id` naming
+ * the `main` branch would resolve the per-file `$ref`s back to `main` and make
+ * a scaffolded file's pinned `$schema=` URL cosmetic). Ajv needs *some* key to
+ * `$ref` the canonical schema by; this is local to this process and never
+ * appears in a file or on the network.
+ */
+const SCHEMA_KEY = 'cvx.schema.json'
 const BUILT_IN_LAYOUTS = ['two-column', 'single-column']
 // Files the default two-column layout cannot render without (the packer
 // crashes on a missing list, and personal.name drives the filename).
@@ -56,12 +67,12 @@ function getValidator(/** @type {string} */ def) {
   if (!ajv) {
     canonicalSchema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'))
     ajv = new Ajv2020({ allErrors: true, verbose: true })
-    ajv.addSchema(canonicalSchema)
+    ajv.addSchema(canonicalSchema, SCHEMA_KEY)
   }
   if (!canonicalSchema.$defs[def]) return null
   return (
-    ajv.getSchema(`${canonicalSchema.$id}#/$defs/${def}`) ??
-    ajv.compile({ $ref: `${canonicalSchema.$id}#/$defs/${def}` })
+    ajv.getSchema(`${SCHEMA_KEY}#/$defs/${def}`) ??
+    ajv.compile({ $ref: `${SCHEMA_KEY}#/$defs/${def}` })
   )
 }
 

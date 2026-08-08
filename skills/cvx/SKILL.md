@@ -27,7 +27,14 @@ Exit codes: `0` ok · `2` validation failed · `3` render failed · `64` usage e
 
 Always validate after every edit and before every build. Findings include the file, the field path, and a suggested fix — apply the fix and re-validate.
 
-If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the [AI guide's default flow](https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
+If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the AI guide's default flow (see below — it ships with CVX, so no network is needed to read it) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
+
+## The full docs ship with CVX — don't fetch them
+
+`docs/ai-guide.md` (the complete playbook) and `docs/cv-schema.md` (the field-by-field reference) are inside the installed package, alongside this skill — `../../docs/ai-guide.md` relative to this file. Read them from disk when you can; they match the version you are actually running.
+
+- **With the MCP server:** `get_schema` lists them under `guides` with an absolute `path`, and returns the text inline if you ask — `get_schema({ dir, guides: ["ai-guide"] })`. That is the one route that needs no network *and* no file access outside the workspace, so prefer it when the path is unreadable (an `npx`-launched server lives in the npm cache, which many clients won't let you read).
+- **Reading this skill outside an install**, with no package on disk: fall back to <https://raw.githubusercontent.com/hrtips/cvx/main/docs/ai-guide.md>. That is the `main` branch — the latest instructions, not necessarily the ones matching an installed CVX.
 
 ## Review, then brainstorm — before the final build
 
@@ -80,7 +87,7 @@ Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reu
 
 ## Content files (summary — the schema is authoritative)
 
-Every scaffolded file carries a `$schema` header; the canonical JSON Schema lives at `schema/v1/` in the repo and is returned by the MCP `get_schema` tool.
+Every scaffolded file carries a `$schema` header, pinned to the CVX release that scaffolded it — don't rewrite those headers to `main`, and don't hand-write them into new files. The canonical JSON Schema ships at `schema/v1/` inside the package and is returned by the MCP `get_schema` tool; `docs/cv-schema.md` (packaged too) is the same contract with examples.
 
 - `personal.yaml` (object): `name` (required — drives the output filename), `title`, `company`, `phone`+`phoneHref`, `email`, `linkedin`+`linkedinHref`, `facebook`+`facebookHref`, `location`, `links` (list of `{label, href}` for a blog/portfolio; `label` optional).
 - `summary.yaml`: list of 3–6 single-sentence bullets. A bullet may also be `{text, link: {href, label}, suffix}` to embed a clickable link (same form works in experience bullets).

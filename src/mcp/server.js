@@ -72,6 +72,7 @@ export async function runMcpServer(transport = new StdioServerTransport()) {
         'plan_layout (optional, no PDF written) shows how the CV will paginate before you build it — page count, per-page fills, which roles land on page 1. ' +
         'CVX renders 100% of the YAML: it never drops, clips, or hides content to save a page. If the CV is longer than the user wants, surface the trade-off and let them choose — never cut content for them. ' +
         "Never invent facts: every entry must be truthful to the user's real history, especially keywords.yaml (ATS parsers cross-check keywords against the CV body). " +
+        'The full documentation ships inside this package and needs no network: get_schema lists it under `guides` (`ai-guide`, `cv-schema`) with an absolute path, and returns the text inline if you call it with guides: ["ai-guide"]. Use that rather than fetching the docs from GitHub — GitHub serves the main branch, which is not necessarily this version. ' +
         'Pass the workspace folder as `dir` (absolute path) on every call.'
     }
   )

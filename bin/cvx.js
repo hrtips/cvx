@@ -17,7 +17,6 @@ import { execFileSync } from 'node:child_process'
  *   - every command is non-interactive.
  */
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -75,9 +74,13 @@ export async function init(/** @type {{ json?: boolean }} */ { json }) {
     else console.error(`cv-content/ already exists here — refusing to overwrite.`)
     process.exit(EXIT.usage)
   }
-  cpSync(join(pkgRoot, 'template', 'cv-content'), dest, { recursive: true })
+  // Shared with the init_cv MCP tool. Not a plain copy: it pins the scaffold's
+  // `$schema` headers and doc links to THIS release, so an editor validates the
+  // user's CV against the schema that shipped with the code they are running.
+  const { scaffoldContent } = await import('../lib/pdf/scaffold.js')
+  const { ref } = scaffoldContent(dest, { version })
   if (json) {
-    emit({ command: 'init', ok: true, dest: 'cv-content' })
+    emit({ command: 'init', ok: true, dest: 'cv-content', schemaRef: ref })
   } else {
     console.log(`✅ Created cv-content/ with starter content.
 

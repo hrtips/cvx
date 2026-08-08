@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/cvx.schema.json",
+  "$comment": "No $id here, or in the per-file schemas next to it, ON PURPOSE. A scaffolded cv-content/ pins its `# yaml-language-server: $schema=` header to the release that wrote it (raw.githubusercontent.com/hrtips/cvx/vX.Y.Z/schema/v1/...). With an $id naming the `main` branch, a spec-compliant resolver takes $id as the base URI and resolves the per-file `\"$ref\": \"cvx.schema.json#/$defs/...\"` back to main's copy — so the pin would be cosmetic and a user on an old version would be validated against tomorrow's schema. With no $id, the base URI is the URI the schema was fetched from, which is the pin, and every implementation agrees on that (the spec's default, and what vscode-json-languageservice does regardless). A `main` $id was also a mutable identifier naming a different document every release, and two differently-pinned copies open at once would have collided on it.",
   "title": "CVX content schema (v1)",
-  "description": "Canonical definitions for every file CVX reads from cv-content/. Per-file schemas (personal.schema.json, config.schema.json, ...) reference the $defs here. Content files never break within a schema major version.",
+  "description": "Canonical definitions for every file CVX reads from cv-content/. Per-file schemas (personal.schema.json, config.schema.json, ...) reference the $defs here — by relative $ref, resolved against wherever this file was fetched from. Content files never break within a schema major version.",
   "$defs": {
     "nonEmptyString": {
       "type": "string",

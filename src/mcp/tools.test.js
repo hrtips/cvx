@@ -1,9 +1,10 @@
 // Direct unit tests for the MCP tool implementations (transport-agnostic).
 
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { packageVersion, schemaRefFor } from '../pdf/scaffold.js'
 import { buildPdf, getSchema, initCv, planLayout, TOOLS, validateCv } from './tools.js'
 
 const RENDER_TIMEOUT = 30000
@@ -36,6 +37,38 @@ describe('getSchema', () => {
     const wide = res.layouts.find((l) => l.name === 'wide')
     expect(wide).toMatchObject({ name: 'wide', default: false, source: 'cv-content/layouts' })
   })
+
+  // An MCP client knows the workspace `dir` and nothing else — not where the
+  // server is installed, and frequently without any way to read a file there
+  // (an `npx`-launched server unpacks into the npm cache). So the packaged
+  // docs are advertised by path AND retrievable as text through the tool.
+  it('advertises the packaged guides without their text by default', async () => {
+    const res = await getSchema()
+    expect(res.guides.map((g) => g.id)).toEqual(['ai-guide', 'cv-schema'])
+    for (const g of res.guides) {
+      expect(isAbsolute(g.path)).toBe(true)
+      expect(existsSync(g.path)).toBe(true)
+      expect(g.bytes).toBeGreaterThan(1000)
+      expect(g).not.toHaveProperty('content')
+    }
+  })
+
+  it('returns only the requested guide inline, verbatim', async () => {
+    const res = await getSchema({ dir: tmp, guides: ['ai-guide'] })
+    const [aiGuide, cvSchema] = res.guides
+    const content = /** @type {string} */ (aiGuide.content)
+    expect(content).toBe(readFileSync(aiGuide.path, 'utf8'))
+    expect(content).toContain('# ')
+    // `bytes` is the file size on disk (UTF-8), not JS string length — the
+    // guides carry non-ASCII, so the two genuinely differ.
+    expect(Buffer.byteLength(content, 'utf8')).toBe(aiGuide.bytes)
+    expect(cvSchema).not.toHaveProperty('content')
+  })
+
+  it('returns both when both are asked for', async () => {
+    const res = await getSchema({ guides: ['ai-guide', 'cv-schema'] })
+    for (const g of res.guides) expect(typeof g.content).toBe('string')
+  })
 })
 
 describe('initCv', () => {
@@ -44,6 +77,13 @@ describe('initCv', () => {
     expect(res.ok).toBe(true)
     expect(existsSync(join(tmp, 'cv-content', 'personal.yaml'))).toBe(true)
     expect(Array.isArray(res.nextSteps)).toBe(true)
+  })
+
+  it('pins the scaffold to the running release and reports the ref', async () => {
+    const res = await initCv({ dir: tmp })
+    expect(res.schemaRef).toBe(schemaRefFor(packageVersion()))
+    const header = readFileSync(join(tmp, 'cv-content', 'config.yaml'), 'utf8').split('\n')[0]
+    expect(header).toContain(`/hrtips/cvx/${res.schemaRef}/schema/v1/config.schema.json`)
   })
 
   it('refuses to overwrite an existing folder', async () => {

@@ -16,11 +16,12 @@
  * releases on purpose; this one earns its place by being the only way to see
  * the layout at all without rasterizing a PDF the model cannot look at.
  */
-import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { layoutDiagnostics } from '../pdf/layoutDiagnostics.js'
 import { planCV, renderCV } from '../pdf/render.js'
+import { scaffoldContent } from '../pdf/scaffold.js'
 import { discoverThemes } from '../pdf/themes/index.js'
 import { validateContent } from '../pdf/validateContent.js'
 
@@ -35,7 +36,66 @@ function resolveFontsDir() {
   return existsSync(libFonts) ? libFonts : join(pkgRoot, 'src', 'fonts')
 }
 
-export async function getSchema(/** @type {{ dir?: string }} */ { dir } = {}) {
+/**
+ * The model-facing docs that ship INSIDE the package (package.json "files"
+ * lists them by path; docs/hostile-baseline.md is an internal quality record
+ * and deliberately stays out).
+ *
+ * Why they are reachable through `get_schema` and not just as a path: an MCP
+ * client knows the workspace `dir` it passes in, and nothing else. The server's
+ * own install path is knowable only to the server — and even handed the
+ * absolute path, an agent frequently cannot READ it: the usual launcher is
+ * `npx -y @hrtips/cvx@x.y.z mcp`, which unpacks into the npx cache
+ * (`~/.npm/_npx/<hash>/node_modules/…`), outside the workspace, behind whatever
+ * file-access policy the client enforces, and garbage-collected on npm's
+ * schedule. Plenty of MCP clients have no filesystem tool at all. So the path
+ * is offered as a convenience and the CONTENT is what the tool can actually
+ * guarantee: ask for it by id and it comes back inline, no network, no reads.
+ *
+ * Not returned by default — `docs/ai-guide.md` is ~20 kB, and `get_schema` is
+ * the call an agent makes FIRST, before it knows whether it needs the guide.
+ */
+const GUIDES = [
+  {
+    id: 'ai-guide',
+    file: 'ai-guide.md',
+    title: 'The full CVX assistant playbook: default flow, fallbacks, layout reading'
+  },
+  {
+    id: 'cv-schema',
+    file: 'cv-schema.md',
+    title: 'Field-by-field reference for every cv-content/ file, with examples'
+  }
+]
+
+/**
+ * Inventory of the packaged guides, with `content` filled in for the ids in
+ * `requested`. A guide whose file is missing is dropped rather than thrown on:
+ * `get_schema` returning the schema is the contract, and losing the whole call
+ * over a doc would be a bad trade for the tool an agent calls first.
+ *
+ * @param {string[]} requested
+ */
+function packagedGuides(requested) {
+  /** @type {{ id: string, title: string, path: string, bytes: number, content?: string }[]} */
+  const out = []
+  for (const { id, file, title } of GUIDES) {
+    const path = join(pkgRoot, 'docs', file)
+    if (!existsSync(path)) continue
+    out.push({
+      id,
+      title,
+      path,
+      bytes: statSync(path).size,
+      ...(requested.includes(id) && { content: readFileSync(path, 'utf8') })
+    })
+  }
+  return out
+}
+
+export async function getSchema(
+  /** @type {{ dir?: string, guides?: string[] }} */ { dir, guides = [] } = {}
+) {
   const schema = JSON.parse(readFileSync(join(pkgRoot, 'schema', 'v1', 'cvx.schema.json'), 'utf8'))
   const themes = Object.keys(await discoverThemes()).map((name) => ({
     name,
@@ -57,7 +117,7 @@ export async function getSchema(/** @type {{ dir?: string }} */ { dir } = {}) {
       names.add(name)
     }
   }
-  return { schemaVersion: 1, schema, themes, layouts }
+  return { schemaVersion: 1, schema, themes, layouts, guides: packagedGuides(guides) }
 }
 
 export async function initCv(/** @type {{ dir?: string }} */ { dir } = {}) {
@@ -68,10 +128,14 @@ export async function initCv(/** @type {{ dir?: string }} */ { dir } = {}) {
       error: { code: 'already-exists', message: `${dest} already exists — refusing to overwrite` }
     }
   }
-  cpSync(join(pkgRoot, 'template', 'cv-content'), dest, { recursive: true })
+  // Shared with `cvx init`. The copy is not verbatim: the scaffold's `$schema`
+  // headers and doc links are pinned to the running release (see scaffold.js).
+  const { ref } = scaffoldContent(dest)
   return {
     ok: true,
     dest,
+    /** The git ref the scaffolded files' `$schema` headers point at. */
+    schemaRef: ref,
     nextSteps: [
       'Edit the YAML files in cv-content/ with real, truthful details (see AGENTS.md there)',
       "Replace or delete cv-content/images/profile.jpg — it is the example person's photo; never ship it on a real CV",
@@ -248,7 +312,7 @@ export const TOOLS = [
     name: 'get_schema',
     title: 'Get the CVX content schema and inventory',
     description:
-      'Call this FIRST, before writing or editing any cv-content YAML. Returns the canonical JSON Schema for every content file (personal, summary, experience, education, competencies, achievements, referees, keywords, config, layouts) plus the available themes and layouts. The schema is the authoritative contract for keys and shapes.',
+      'Call this FIRST, before writing or editing any cv-content YAML. Returns the canonical JSON Schema for every content file (personal, summary, experience, education, competencies, achievements, referees, keywords, config, layouts) plus the available themes and layouts. The schema is the authoritative contract for keys and shapes. It also lists, under `guides`, the model-facing documentation that ships inside this package — `ai-guide` (the full CVX playbook) and `cv-schema` (the field-by-field reference with examples). Each entry carries an absolute `path`; read it directly if your client can read files outside the workspace, and otherwise ask for the text INLINE by calling get_schema again with guides: ["ai-guide"]. That works offline and needs no file access — prefer it over fetching the docs from GitHub, which returns whatever the main branch says today rather than the version you are running.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -256,6 +320,12 @@ export const TOOLS = [
           type: 'string',
           description:
             'Absolute path of the workspace folder containing cv-content/. Defaults to the server working directory.'
+        },
+        guides: {
+          type: 'array',
+          items: { type: 'string', enum: ['ai-guide', 'cv-schema'] },
+          description:
+            'Return the full text of these packaged guides inline, in the `guides` array. Omit it (the default) to get the inventory only — ai-guide.md alone is ~20 kB, so ask for it when you need it, not on every call.'
         }
       },
       additionalProperties: false

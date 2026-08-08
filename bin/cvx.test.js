@@ -92,6 +92,11 @@ const errText = () => errSpy.mock.calls.map((c) => String(c[0])).join('\n')
 const logText = () => logSpy.mock.calls.map((c) => String(c[0])).join('\n')
 const argv = (/** @type {string[]} */ ...args) => ['node', 'cvx', ...args]
 
+/** The running package version — what `init` derives the scaffold's pin from. */
+const { version } = JSON.parse(
+  readFileSync(join(fileURLToPath(new URL('../package.json', import.meta.url))), 'utf8')
+)
+
 describe('top-level flags', () => {
   it('--version prints the version and does not exit', async () => {
     await main(argv('--version'))
@@ -124,7 +129,26 @@ describe('init', () => {
   it('scaffolds cv-content/ (--json) and does not exit', async () => {
     await init({ json: true })
     expect(existsSync(join(tmp, 'cv-content', 'personal.yaml'))).toBe(true)
-    expect(jsonOut()).toEqual({ command: 'init', ok: true, dest: 'cv-content' })
+    // `schemaRef` reports which git ref the scaffold's `$schema` headers were
+    // pinned to — `v<version>` on a release, `main` on an unreleased build.
+    expect(jsonOut()).toEqual({
+      command: 'init',
+      ok: true,
+      dest: 'cv-content',
+      schemaRef: expect.stringMatching(/^(main|v\d+\.\d+\.\d+)$/)
+    })
+  })
+
+  it('pins the scaffolded $schema headers to the running release', async () => {
+    await init({ json: true })
+    const { schemaRef } = jsonOut()
+    const header = readFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'utf8').split('\n')[0]
+    expect(header).toBe(
+      `# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/${schemaRef}/schema/v1/personal.schema.json`
+    )
+    // This checkout is on a released version, so the header must not say main.
+    expect(schemaRef).toBe(`v${version}`)
+    expect(header).not.toContain('/main/')
   })
 
   it('scaffolds cv-content/ (human) with next steps', async () => {
