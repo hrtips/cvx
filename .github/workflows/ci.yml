@@ -104,7 +104,11 @@ jobs:
               send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
             } else if (msgs.length === 2) {
               const tools = msgs[1].result.tools.map((t) => t.name).sort().join(",");
-              if (tools !== "build_pdf,get_schema,init_cv,validate_cv") { console.error("bad tools:", tools); process.exit(1); }
+              // Hardcoded on purpose: this is the packaged E2E, so it must fail
+              // when the shipped tool set changes without someone noticing. The
+              // in-repo tests derive these names from TOOLS and therefore cannot
+              // catch a surprise addition — this line is the one that can.
+              if (tools !== "build_pdf,get_schema,init_cv,plan_layout,validate_cv") { console.error("bad tools:", tools); process.exit(1); }
               console.log("mcp smoke ok:", tools); p.kill(); process.exit(0);
             }
           }

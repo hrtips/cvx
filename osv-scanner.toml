@@ -1,12 +1,1 @@
 # osv-scanner suppressions. Every entry must carry a reason and a review date.
-
-[[IgnoredVulns]]
-id = "GHSA-frvp-7c67-39w9"
-# @hono/node-server (transitive via @modelcontextprotocol/sdk) — the advisory is
-# in hono's HTTP/SSE server transport. cvx only ever runs the MCP server over
-# STDIO (bin/cvx.js `mcp` → runMcpServer with StdioServerTransport), so the
-# vulnerable HTTP path is never loaded or reachable. The fix is only in hono
-# 2.x, which is API-incompatible with the SDK's `^1.19.9` requirement (forcing
-# it breaks the SDK — verified: 41 test failures). Clears when the SDK bumps.
-reason = "transitive; vulnerable HTTP transport unreachable (cvx uses MCP stdio only); no 1.x fix; awaiting @modelcontextprotocol/sdk upgrade"
-ignoreUntil = 2026-10-31
