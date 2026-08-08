@@ -151,24 +151,20 @@ export function runCli(dir, args, { env } = {}) {
  * Found while building the content-completeness oracle (fix #2): rendering
  * two documents back-to-back in one process (`build --all`'s own
  * implementation — a `for (const ats of [false, true])` loop calling
- * `renderCV` twice) can corrupt the SECOND document's embedded ToUnicode
- * CMap — the glyphs still rasterize correctly (pdftoppm/visual inspection
- * looks fine), but text-extraction (`pdftotext`, and presumably copy-paste
- * in a real PDF viewer, and possibly ATS parsers) recovers garbled text for
- * some letters. Reproduced directly against `renderCV()` (bypassing the
- * CLI/oracle entirely): designed-then-ats in one process corrupts the ats
- * output; the same ats content built alone (fresh process) is fine.
- * Rendering the SAME variant twice in one process does not reproduce it —
- * it appears specifically tied to switching between the two themes/document
- * shapes (both register the same 'Lato' family — likely a state leak in
- * @react-pdf/renderer's font-subsetting cache across renderCV() calls, not
- * anything in src/pdf/layout.js or CVDocument.jsx). This is a genuine,
- * previously-unknown finding about `cvx build --all` — see
- * research/c0-baseline.md's "engine finding" section — reported, NOT fixed
- * here (out of C0's scope; needs its own investigation in render.js/
- * fonts.js, neither of which C0 is sanctioned to touch). Two independent
- * `node` processes route around it completely: each starts with a clean,
- * unregistered font state.
+ * `renderCV` twice) corrupted the SECOND document. It was described here as
+ * a ToUnicode/text-layer problem ("the glyphs still rasterize correctly");
+ * that was half right — the same leak also removes glyphs from the PAGE,
+ * which is how it resurfaced in the MCP server for v1.6.0. Diagnosed and
+ * fixed at the source in v1.6.1: @react-pdf's process-global font registry
+ * shared one fontkit instance across renders, fontkit's per-font glyph cache
+ * kept the code points of the first lookup, and subset embedding cached
+ * glyphs with none — see src/pdf/fonts.js for the full chain, and
+ * test/renderIsolation.test.js + src/pdf/fonts.test.js for the regression.
+ *
+ * Two independent `node` processes are kept here anyway: they are the
+ * strongest available statement of "each PDF was built from nothing", and
+ * this harness is the thing that has to notice if cross-render isolation
+ * ever breaks again.
  *
  * Returns the same `{ code, result: { ok, outputs: [...] } }` shape
  * `build --all` would have, so callers (renderOracle.js) don't need to

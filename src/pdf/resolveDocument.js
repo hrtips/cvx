@@ -65,12 +65,26 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // without ever executing the new code path (demonstrated in C4: a `balance`
     // mode seeded to DROP a block left the whole suite green).
     //
-    // C6a adds a FOURTH place, and a warning about which lever. The fourth: the
-    // `plan_layout` MCP tool's `inputSchema` (src/mcp/tools.js), which today
-    // accepts `dir` and nothing else — a lever an agent cannot pass to the dry
-    // run cannot be tuned in the loop the tool exists for, and
-    // `test/mcpTools.test.js` fails if that argument list grows silently. The
-    // warning: `fill: 'balance'` specifically must NOT be the first lever
+    // C6a adds a FOURTH and FIFTH place, and a warning about which lever.
+    //
+    // FOURTH: the MCP tools' `inputSchema`s (src/mcp/tools.js) — `plan_layout`'s,
+    // which today accepts `dir` and nothing else (a lever an agent cannot pass to
+    // the dry run cannot be tuned in the loop the tool exists for), and
+    // `build_pdf`'s, which is the same argument list one step later.
+    // `test/mcpTools.test.js` fails if either grows silently, and src/mcp/
+    // server.js now validates arguments against those schemas, so an un-declared
+    // lever is refused rather than ignored.
+    //
+    // FIFTH, and it is a pre-existing hole rather than something C6a added:
+    // `validateContent.js` packs with `planTwoColumn(content, layout, config)`
+    // using the RAW config and no layout — it never goes through this function.
+    // So `cvx validate` and `cvx build` can describe different documents
+    // whenever a custom layout is in play, and a lever added to the schema but
+    // missed in this whitelist would be honoured by validate and ignored by
+    // build (or the reverse). Whoever adds the next lever fixes that seam or
+    // states plainly why it is safe.
+    //
+    // The warning: `fill: 'balance'` specifically must NOT be the first lever
     // exposed to an agent. C4 measured it — driving "planned pages with an empty
     // column" from 42 to 8 produced continued headings with one bullet over ~90%
     // white space and a section fragmented across five pages. The diagnostics

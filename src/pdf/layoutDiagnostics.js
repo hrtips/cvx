@@ -81,10 +81,74 @@ function columnFill(f) {
   }
 }
 
-/** Bullets of an entry rendered on one page — the `[startBullet, endBullet)` slice the packer placed. */
-function bulletsOn(/** @type {import('./types.js').ExperienceEntry} */ entry) {
+/**
+ * The `[startBullet, endBullet)` slice of an entry's bullets placed on one page,
+ * decomposed the way a sidebar section's slice is: range, count, total. Same
+ * convention as `SidebarSlice` — 0-based, end-exclusive — so a reader learns it
+ * once. `[2, 5)` of 7 is "bullets 3–5 of 7" in the 1-based way a human counts.
+ *
+ * @param {import('./types.js').ExperienceEntry} entry
+ * @returns {{ bulletRange: [number, number], bullets: number, ofBullets: number }}
+ */
+function bulletsOn(entry) {
   const all = entry.bullets ?? []
-  return (entry.endBullet ?? all.length) - (entry.startBullet ?? 0)
+  const start = entry.startBullet ?? 0
+  const end = entry.endBullet ?? all.length
+  return {
+    bulletRange: /** @type {[number, number]} */ ([start, end]),
+    bullets: end - start,
+    ofBullets: all.length
+  }
+}
+
+/**
+ * The one shape where a page's main column is empty and that is NOT the benign
+ * G1 residual: PAGE 1 with no experience entry on it at all.
+ *
+ * The empty column an agent must not chase is a LATER page whose sidebar simply
+ * outlasts the experience list (sprint C4 finding 3b — packing to remove those
+ * measurably produces worse CVs). Page 1 is different in kind: a CV whose first
+ * page shows the reader no roles is the C3b rule-1b pathology, where fixed
+ * page-1 content (an over-long summary, a tall identity block) leaves less room
+ * than the smallest legal piece of an entry, so the packer correctly ends the
+ * page early rather than force-placing and overflowing. Nothing else reported
+ * this: `overflowPt` is 0 (the packer did the right thing), `fill` is 0, and
+ * `emptyColumn` is the same value a harmless last page carries — so the shape
+ * arrived looking exactly like the one the docs tell an agent to ignore.
+ *
+ * The fix is a content edit the USER decides on (shorten the summary), which is
+ * why this is a warning and not a score: like `overflow`, it names a defect with
+ * an owner, never a number to optimise.
+ *
+ * DIAGNOSTICS ONLY, deliberately: `cvx build`/`cvx validate` warn through
+ * layout.js's `overflowWarnings`, whose contract is overflow. Adding a second
+ * class to that function would put a layout-shape judgement inside the packer's
+ * budget check; this stays where the audience is a reader of the plan.
+ *
+ * @param {import('./types.js').LayoutDiagnostics['pages']} pages
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function page1WithoutExperience(pages) {
+  const page1 = pages[0]
+  if (!page1 || page1.main.entries.length > 0) return []
+  // A CV with NO experience section at all (a student's, a first-job CV) is not
+  // this defect — nothing was pushed off page 1 because there was nothing to
+  // push. The pathology is roles existing and starting on page 2.
+  if (!pages.slice(1).some((p) => p.main.entries.length > 0)) return []
+  return [
+    {
+      code: /** @type {const} */ ('page1-no-experience'),
+      page: 1,
+      overflowPt: page1.overflowPt,
+      forcedByConfig: false,
+      message:
+        `page 1 carries no experience entries: its fixed content (the summary, and the identity ` +
+        `block) leaves less room than the smallest piece of the first role, so the page ends early ` +
+        `and the roles start on page 2. This is not the harmless empty column of a last page — the ` +
+        `reader's first page shows no work history. Shortening the summary is the only content ` +
+        `change that moves it, and it is the user's call to make.`
+    }
+  ]
 }
 
 /**
@@ -110,7 +174,12 @@ export function layoutDiagnostics(plan, config = {}) {
       ...columnFill(p.mainFill),
       entries: p.mainBlocks.map((entry) => ({
         role: entry.role,
-        bullets: bulletsOn(entry),
+        // Two roles can share a title across employers ("Engineering Manager"
+        // twice); without these an agent reporting "which roles are on page 1"
+        // collapses them into one.
+        company: entry.company ?? null,
+        period: entry.period ?? null,
+        ...bulletsOn(entry),
         continued: entry.isContinuation === true
       }))
     },
@@ -132,21 +201,35 @@ export function layoutDiagnostics(plan, config = {}) {
   // One warning per over-budget page, from the SAME predicate `cvx build` and
   // `cvx validate` warn through (layout.js `overflowWarnings`) — a second
   // overflow test here would be a second threshold to keep in agreement.
-  const warnings = overflowWarnings(plan, config).map((w) => ({
-    code: /** @type {const} */ ('overflow'),
-    page: w.page,
-    overflowPt: pt(w.overflowPt),
-    forcedByConfig: w.forcedByConfig,
-    message: w.message
-  }))
+  const warnings = [
+    ...overflowWarnings(plan, config).map((w) => ({
+      code: /** @type {const} */ ('overflow'),
+      page: w.page,
+      overflowPt: pt(w.overflowPt),
+      forcedByConfig: w.forcedByConfig,
+      message: w.message
+    })),
+    ...page1WithoutExperience(pages)
+  ]
 
   return {
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,
+    // Which packing levers the user's config.yaml set, so a reader can tell a
+    // layout the content produced from one the config forced (and so an
+    // `overflow` warning with `forcedByConfig: true` has something to point at).
+    // Only the two that change packing; `null` means "not set".
+    leversUsed: {
+      page1ExperienceCount: config.page1ExperienceCount ?? null,
+      page1SplitBullets: config.page1SplitBullets ?? null
+    },
     pages,
     totals: {
-      overflowPages: warnings.length,
+      // Filtered by code, not `warnings.length`: those were the same number only
+      // while `overflow` was the only code, and this field claims to count
+      // overflowing pages specifically.
+      overflowPages: warnings.filter((w) => w.code === 'overflow').length,
       overflowPt: pt(plan.pages.reduce((sum, p) => sum + p.overflowPt, 0)),
       emptyColumnPages: pages.filter((p) => p.emptyColumn !== null).length,
       // A split is counted at its CONTINUATIONS, so a section cut once counts

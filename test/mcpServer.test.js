@@ -128,4 +128,40 @@ describe('cvx mcp over stdio', () => {
     expect(result.isError).toBe(true)
     expect(JSON.parse(result.content[0].text).error.code).toBe('unknown-tool')
   })
+
+  it('REFUSES arguments the tool never declared, instead of ignoring them', async () => {
+    // C6a review item 10: every tool advertises `additionalProperties: false`
+    // and nothing enforced it, so a client that invented a layout lever got
+    // `ok: true` and a PDF built as if it had asked for nothing. An argument
+    // that appears to work is how a caller comes to believe in a lever CVX does
+    // not have — and how, the day a real one ships, nobody can tell which builds
+    // honoured it.
+    const dir = mkdtempSync(path.join(tmpdir(), 'cvx-mcp-args-'))
+    await send('tools/call', { name: 'init_cv', arguments: { dir } })
+
+    for (const [tool, bogus] of [
+      ['plan_layout', { fill: 'balance' }],
+      ['plan_layout', { targetPages: 2 }],
+      ['build_pdf', { density: 'compact' }]
+    ]) {
+      const result = await send('tools/call', { name: tool, arguments: { dir, ...bogus } })
+      expect(result.isError, `${tool} accepted ${JSON.stringify(bogus)}`).toBe(true)
+      const payload = JSON.parse(result.content[0].text)
+      expect(payload.ok).toBe(false)
+      expect(payload.error.code).toBe('invalid-arguments')
+      expect(payload.error.message).toMatch(
+        new RegExp(`unknown argument "${Object.keys(bogus)[0]}"`)
+      )
+    }
+    // Nothing was rendered on the way past.
+    expect(existsSync(path.join(dir, 'bruce-wayne.pdf'))).toBe(false)
+
+    // Declared arguments still work, and a wrong TYPE is refused too.
+    const typed = await send('tools/call', { name: 'build_pdf', arguments: { dir, ats: 'yes' } })
+    expect(typed.isError).toBe(true)
+    expect(JSON.parse(typed.content[0].text).error.code).toBe('invalid-arguments')
+    const ok = await send('tools/call', { name: 'build_pdf', arguments: { dir, ats: true } })
+    expect(ok.isError ?? false).toBe(false)
+    expect(JSON.parse(ok.content[0].text).filename).toBe('bruce-wayne-ats.pdf')
+  }, 30_000)
 })

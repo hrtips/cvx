@@ -13,9 +13,42 @@ import { fileURLToPath } from 'node:url'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import Ajv from 'ajv'
 import { TOOLS } from './tools.js'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+/**
+ * Validate tool arguments against the tool's own advertised `inputSchema`.
+ *
+ * Every tool declares `additionalProperties: false`, and until this existed
+ * nothing enforced it: arguments went straight to the handler, so a client that
+ * invented `fill`, `targetPages` or `density` got `ok: true` and a PDF built as
+ * if it had asked for nothing. An argument that appears to work is worse than
+ * one that is refused — it is how a caller comes to believe in a lever CVX does
+ * not have (design doc §7.4 / the lever rule recorded in resolveDocument.js), and
+ * how the day a real lever ships nobody can tell which builds honoured it.
+ *
+ * Ajv is already a dependency (validateContent.js validates cv-content with it),
+ * and the schemas are plain JSON Schema by design — so the advertised contract
+ * and the enforced one are the same object, not two copies that can drift.
+ */
+const ajv = new Ajv({ allErrors: true, strict: false })
+const validators = new Map(TOOLS.map((t) => [t.name, ajv.compile(t.inputSchema)]))
+
+/** @param {import('ajv').ErrorObject[] | null | undefined} errors */
+function describeArgErrors(errors) {
+  return (errors ?? [])
+    .map((e) => {
+      const where = e.instancePath ? e.instancePath.replace(/^\//, '') : ''
+      if (e.keyword === 'additionalProperties') {
+        const key = /** @type {{ additionalProperty?: string }} */ (e.params).additionalProperty
+        return `unknown argument "${key}" — this tool takes no such option, and CVX has no hidden layout levers`
+      }
+      return `${where || 'arguments'} ${e.message}`
+    })
+    .join('; ')
+}
 
 /**
  * Run the cvx MCP server on `transport`.
@@ -68,8 +101,27 @@ export async function runMcpServer(transport = new StdioServerTransport()) {
         isError: true
       }
     }
+    const args = request.params.arguments ?? {}
+    const validate = validators.get(tool.name)
+    if (validate && !validate(args)) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: false,
+              error: {
+                code: 'invalid-arguments',
+                message: `${tool.name}: ${describeArgErrors(validate.errors)}`
+              }
+            })
+          }
+        ],
+        isError: true
+      }
+    }
     try {
-      const result = await tool.handler(request.params.arguments ?? {})
+      const result = await tool.handler(args)
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         isError: /** @type {{ ok?: boolean }} */ (result)?.ok === false

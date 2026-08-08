@@ -326,8 +326,12 @@ describe('the diagnostics name the defects a build warns about', () => {
     expect(page?.overflowPt).toBeGreaterThan(15)
     expect(page?.main.fill).toBe(null) // negative budget: no honest ratio exists
     // ...and the same overflow reaches a CLI user, through the same predicate.
+    // `notices` is the CLI's plain-text list (the lines it also prints to
+    // stderr); the structured list is `diagnostics.warnings`. Two fields called
+    // `warnings` in one envelope was the C6a review's blocker 4.
     const built = buildViaCli(dir)
-    expect(built.warnings.join('\n')).toMatch(/over budget/)
+    expect(built.warnings).toBeUndefined()
+    expect(built.notices.join('\n')).toMatch(/over budget/)
     expect(built.diagnostics).toEqual(d)
 
     cleanupFixtureDirs()
@@ -352,6 +356,34 @@ describe('the diagnostics name the defects a build warns about', () => {
     },
     60000
   )
+
+  it('edge-summary-crosses-cliff: a page 1 with no roles on it is named, not left as an empty column', async () => {
+    // C6a review blocker 2, on the fixture that produces the shape. This CV
+    // paginates CORRECTLY — the packer ends page 1 early rather than force-place
+    // and overflow (C3b rule 1b) — so there is no overflow warning, `overflowPt`
+    // is 0, and the only signal used to be `emptyColumn: 'main'`: the same value
+    // a harmless last page carries, and the one SKILL.md tells an agent not to
+    // chase. Meanwhile page 1 shows the reader no work history at all.
+    const dir = fixtureWorkspace('edge-summary-crosses-cliff')
+    const planned = await planLayout({ dir })
+    const d = planned.diagnostics
+    const page1 = d?.pages[0]
+    expect(page1?.main.entries).toEqual([])
+    expect(page1?.emptyColumn).toBe('main')
+    expect(page1?.overflowPt).toBe(0)
+    expect(d?.totals.overflowPages).toBe(0)
+    // The page is NOT blank — it carries the summary, which is fixed page-1
+    // content rather than a packed block. That is why `emptyColumn` cannot mean
+    // "nothing is here", and why the docs now say so.
+    expect(page1?.main.budgetPt).toBeGreaterThan(0)
+    expect(d?.pages.slice(1).some((p) => p.main.entries.length > 0)).toBe(true)
+
+    expect(d?.warnings.map((w) => w.code)).toEqual(['page1-no-experience'])
+    expect(d?.warnings[0].message).toMatch(/summary/)
+    // Both call sites report it identically — the build path computes its own.
+    expect((await buildPdf({ dir })).diagnostics).toEqual(d)
+    cleanupFixtureDirs()
+  }, 60000)
 
   it('edge-forced-split-config: an overflow the user`s own lever caused says which lever', async () => {
     const dir = fixtureWorkspace('edge-forced-split-config')
@@ -509,10 +541,29 @@ describe('plan_layout is capped against an agent looping on it', () => {
       expect(last.diagnostics).toEqual(first.diagnostics)
     }
     expect(last.iteration.capReached).toBe(true)
-    expect(last.warnings.join('\n')).toMatch(/identical layout/)
-    expect(last.warnings.join('\n')).toMatch(/Never drop content to fit/)
-    // Under the cap, no such warning.
-    expect(first.warnings.join('\n')).not.toMatch(/identical layout/)
+    expect(last.notices.join('\n')).toMatch(/identical layout/)
+    expect(last.notices.join('\n')).toMatch(/Never drop content to fit/)
+    // Under the cap, no such notice.
+    expect(first.notices.join('\n')).not.toMatch(/identical layout/)
+    cleanupFixtureDirs()
+  }, 60000)
+
+  it('a build resets the counter — acting on the plan is not looping on it', async () => {
+    // Before this, five plans followed by a build left the NEXT plan still
+    // saying "capReached — stop planning and act" at an agent that had just
+    // done exactly that. The counter is about an agent going round in circles;
+    // a build is the way out of the circle.
+    const dir = scaffoldWorkspace('plan-iteration-build-resets')
+    let last = await planLayout({ dir })
+    for (let i = 2; i <= last.iteration.cap; i++) last = await planLayout({ dir })
+    expect(last.iteration.capReached).toBe(true)
+
+    await buildPdf({ dir })
+
+    const after = await planLayout({ dir })
+    expect(after.iteration.count).toBe(1)
+    expect(after.iteration.capReached).toBe(false)
+    expect(after.notices.join('\n')).not.toMatch(/identical layout/)
     cleanupFixtureDirs()
   }, 60000)
 

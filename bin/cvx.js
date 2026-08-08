@@ -269,13 +269,13 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
   const { renderCV } = await import('../lib/pdf/render.js')
   const { layoutDiagnostics } = await import('../lib/pdf/layoutDiagnostics.js')
   /** @type {string[]} */
-  const warnings = []
+  const notices = []
   const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir: join(pkgRoot, 'lib', 'fonts'),
     ats,
     warn: (msg) => {
-      warnings.push(msg)
+      notices.push(msg)
       console.error(`⚠ ${msg}`)
     }
   })
@@ -289,7 +289,11 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
       ats,
       theme: ats ? null : themeName,
       layout: ats ? null : layoutName,
-      warnings,
+      // The run's human-readable notes — the same lines printed to stderr.
+      // Named `notices` and not `warnings` because `diagnostics.warnings` sits
+      // right next to it carrying structured {code, page, …} objects and the
+      // same overflow text: one name, two meanings, in one envelope.
+      notices,
       // Layout diagnostics for the plan this build rendered (C6a): page count,
       // per-page column fills, what landed where, overflow. --json is the
       // documented agent contract, and an agent driving the CLI is exactly as
@@ -308,12 +312,12 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
 // One command instead of validate + build + build --ats, so an agent has
 // fewer steps to stall on and always produces both PDFs.
 //
-// Each variant renders in its OWN child process. @react-pdf/renderer leaks
-// font-subset state across renderToBuffer() calls in a single process, which
-// corrupts the 2nd PDF's ToUnicode/text layer — the ATS variant would look
-// correct on screen but extract as garbled text, breaking exactly the ATS
-// parsers it exists for. Separate processes keep every PDF's text layer clean
-// (regression-guarded by the layout harness's content oracle).
+// Each variant renders in its OWN child process. This started as the fix for a
+// font-state leak across renderToBuffer() calls in one process, which corrupted
+// the 2nd PDF (garbled text layer, and — as v1.6.0's MCP server showed —
+// missing glyphs on the page). That leak is now fixed at the source, in
+// src/pdf/fonts.js, so every caller is safe; the child processes stay as
+// defence in depth for the one command that renders twice by construction.
 export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
@@ -393,7 +397,7 @@ export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
       ats,
       theme: res.theme,
       layout: res.layout,
-      warnings: res.warnings ?? [],
+      notices: res.notices ?? [],
       // Passed straight through from the child build, so `build --all --json`
       // carries the same layout diagnostics as `build --json` (C6a).
       diagnostics: res.diagnostics ?? null

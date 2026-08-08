@@ -127,12 +127,17 @@ describe('layoutDiagnostics — what is on each page', () => {
     expect(d?.pages.map((p) => p.page)).toEqual([1, 2, 3])
   })
 
-  it('reports each experience entry with the bullets THIS page renders', () => {
+  it('reports each experience entry with the bullets THIS page renders, decomposed like a sidebar slice', () => {
+    // Same shape as `sidebar.sections`: an end-exclusive range, the count on
+    // this page, and the total. Before C6a's review the main column published
+    // only the count, so a consumer wanting "which bullets are on page 2" had to
+    // re-derive the split from `@internal` engine functions — which is exactly
+    // what test/planLayout.test.js had to do, and a shipped consumer cannot.
     const d = layoutDiagnostics(
       planOf([
         {
           mainBlocks: [
-            { role: 'Whole', bullets: ['a', 'b', 'c'] },
+            { role: 'Whole', company: 'Acme', period: '2020 – 2024', bullets: ['a', 'b', 'c'] },
             { role: 'Head', bullets: ['a', 'b', 'c', 'd'], endBullet: 2 }
           ]
         },
@@ -144,10 +149,41 @@ describe('layoutDiagnostics — what is on each page', () => {
       ])
     )
     expect(d?.pages[0].main.entries).toEqual([
-      { role: 'Whole', bullets: 3, continued: false },
-      { role: 'Head', bullets: 2, continued: false }
+      {
+        role: 'Whole',
+        company: 'Acme',
+        period: '2020 – 2024',
+        bulletRange: [0, 3],
+        bullets: 3,
+        ofBullets: 3,
+        continued: false
+      },
+      {
+        role: 'Head',
+        company: null,
+        period: null,
+        bulletRange: [0, 2],
+        bullets: 2,
+        ofBullets: 4,
+        continued: false
+      }
     ])
-    expect(d?.pages[1].main.entries).toEqual([{ role: 'Head', bullets: 2, continued: true }])
+    expect(d?.pages[1].main.entries).toEqual([
+      {
+        role: 'Head',
+        company: null,
+        period: null,
+        bulletRange: [2, 4],
+        bullets: 2,
+        ofBullets: 4,
+        continued: true
+      }
+    ])
+    // The two pages tile the entry exactly — the property the range makes
+    // checkable and the bare count did not.
+    expect(d?.pages[0].main.entries[1].bulletRange[1]).toBe(
+      d?.pages[1].main.entries[0].bulletRange[0]
+    )
   })
 
   it('reports each sidebar section as a range of its items, marking a continuation', () => {
@@ -237,6 +273,60 @@ describe('layoutDiagnostics — totals and warnings', () => {
   it('names the summary when the FIXED page-1 content is what overflowed', () => {
     const d = layoutDiagnostics(planOf([{ overflowPt: 474, mainFill: { used: 100, budget: -20 } }]))
     expect(d?.warnings[0].message).toMatch(/summary alone is taller/)
+  })
+
+  it('warns when page 1 carries no roles at all — the one empty column that IS a defect', () => {
+    // The C6a review's blocker 2. `emptyColumn: 'main'` on a LAST page is the
+    // benign G1 residual the docs tell an agent to ignore; on PAGE 1 the same
+    // value means the reader's first page shows no work history (C3b rule 1b —
+    // fixed page-1 content left less room than the smallest legal entry piece).
+    // Nothing else distinguished them: overflowPt is 0 because the packer did
+    // the right thing, and fill is 0, not null.
+    const d = layoutDiagnostics(
+      planOf([
+        { mainFill: { used: 0, budget: 81.59 }, emptyColumn: 'main' },
+        { mainBlocks: [{ role: 'First Role', bullets: ['a'] }] }
+      ])
+    )
+    expect(d?.pages[0].main.fill).toBe(0)
+    expect(d?.pages[0].overflowPt).toBe(0)
+    expect(d?.warnings).toHaveLength(1)
+    expect(d?.warnings[0]).toMatchObject({ code: 'page1-no-experience', page: 1 })
+    expect(d?.warnings[0].message).toMatch(/no experience entries/)
+    // It is NOT an overflow, and the overflow count must not absorb it.
+    expect(d?.totals.overflowPages).toBe(0)
+  })
+
+  it('does not cry defect for a CV that simply has no experience section', () => {
+    // A first-job or student CV: nothing was pushed off page 1 because there was
+    // nothing to push. Only "roles exist and they start on page 2" is the defect.
+    const d = layoutDiagnostics(
+      planOf([{ emptyColumn: 'main' }, { sidebarSlices: [slice('education', 0, 2, 2, 300)] }])
+    )
+    expect(d?.warnings).toEqual([])
+  })
+
+  it('counts overflowPages by code, not by warning count', () => {
+    // `overflowPages: warnings.length` was correct only while `overflow` was the
+    // only code — a second code silently inflated it. Both fire here.
+    const d = layoutDiagnostics(
+      planOf([
+        { overflowPt: 438.21, mainFill: { used: 0, budget: 50 }, emptyColumn: 'main' },
+        { mainBlocks: [{ role: 'Later Role', bullets: ['a'] }] }
+      ])
+    )
+    expect(d?.warnings.map((w) => w.code)).toEqual(['overflow', 'page1-no-experience'])
+    expect(d?.totals.overflowPages).toBe(1)
+  })
+
+  it('reports which packing levers the config set, so a forced layout is legible', () => {
+    expect(layoutDiagnostics(planOf([{}]))?.leversUsed).toEqual({
+      page1ExperienceCount: null,
+      page1SplitBullets: null
+    })
+    expect(
+      layoutDiagnostics(planOf([{}]), { page1ExperienceCount: 3, page1SplitBullets: 2 })?.leversUsed
+    ).toEqual({ page1ExperienceCount: 3, page1SplitBullets: 2 })
   })
 })
 

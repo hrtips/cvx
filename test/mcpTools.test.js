@@ -1,7 +1,7 @@
 // MCP tool layer: same behavior as the CLI's JSON envelopes, driven as
 // plain functions with an explicit workspace dir.
 
-import { existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -93,6 +93,11 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(build.diagnostics.totalPages).toBe(3)
     expect(build.diagnostics.pages).toHaveLength(3)
     expect(build.diagnostics.warnings).toEqual([])
+    // ONE field named `warnings` in this envelope, and it is the structured one
+    // inside `diagnostics`. The run's plain-text notes are `notices` (C6a review
+    // blocker 4: the two used to sit side by side carrying the same sentence).
+    expect(build.warnings).toBeUndefined()
+    expect(build.notices).toEqual([])
   }, 30_000)
 
   it('plan_layout answers the same questions without writing a PDF', async () => {
@@ -107,7 +112,9 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(plan.layout).toBe('two-column')
     expect(plan.diagnostics.totalPages).toBe(3)
 
-    // Every page reports both columns, 1-based, with fills in [0,1].
+    // Every page reports both columns, 1-based. This CV fits, so every fill is
+    // in (0,1] — but that is a fact about THIS content, not a property of the
+    // field (see the overflow test below, where it reads 2.098).
     expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2, 3])
     for (const page of plan.diagnostics.pages) {
       for (const col of [page.main, page.sidebar]) {
@@ -123,6 +130,44 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(plan.diagnostics.pages[2].emptyColumn).toBe('main')
     expect(plan.diagnostics.totals.emptyColumnPages).toBe(1)
     expect(plan.diagnostics.totals.overflowPages).toBe(0)
+    // No lever set: the pagination is the content's, not the config's.
+    expect(plan.diagnostics.leversUsed).toEqual({
+      page1ExperienceCount: null,
+      page1SplitBullets: null
+    })
+    // The answer describes the designed variant; the ATS variant is not packed
+    // at all, so it has no plan and can have a different page count.
+    expect(plan.variant).toBe('designed')
+    expect(plan.note).toMatch(/DESIGNED/)
+  }, 30_000)
+
+  it('fill goes ABOVE 1 when a page is over budget — it is a ratio, not a gauge', async () => {
+    // The C6a review's blocker 1: `fill` was documented "0..1" in four places
+    // and asserted `<= 1` here, which passed only because the scaffold never
+    // overflows. A mutation clamping the ratio to `Math.min(1, …)` — which hides
+    // exactly the condition an agent must act on — survived all 62 diagnostics
+    // tests. This is the fixture that kills it.
+    const dir = scratch()
+    await initCv({ dir })
+    const cfg = path.join(dir, 'cv-content', 'config.yaml')
+    writeFileSync(cfg, `${readFileSync(cfg, 'utf8')}\npage1ExperienceCount: 3\n`)
+
+    const plan = await planLayout({ dir })
+    const page1 = plan.diagnostics.pages[0]
+    expect(page1.main.fill).toBeGreaterThan(1)
+    expect(page1.main.fill).toBeCloseTo(2.098, 3)
+    // `> 1` and `overflowPt > 0` are the same fact seen twice; neither may be
+    // reported without the other.
+    expect(page1.overflowPt).toBeGreaterThan(0)
+    expect(page1.main.usedPt).toBeGreaterThan(page1.main.budgetPt)
+    expect(plan.diagnostics.warnings[0]).toMatchObject({
+      code: 'overflow',
+      page: 1,
+      forcedByConfig: true
+    })
+    expect(plan.diagnostics.totals.overflowPages).toBe(1)
+    // ...and the lever that caused it is named in the answer, not only in prose.
+    expect(plan.diagnostics.leversUsed.page1ExperienceCount).toBe(3)
   }, 30_000)
 
   it('plan_layout on a missing workspace fails like every other tool', async () => {

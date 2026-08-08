@@ -128,3 +128,41 @@ describe('tools/call', () => {
     expect(parse(res)).toMatchObject({ ok: false, error: { code: 'tool-failed' } })
   })
 })
+
+describe('tool arguments are validated against the schema the tool advertises', () => {
+  // Every tool declares `additionalProperties: false`; until this existed
+  // nothing enforced it, so an invented layout lever (`fill`, `targetPages`,
+  // `density`) was silently dropped and the caller got `ok: true` — a lever that
+  // appears to work. See the note in server.js and the lever rule recorded in
+  // src/pdf/resolveDocument.js.
+  it('refuses an argument the tool never declared, and names it', async () => {
+    const dir = freshDir()
+    await client.callTool({ name: 'init_cv', arguments: { dir } })
+    const res = await client.callTool({
+      name: 'plan_layout',
+      arguments: { dir, fill: 'balance' }
+    })
+    expect(res.isError).toBe(true)
+    expect(parse(res)).toMatchObject({ ok: false, error: { code: 'invalid-arguments' } })
+    expect(parse(res).error.message).toMatch(/unknown argument "fill"/)
+    expect(parse(res).error.message).toMatch(/no hidden layout levers/)
+  })
+
+  it('refuses a declared argument of the wrong type, saying what was wrong', async () => {
+    const dir = freshDir()
+    await client.callTool({ name: 'init_cv', arguments: { dir } })
+    const res = await client.callTool({ name: 'validate_cv', arguments: { dir, strict: 'yes' } })
+    expect(res.isError).toBe(true)
+    expect(parse(res)).toMatchObject({ ok: false, error: { code: 'invalid-arguments' } })
+    expect(parse(res).error.message).toMatch(/strict.*boolean/)
+  })
+
+  it('still accepts every argument the tool DOES declare', async () => {
+    const dir = freshDir()
+    const res = await client.callTool({ name: 'init_cv', arguments: { dir } })
+    expect(res.isError).toBeFalsy()
+    const strict = await client.callTool({ name: 'validate_cv', arguments: { dir, strict: false } })
+    expect(strict.isError).toBeFalsy()
+    expect(parse(strict).strict).toBe(false)
+  })
+})

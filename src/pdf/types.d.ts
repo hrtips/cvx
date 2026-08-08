@@ -372,14 +372,33 @@ export interface LayoutPlan {
 /** One column of one page, as diagnostics report it (layoutDiagnostics.js). */
 export interface ColumnDiagnostics {
   /**
-   * `used / budget`, 0..1, rounded to 3dp. `null` in two cases, both meaning
-   * "there is no ratio to report": this flow ended on an earlier page (the
-   * column is structurally empty — see `LayoutPageDiagnostics.emptyColumn`), or
-   * the budget is <= 0 because the page's FIXED content (an over-tall summary)
-   * is already taller than the column, which `warnings` reports by name.
+   * `used / budget`, rounded to 3dp.
+   *
+   * 0..1 NORMALLY — but it is a ratio, not a percentage-full gauge, and it goes
+   * ABOVE 1 exactly when the page is over budget: the surplus is real content
+   * that react-pdf flows onto an extra physical sheet. Measured on the shipped
+   * scaffold with `page1ExperienceCount: 3`, page 1 reports `main.fill: 2.098`
+   * with `overflowPt: 420.46`. Never clamp it — `> 1` and `overflowPt > 0` are
+   * the same fact seen twice, and hiding one of them hides the defect.
+   *
+   * `null` in two cases, both meaning "there is no ratio to report": this flow
+   * ended on an earlier page (the column is structurally empty — see
+   * `LayoutPageDiagnostics.emptyColumn`), or the budget is <= 0 because the
+   * page's FIXED content (an over-tall summary) is already taller than the
+   * column, which `warnings` reports by name.
    */
   fill: number | null
-  /** Measured content height on this page, pt. `null` when the flow ended earlier. */
+  /**
+   * Content height on this page, pt. `null` when the flow ended earlier.
+   *
+   * How this number is obtained differs by column, and the difference matters
+   * if you are comparing it against a rendered PDF: the sidebar's is MEASURED
+   * (real fontkit metrics, and `test/planLayout.test.js` holds it to within
+   * 0.01pt of the render), while the main column's is MODELLED from layout.js's
+   * entry-height formula and runs a few pt per entry above what renders. The
+   * model is what the packer paginates with, so it is the honest description of
+   * the plan — just not a measurement of the page.
+   */
   usedPt: number | null
   /** Usable height for this column on this page, pt. `null` when the flow ended earlier. */
   budgetPt: number | null
@@ -389,8 +408,20 @@ export interface ColumnDiagnostics {
 export interface MainColumnDiagnostics extends ColumnDiagnostics {
   entries: {
     role: string
-    /** Bullets of that entry rendered on THIS page (an entry may be split across pages). */
+    /** Employer, so two identically-titled roles stay distinguishable. `null` if the entry has none. */
+    company: string | null
+    /** Free-text date range, same purpose. `null` if the entry has none. */
+    period: string | null
+    /**
+     * `[start, end)` into the entry's bullet list — 0-BASED and END-EXCLUSIVE,
+     * the same convention as `SidebarSlice`. `[2, 5)` of `ofBullets: 7` is
+     * "bullets 3–5 of 7" when spoken to a human.
+     */
+    bulletRange: [number, number]
+    /** Bullets of that entry rendered on THIS page (`end - start`; an entry may be split across pages). */
     bullets: number
+    /** Bullets the entry has in total, across every page. */
+    ofBullets: number
     /** True when this is the tail of an entry that started on an earlier page. */
     continued: boolean
   }[]
@@ -403,7 +434,12 @@ export interface SidebarColumnDiagnostics extends ColumnDiagnostics {
     /** Items rendered on this page, and the section's total. */
     items: number
     of: number
-    /** `[start, end)` into the section's item list. */
+    /**
+     * `[start, end)` into the section's item list — 0-BASED and END-EXCLUSIVE.
+     * `[6, 8)` of `of: 8` is two items: "items 7–8 of 8" in the 1-based way a
+     * human counts them. (`items` is already `end - start`, so there is never a
+     * need to do that arithmetic to get the count.)
+     */
     range: [number, number]
     /** True when this slice continues a section an earlier page began. */
     continued: boolean
@@ -426,44 +462,93 @@ export interface LayoutPageDiagnostics {
    */
   overflowPt: number
   /**
-   * Which column has no content on this page.
+   * Which column the packer placed no FLOW BLOCKS in on this page — experience
+   * entries for `main`, section slices for `sidebar`.
    *
-   * A DIAGNOSTIC, NOT A TARGET. It is the deliberate residual of one flow being
-   * genuinely longer than the other (design doc G1) and it is *expected* on a CV
-   * whose sidebar outlasts its experience list. Measured evidence (sprint C4,
-   * finding 3b): tuning a packer to drive this number down 42 -> 8 produced
-   * continued headings with one bullet over ~90% white space and a section
-   * fragmented across five pages. The proxy is anti-correlated with quality —
-   * report it, do not optimise it, and never drop content to remove one.
+   * NOT "which column is blank". Page 1 also carries fixed content that is not
+   * a packed block (the summary in the main column; the identity/photo block in
+   * the sidebar), and that content still renders on a page this field calls
+   * empty. `edge-summary-crosses-cliff` is the shape that makes the difference
+   * visible: page 1 reports `emptyColumn: 'main'` with `main.fill: 0` while the
+   * page holds the whole summary.
+   *
+   * A DIAGNOSTIC, NOT A TARGET — with one exception, and it is a different
+   * animal. On a LATER page this is the deliberate residual of one flow being
+   * genuinely longer than the other (design doc G1), *expected* on a CV whose
+   * sidebar outlasts its experience list; measured evidence (sprint C4, finding
+   * 3b) says tuning a packer to drive the count down 42 -> 8 produced continued
+   * headings with one bullet over ~90% white space and a section fragmented
+   * across five pages. Report it, do not optimise it, never drop content to
+   * remove one. On PAGE 1, an empty main column means the reader's first page
+   * shows no roles at all — that one is a real defect, and it arrives with its
+   * own `page1-no-experience` warning rather than leaving you to tell the two
+   * cases apart from this field.
    */
   emptyColumn: 'main' | 'sidebar' | 'both' | null
 }
 
-/** A layout problem worth telling the user about, phrased as an action. */
+/**
+ * A layout problem worth telling the user about, phrased as an action.
+ *
+ * `overflow` — the page's content reaches past its budget, so the surplus flows
+ * onto a physical sheet the page numbering does not count. Emitted by the same
+ * predicate `cvx build` and `cvx validate` warn through (layout.js
+ * `overflowWarnings`).
+ *
+ * `page1-no-experience` — page 1 carries no experience entry at all, because
+ * its fixed content (summary + identity block) left less room than the smallest
+ * legal piece of the first role. Diagnostics-only: the CLI's stderr warnings
+ * stay overflow-only. See `LayoutPageDiagnostics.emptyColumn` for why this one
+ * is not the empty column an agent is told to ignore.
+ *
+ * Match on `code`, never on `message`: the wording is for humans and will change.
+ */
 export interface LayoutDiagnosticWarning {
-  code: 'overflow'
+  code: 'overflow' | 'page1-no-experience'
   /** 1-based page number. */
   page: number
   overflowPt: number
-  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. */
+  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. Always false for `page1-no-experience`. */
   forcedByConfig: boolean
   message: string
 }
 
 /**
  * Everything `plan_layout` reports and `build_pdf` returns alongside its
- * `warnings` — see layoutDiagnostics.js for why there is no aggregate
+ * `notices` — see layoutDiagnostics.js for why there is no aggregate
  * "layout score".
+ *
+ * ALWAYS THE DESIGNED (two-column) VARIANT. The ATS/single-column document is
+ * auto-flowed by react-pdf and never packed, so it has no plan at all: `build_pdf`
+ * with `ats: true` returns `null` here, `plan_layout` has no `ats` argument, and
+ * the ATS PDF's sheet count can differ from `totalPages`.
  */
 export interface LayoutDiagnostics {
+  /**
+   * PLANNED pages — the numbered sheets the packer laid out, and the number
+   * printed on the page. It is NOT the sheet count of the PDF when anything
+   * overflows: react-pdf flows surplus content onto extra, unnumbered physical
+   * sheets. Measured on the shipped scaffold with `page1ExperienceCount: 3`:
+   * `totalPages: 3`, PDF 4 sheets. Check `totals.overflowPt` /
+   * `totals.overflowPages` before quoting this to a user as "your CV is N pages".
+   */
   totalPages: number
   /** Pages the main flow alone needed (`totalPages` is the max of the two). */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
   sidebarPageCount: number
+  /**
+   * The packing levers config.yaml set for this plan (`null` = not set), so a
+   * reader can tell a pagination the content produced from one the config
+   * forced. There are no OTHER levers: everything else follows the content.
+   */
+  leversUsed: {
+    page1ExperienceCount: number | null
+    page1SplitBullets: number | null
+  }
   pages: LayoutPageDiagnostics[]
   totals: {
-    /** Pages whose content reaches past budget (each has a `warnings` entry). */
+    /** Pages whose content reaches past budget (each has an `overflow` warning). */
     overflowPages: number
     /** Total pt past budget across the document. */
     overflowPt: number
