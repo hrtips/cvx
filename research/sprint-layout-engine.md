@@ -18,7 +18,7 @@
 | **C4 optimizer** | ⛔ **NO-GO — deferred with evidence; C3 is the shipped answer** | see C4's outcome note below. Prototype measured and discarded; four maintainer-requested items landed instead |
 | C5 DP | ⏸ **closed as not-needed unless C4 is revived** | it can only re-rank breaks *inside* a page count C3 already minimises — see C4's finding 1 |
 | **C6a MCP diagnostics** (see the layout, no levers) | ✅ **DONE** | `plan_layout` (5th tool) + `diagnostics` in `build_pdf` / `build --json`; `baseline.json` unchanged, PDFs byte-identical to `e3bf572` |
-| C6b MCP levers | ⏸ **not started — read the C4 outcome note first** | the lever rule is recorded in `resolveDocument.js` (four places, one commit) |
+| C6b MCP levers | ⛔ **PREMISE SUPERSEDED — closed 2026-08-09** | scoped against design-doc §7, whose central specification C4 measured as wrong. An expert panel (4 independent lenses) reached the same verdict from 4 directions. Replaced by `sprint-design-loop.md`: the objective was never a page count, it is an assistant that iterates like a designer — see that doc's reframe |
 | C7 docs/close | ⏸ blocked on whatever ships | |
 
 **Preconditions all met:** v1.5.0 shipped (npm `latest`, `build --all` blocker fixed); the hostile-build quality track (per-file 90% coverage gate, `tsc --strict` = 0, lint/knip/publint/attw + security CI) merged via PR #1 and is now a standing gate every C3 commit must clear. Suite was **345 passed / 4 todo** entering C3a.
