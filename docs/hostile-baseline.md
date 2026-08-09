@@ -1,5 +1,23 @@
 # Hostile-build baseline (Phase 0)
 
+> **Point-in-time record — 2026-08-01. Do not read these numbers as current.**
+>
+> This is the *before* snapshot that justified the quality work, and its value is
+> being exactly that. Today's figures are far better (statements 70% → 98%), and
+> refreshing them here would erase the comparison the document exists to make.
+> For current state run `npm run check`.
+>
+> **One correction, added 2026-08-09.** The "per-file, no exceptions" gate
+> described below was the *intent*, not what ran. `vitest.config.js` declared the
+> thresholds under a `**` glob without `perFile: true`, and without that flag a
+> glob threshold is checked against the **aggregate** of matching files — so it
+> was a project-wide average wearing the name of a per-file rule. One file sat at
+> 75% branches under a declared 85% bar and the gate still passed. It became
+> genuinely per-file in **v1.7.2**, and the one documented waiver
+> (`validateContent.js`) was removed by earning the coverage rather than
+> relocating it, so the gate now has zero exceptions. The tests written to close
+> that gap are what found the `validate` crash fixed in the same release.
+
 Measured on `main` before any quality gate was added, Node v26, so the ratchet
 targets are grounded in real numbers. Regenerate any figure with the commands shown.
 
