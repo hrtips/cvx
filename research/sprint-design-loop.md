@@ -23,9 +23,30 @@ judgement, and a conversation with the user. What CVX owes the designer is
 
 | Actor | Owns | Explicitly does not own |
 |---|---|---|
-| **User** | The brief: how long, what to emphasise, which job it is for, personal taste. And final approval | Executing it |
-| **LLM** | Design judgement, iteration, memory of what it tried, backtracking, candid reporting | Inventing facts. Deciding the brief |
+| **User** | Direction, at any iteration: what to emphasise, what reads too long, exact replacement wording. And final approval | Executing it |
+| **LLM** | Design judgement, the edits, memory of what it tried, backtracking, candid reporting | Inventing facts. Overriding direction |
 | **CVX** | Faithful rendering, accurate measurement, honest diagnostics | Opinions, memory, state, judgement, “quality” |
+
+**The loop is collaborative, not autonomous.** This document’s first draft had the
+assistant iterating in silence and then revealing — which is why the UX review
+worried about long silences, one large consent gate, and a loop that could
+re-edit a sentence the user had just restored. That is not the shape. Both
+parties look at each render, and either can direct the next change:
+
+```
+brainstorm the content together
+  → LLM writes the YAML → build
+  → BOTH look at the PDF
+  → either directs the next change
+      user: “my current role reads too long — use this wording instead”
+      LLM:  “page 3 is thin; I’ll tighten these two bullets and re-run”
+  → edit → build → look → …
+  → done when both are satisfied
+```
+
+The user is *in* the loop, not waiting at the end of it. That is what makes the
+consent question mostly evaporate: nothing accumulates unseen, so there is no
+pile of unreviewed rewrites to disclose at the end.
 
 CVX never keeps track of previous iterations. It never scores a layout. It never
 calls an LLM. Asked the same question twice it gives the same answer, and that is
@@ -227,18 +248,26 @@ All measured today, all currently shipped:
 
 ---
 
-## Open questions for the maintainer
+## Settled questions
 
-Recorded rather than assumed:
+Recorded so they are not reopened:
 
-- **Does the brief persist?** A returning user re-states preferences from scratch
-  unless something remembers. A `preferences:` block in `config.yaml` would be
-  durable, diffable and the user’s — but it is new schema surface.
-- **What does “add more text” mean** when facts are inviolable? Expanding an
-  existing fact into a fuller sentence, or only re-using user-supplied material
-  not yet on the CV?
-- **Does the ATS variant participate?** It has no plan by construction, and an
-  edit that improves the designed CV has no reason to improve the ATS flow.
-- **Clients that cannot open a PDF** — refuse the loop, or run it blind? Running
-  blind is the C4 shape this document exists to avoid. This is also the question
-  that decides whether the deferred rasteriser stays deferred.
+- **The brief is not an artifact.** No `preferences:` block, no brief file, no
+  schema. The LLM has a memory, and the brief is simply the conversation that
+  produced the content — the user brainstorms the sections with the assistant,
+  which then writes the YAML and invokes CVX. Anything durable across sessions
+  is the client’s memory feature, not CVX’s problem. *(An earlier draft proposed
+  storing it; that was inventing a problem.)*
+- **Text changes are collaborative and bidirectional.** Either party may add,
+  remove or change text between iterations — the user supplying exact wording
+  for a section that reads too long, or the LLM tightening a section to serve a
+  length the user asked for. Facts stay inviolable; that constraint binds the
+  words, not who edits them.
+- **The ATS variant is looked at once before delivery**, not iterated. It has no
+  layout plan by construction, and an edit that improves a two-column page has
+  no reason to improve a single-column flow. One look would have caught both
+  corrupted ATS PDFs that reached real users.
+- **A client that cannot open a PDF does not run the loop.** It falls back to a
+  single build. Iterating on measurements alone is the blind-optimiser shape C4
+  measured as harmful — better no loop than a loop that cannot see. This is also
+  what keeps the rasteriser deferred.
