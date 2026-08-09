@@ -14,9 +14,22 @@ dist/
 
 # AI assistant session data — never commit (may contain full transcripts)
 .claude/
-research/
 lib/
 coverage/
+
+# research/ is deliberately SPLIT, not ignored wholesale.
+#
+# The active engineering record IS committed: the sprint plans, the retros, and
+# the layout design/evidence. Those explain decisions in this codebase and are
+# cited by name from 20+ source and test files — c0-baseline.md alone from 13 —
+# so gitignoring them left every one of those pointers dangling for anyone who
+# cloned, and left the reasoning on a single laptop with no history.
+#
+# research/archive/ stays private: superseded planning INPUTS, and the market,
+# persona and prioritisation work behind them. Not secret because it is
+# embarrassing — it simply isn't anyone else's, and unlike the engineering
+# record nothing in the codebase points at it.
+research/archive/
 
 # npm pack output — a local verification artifact, never committed
 *.tgz
