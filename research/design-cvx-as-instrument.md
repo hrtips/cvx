@@ -405,6 +405,21 @@ How each half is actually verified:
   Latin text lands at 0% error, and that the estimate never under-counts. It pins
   today’s numbers against regression rather than proving exactness in general.
   Non-Latin accuracy is explicitly unimproved — `measure.js` detects and warns.
+- **Main column — measured 2026-08-14, and the weakness is no longer
+  hypothetical.** Controlled render probes (role-top differencing, two
+  independent engineers, matching numbers) show `entryH` over-measures every
+  entry: **+6.70pt** for a plain entry (`m.entryMb * 15/11` = 15pt charged vs
+  11pt rendered, +4.00; company/period row modelled at leading 1.5 vs an
+  unstyled ~1.2 render, +2.70), **+2.40pt** more with a `location`, and
+  **+1.60pt per progression row**, exactly linear. The description term is
+  exact. `planLayout.test.js` documents only the first two terms and bounds the
+  error at 8pt/entry — a located entry (9.10) and any progression-bearing entry
+  (13.10 at four rows) breach the bound, and **no fixture in the corpus has a
+  `progression` or `location` at all**, so the suite cannot reach the breach.
+  On a real four-entry CV the phantom height totalled 33.20pt — the difference
+  between “fits with a bullet to spare” and “needs a third page”. The fix design
+  lives in `design-layout-fidelity.md`; the case that found it in
+  `postmortem-pagination-fidelity.md`.
 
 **Why it must be re-derived per phase, and the trap in doing so.** §4.3 hands out
 per-CV control of the sidebar fraction, the spacing tokens and the type scale —

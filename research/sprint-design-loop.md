@@ -141,6 +141,19 @@ P1a produces exactly those transcripts as a byproduct, so the gate is P1a’s
 acceptance evidence read forward. The token table is already drafted and waiting
 (`design-p3-surface.md`), so satisfying the gate costs nothing in lead time.
 
+**First real transcript exists (2026-08-14), and it does not point at P3.** A
+real user's CV was rebuilt as the dogfood gate; the assistant rendered, looked,
+named the defect, and probed nine fixes blind. What was missing was never a
+layout control — it was (a) per-entry heights (P2: nine build-probe cycles that
+one published number would have made one subtraction), (b) a *stall* diagnostic
+naming why page 1 ended early and what the lever was, and (c) box-model fidelity
+(the engine over-measures entries by 6.7–13.1pt, untested because no fixture has
+a progression). Full record: `postmortem-pagination-fidelity.md`; fix design:
+`design-layout-fidelity.md`. Consequence for sequencing: the fidelity +
+diagnostics work precedes P2's publication (publishing heights that are wrong by
+13pt per entry would be worse than publishing nothing), and P3's gate remains
+unmet.
+
 **Each phase gets its own design doc before code** — key lists, response shapes,
 bounds, signatures — following the C-chunk pattern in `sprint-layout-engine.md`.
 This doc and `design-cvx-as-instrument.md` stay the *why* and are meant to

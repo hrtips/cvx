@@ -132,6 +132,18 @@ them affects text wrapping, so none of them re-derives a line count.
 `sectionGap` and `entryMb` are the two highest-leverage: the first is the primary
 sidebar lever, the second the primary main-column one.
 
+**⚠️ Prerequisite discovered 2026-08-14, and it blocks two rows of this table:
+`bulletGap` and `summaryBulletGap` are write-only today.** `BulletList.jsx`
+defaults `gap = 4.5` and both call sites hardcode it (`gap={4.5}` in ExpItem,
+`gap={7.5}` in SummarySection), while `entryH`/`summaryH` read the theme tokens.
+Editing either token therefore moves the *packing model* and not one rendered
+pixel — exposing them per CV before wiring them would hand a caller a lever that
+desynchronises measurement from render, which is strictly worse than no lever.
+The wiring (or the tokens' deletion) is being designed in
+`design-layout-fidelity.md`; that lands first. Found during the pagination
+post-mortem (`postmortem-pagination-fidelity.md`), where a four-level sweep of
+these tokens measured a fiction.
+
 ### 3.2 Not reachable (7)
 
 | Token | Default | Why excluded |
