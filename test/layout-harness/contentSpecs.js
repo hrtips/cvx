@@ -54,12 +54,63 @@ function buildSummary(spec) {
   return sentencesFor(spec.textLength, 'summary', n)
 }
 
+// ── Head-row shapes (S2a) ───────────────────────────────────────────────────
+//
+// `entryH()` composes six kinds of row above an entry's bullets — role,
+// company/period, location, description, progression, and the bullet list's own
+// margin — and until S2 the corpus could reach only three of them: `grep -rn
+// progression test/` found nothing and no fixture set `location`
+// (design-layout-fidelity.md §5.2). These literals are the missing shapes, kept
+// here (not in the harness that measures them) so the four S2a edge fixtures
+// below and the main-column diff's own shape corpus share ONE copy of each
+// string — the numbers in that harness's expectation table are widths, and two
+// copies of a width drift silently.
+//
+// The three "wrapping" strings are deliberately well past the column, not
+// just over it: `measure.js`'s `lineCount` is pure greedy while textkit shrinks
+// inter-word glue by up to a third of a space before it breaks (§3.5), so a
+// string that only just overflows can be modelled at two lines and rendered at
+// one. Every one of these clears the column by more than its own shrink
+// allowance, so model and render agree on the line COUNT and the only thing
+// under test is the HEIGHT that count is multiplied by.
+export const HEAD_SHAPES = {
+  /** one rendered line at `typography.meta.size` */
+  shortLocation: 'Springfield, Elsewhere',
+  /** appended to a role to push it to exactly two rendered lines */
+  wrappingRoleTail:
+    'Coordinator of Strategic Partnerships and Cross Functional Delivery Programmes',
+  /** appended to a company to push the meta row to exactly two rendered lines */
+  wrappingCompanyTail:
+    'Advanced Systems and Continental Logistics Holdings Group Limited Worldwide',
+  /** two rendered lines at `typography.meta.size` */
+  wrappingLocation:
+    'Springfield Metropolitan District, Northern Riverlands Province, Republic of Elsewhere Islands'
+}
+
+/**
+ * `n` progression steps for entry `i`. Titles carry the entry ordinal so a
+ * step's text can never be confused with another entry's, and periods are
+ * literal strings (never `new Date()`) so the same spec dumps byte-identical
+ * YAML.
+ */
+export function progressionSteps(n, i) {
+  return Array.from({ length: n }, (_, j) => ({
+    title: `Programme Lead ${i}.${j}`,
+    period: `20${10 + j} – 20${11 + j}`
+  }))
+}
+
 /**
  * `pageTallBullet` makes ONE bullet taller than a whole page. That is design
  * doc G7's irreducible residual — the one shape no packer can paginate, since
  * the smallest legal unit is already too big — and the corpus could not express
  * it, so the branch that force-places and records `overflowPt` was never
  * exercised end to end.
+ *
+ * `entryLocation` / `entryProgression` / `wrappingRole` / `wrappingCompany` are
+ * the S2a head axes. All four are OPT-IN and absent by default: every fixture
+ * that predates them keeps byte-identical content, which is what makes the
+ * `baseline.json` diff for S2a four new keys and zero moved rows.
  */
 function buildExperienceEntry(i, spec) {
   const bulletsN = { short: 2, typical: 4, long: 5, overflowing: 7 }[spec.textLength] ?? 3
@@ -67,13 +118,22 @@ function buildExperienceEntry(i, spec) {
   if (spec.pageTallBullet && i === 0) {
     bullets[0] = `${bullets[0]} ${'One more clause of the same delivery, spelled out at length. '.repeat(30).trim()}`
   }
-  return {
-    role: `Role Title ${i}`,
-    company: `Company ${i}`,
+  const entry = {
+    // The ordinal stays in front of the wrapping tail so every role is still
+    // unique — ExperienceSection.jsx keys its rows on `role`-`company`.
+    role: spec.wrappingRole ? `Role Title ${i} ${HEAD_SHAPES.wrappingRoleTail}` : `Role Title ${i}`,
+    company: spec.wrappingCompany
+      ? `Company ${i} ${HEAD_SHAPES.wrappingCompanyTail}`
+      : `Company ${i}`,
     period: `20${10 + i} – 20${11 + i}`,
     description: sentencesFor(spec.textLength, `desc${i}`, 1)[0],
     bullets
   }
+  if (spec.entryLocation)
+    entry.location =
+      spec.entryLocation === 'wrapping' ? HEAD_SHAPES.wrappingLocation : HEAD_SHAPES.shortLocation
+  if (spec.entryProgression) entry.progression = progressionSteps(spec.entryProgression, i)
+  return entry
 }
 
 function buildExperience(spec) {
@@ -155,6 +215,10 @@ function buildConfig(spec) {
  *   personalName?: string,
  *   extraLink?: { href, label? },
  *   experienceCount?, educationCount?, competenciesCount?,   // overrides for named edge cases
+ *   entryLocation?: 'short'|'wrapping',  // S2a head axes — every experience entry
+ *   entryProgression?: number,           // gets the same shape; absent by default so
+ *   wrappingRole?: boolean,              // no pre-existing fixture's content moves.
+ *   wrappingCompany?: boolean,
  *   page1ExperienceCount?, page1SplitBullets?, theme?,
  *   oversizedSection?: keyof ITEM_BUILDERS, oversizedCount?: number,
  * }

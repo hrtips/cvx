@@ -271,6 +271,89 @@ function namedEdgeCaseFixtures() {
       oversizedSection: 'certifications',
       oversizedItemPageTall: true
     },
+    // ── S2a: the four head shapes the corpus could not express ──────────────
+    //
+    // `grep -rn progression test/` found nothing and no fixture set `location`,
+    // so two of `entryH()`'s six head terms — and every wrapped-head shape —
+    // were unreachable from the curated corpus
+    // (research/design-layout-fidelity.md §5.2). These four are ADDITIVE: they
+    // introduce no pairwise factor and touch no existing spec, so `baseline.json`
+    // gains four keys and no existing row moves.
+    //
+    // S2b (the three new PAIRWISE factors — location, progression, headLength)
+    // is DEFERRED, and deliberately: adding a factor changes every pairwise
+    // fixture's content, so every baseline row would be rewritten, and that
+    // regeneration has to be its own commit or S3's baseline diff stops being
+    // interpretable (§5.2). S2a plus the main-column harness's own shape corpus
+    // (mainMeasureDiff.js) already reach every term S3 corrects. The deferral is
+    // also recorded in `buildFixturePlan()`'s `meta.deferred`, where a reader
+    // counting axes will look for it.
+    //
+    // `textLength: 'short'` throughout: the axis under test is the HEAD, and
+    // short single-line bullets keep each entry's measured height attributable
+    // to its head rows rather than to a bullet that wrapped one way in the model
+    // and another in the render.
+    {
+      id: 'edge-progression-entries',
+      description:
+        "every experience entry carries a 4-step progression block — the shape `entryH()` mis-measures worst (+1.60pt per row on top of the +6.70pt base, i.e. the motivating CV's +13.10pt entry), and the one no fixture could express before: `progression` appeared nowhere in test/.",
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryProgression: 4
+    },
+    {
+      id: 'edge-located-entries',
+      description:
+        'every experience entry carries a short single-line `location` — the +2.40pt location term (§3.2). No fixture set `location` at all before this one, so the row was modelled and never rendered under test.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryLocation: 'short'
+    },
+    {
+      id: 'edge-wrapping-heads',
+      description:
+        'a role AND a company that each wrap to two rendered lines on every entry — both currently UNDER-measured (§3.3: the model charges one role line and one meta row regardless), so this fixture is on the unsafe side of the mirror, where an error overflows a page rather than wasting space.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      wrappingRole: true,
+      wrappingCompany: true
+    },
+    {
+      id: 'edge-wrapping-location',
+      description:
+        'a `location` long enough to wrap to two rendered lines on every entry — the third under-measuring head shape (§3.3), and the one whose net entry delta is nearly zero today (+2.40 phantom location minus 9.60 unmodelled second line) purely by coincidence.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryLocation: 'wrapping'
+    },
     {
       id: 'edge-forced-split-config',
       description:
@@ -326,6 +409,22 @@ export function buildFixturePlan() {
       riskScenarioCount: risks.length,
       namedEdgeCaseCount: edgeCases.length,
       totalFixtures: fixtures.length,
+      /**
+       * Axes that are deliberately NOT on the pairwise sweep, recorded here
+       * rather than left silently absent (design-layout-fidelity.md §5.2's
+       * instruction, verbatim: "if it is deferred, say so in the fixture plan's
+       * meta rather than leaving the axes silently absent").
+       */
+      deferred: {
+        pairwiseFactors: {
+          location: ['absent', 'short', 'wrapping'],
+          progression: ['absent', 'one', 'four'],
+          headLength: ['short', 'wrapping']
+        },
+        slice: 'S2b',
+        reason:
+          "Adding these three factors grows the greedy cover from 18 rows to 19 (188 required pairs -> 377) — but it also changes EVERY pairwise fixture's content, so every baseline.json row is rewritten. That regeneration must be its own commit with no engine change in it, or S3's baseline diff becomes uninterpretable. S2a's four named edge fixtures (edge-progression-entries, edge-located-entries, edge-wrapping-heads, edge-wrapping-location) plus the main-column render diff's own shape corpus (test/layout-harness/mainMeasureDiff.js) already reach every term S3 corrects, so S2b blocks nothing."
+      },
       variantAxisNote:
         "\"variant: designed|ats\" from the sprint's cartesian is not multiplied into the fixture count — every fixture is rendered through both variants via scaffold.js's buildAll() (two separate CLI processes — see that file's docblock for why not the batched `cvx build --all`), so variant coverage is complete without doubling the fixture list."
     }

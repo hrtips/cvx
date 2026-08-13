@@ -86,7 +86,10 @@ const WORD_RE =
  * `pdftotext -bbox` emits XML, so a word containing `&` arrives as `&amp;` —
  * invisible in the sidebar (no section title has one) and fatal in the main
  * column, where "Chairman & Chief Executive Officer" would never match the role
- * string it came from.
+ * string it came from. Applied inside `rowsByPage` below, which is how the
+ * main-column diff (mainMeasureDiff.js) reuses it: every row that harness sees
+ * is already decoded, so a role carrying `&` or `'` matches the content string
+ * it was rendered from rather than silently going unmeasured.
  */
 const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 const decodeXml = (/** @type {string} */ s) =>
@@ -97,11 +100,23 @@ const decodeXml = (/** @type {string} */ s) =>
   )
 
 /**
- * Per physical page, the text rows in one x-band as `{ yMin, text }`, where
- * `text` is every word on that row concatenated (letter-spaced titles come back
- * one glyph per `<word>`, so joining with no separator is what makes them
+ * Per physical page, the text rows in one x-band as `{ yMin, xMin, xMax, text }`,
+ * where `text` is every word on that row concatenated (letter-spaced titles come
+ * back one glyph per `<word>`, so joining with no separator is what makes them
  * greppable — and it makes every comparison whitespace-insensitive, which the
  * main column needs too).
+ *
+ * Rows are grouped by EXACT `yMin`, never by proximity. That is not fussiness:
+ * in the main column a bullet's dash carries `marginTop: iconMt` (1pt) and so
+ * lands 1pt below its own text, on its own `yMin`. Grouping by a tolerance
+ * would merge the two and move the row's measured top by that 1pt — see
+ * mainMeasureDiff.js.
+ *
+ * `xMin` (the leftmost word's left edge) and `xMax` (the rightmost ink on the
+ * row) exist for the main-column diff: `xMin` is what tells a role heading apart
+ * from a progression step that repeats the role string verbatim, and `xMax` is
+ * what the "no ink past the content box" check reads. The sidebar diff ignores
+ * both.
  *
  * @param {string} pdfPath
  * @param {(xMin: number) => boolean} inBand  which column's words to keep
@@ -112,24 +127,26 @@ export function rowsByPage(pdfPath, inBand) {
     .split('<page ')
     .slice(1)
     .map((pageXml) => {
-      /** @type {Map<string, {yMin: number, words: {x: number, t: string}[]}>} */
+      /** @type {Map<string, {yMin: number, words: {x: number, xMax: number, t: string}[]}>} */
       const rows = new Map()
       for (const m of pageXml.matchAll(WORD_RE)) {
         const xMin = Number(m[1])
         if (!inBand(xMin)) continue
         const key = Number(m[2]).toFixed(2)
         if (!rows.has(key)) rows.set(key, { yMin: Number(m[2]), words: [] })
-        rows.get(key)?.words.push({ x: xMin, t: decodeXml(m[5]) })
+        rows.get(key)?.words.push({ x: xMin, xMax: Number(m[3]), t: decodeXml(m[5]) })
       }
       return [...rows.values()]
         .sort((a, b) => a.yMin - b.yMin)
-        .map(({ yMin, words }) => ({
-          yMin,
-          text: words
-            .sort((a, b) => a.x - b.x)
-            .map((w) => w.t)
-            .join('')
-        }))
+        .map(({ yMin, words }) => {
+          const ordered = [...words].sort((a, b) => a.x - b.x)
+          return {
+            yMin,
+            xMin: ordered[0].x,
+            xMax: Math.max(...ordered.map((w) => w.xMax)),
+            text: ordered.map((w) => w.t).join('')
+          }
+        })
     })
 }
 
