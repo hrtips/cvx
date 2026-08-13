@@ -257,7 +257,7 @@ describe('main-column plan (packExperiences really packs this — testable today
   function planFor(dir) {
     const summary = readYaml(dir, 'summary.yaml')
     const experience = readYaml(dir, 'experience.yaml')
-    const config = readYaml(dir, 'config.yaml')
+    const _config = readYaml(dir, 'config.yaml')
     const packed = packExperiences(experience, summary, tealTheme, harnessMeasurer())
     return { packed, summary, experience }
   }

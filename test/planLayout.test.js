@@ -396,6 +396,117 @@ describe('the diagnostics name the defects a build warns about', () => {
     cleanupFixtureDirs()
   }, 60000)
 
+  it('edge-page1-blocked: page 1 ends EARLY, and the diagnostics say by how much and why', async () => {
+    // The F3 regression fixture (design-layout-fidelity.md §5.5). Page 1 carries
+    // ONE role and then stops with 183.82pt of column left, because the next
+    // role's smallest legal piece — its head, with a 4-step progression block,
+    // plus one bullet — needs 191.18pt and only 150.07pt survive the 33.75pt
+    // entry divider. That is the stall the post-mortem's T7 recorded as
+    // *silent*: `overflowPt` is 0 (the packer did the right thing), the page is
+    // not empty, and before §3.8 nothing in the plan said a word about it.
+    //
+    // ASSERT THE DIAGNOSTIC, NOT THE PAGE COUNT, and the reason is the
+    // post-mortem's own: 3 pages IS the correct output for this content, so a
+    // `totalPages === 3` assertion would pin a content fact that any legitimate
+    // future fidelity improvement may move — and it would have passed on the
+    // pre-S3 engine too, i.e. it is precisely the test that would not have
+    // caught anything. The only page-count claim below is a one-sided canary.
+    const dir = fixtureWorkspace('edge-page1-blocked')
+    const { plan, diagnostics: d } = await diagnosticsOf(dir)
+
+    // (1) ONE warning, and it is this one. `page1-no-experience` is the
+    // degenerate twin of the same phenomenon (zero roles on page 1) and the two
+    // are mutually exclusive by construction — seeing it here would mean the
+    // fixture drifted into the OTHER shape, which `edge-summary-crosses-cliff`
+    // already covers, and this fixture would then be testing nothing new.
+    expect(d.warnings.map((w) => w.code)).toEqual(['page1-ends-early'])
+    expect(d.warnings[0].page).toBe(1)
+    expect(d.pages[0].main.entries.length).toBeGreaterThan(0)
+    expect(d.totals.overflowPages).toBe(0)
+    expect(d.pages[0].overflowPt).toBe(0)
+
+    // (2) The arithmetic identity, plus the ONE term in it that is not
+    // self-evident. `shortByPt === smallestPiecePt − (residualPt − gapBeforePt)`
+    // is internally consistent whatever `smallestPiecePt` happens to be, so it
+    // would hold just as well over a wrong number — the identity alone is not a
+    // measurement. So `smallestPiecePt` is RE-MEASURED here from the plan's own
+    // entry (never copied out of the payload it is meant to check): the head of
+    // the blocked entry sliced to one bullet, which is what
+    // `experienceBlock().split(0, forceMinimum)` hands `declineOf`.
+    const blocked = d.pages[0].main.blockedBy
+    expect(blocked).not.toBeNull()
+    const blockedEntry = plan.pages[0].mainBlockedBy?.entry
+    expect(blockedEntry?.role).toBe(blocked?.role)
+    const smallestPiecePt = entryH(
+      {
+        .../** @type {import('../src/pdf/types.js').ExperienceEntry} */ (blockedEntry),
+        startBullet: 0,
+        endBullet: 1
+      },
+      deriveMetrics(tealTheme),
+      createMeasurer(FONTS)
+    )
+    expect(blocked?.smallestPiecePt).toBe(smallestPiecePt)
+    expect(blocked?.shortByPt).toBe(
+      Math.round(
+        (smallestPiecePt - (Number(blocked?.residualPt) - Number(blocked?.gapBeforePt))) * 100
+      ) / 100
+    )
+    expect(Number(blocked?.shortByPt)).toBeGreaterThan(0) // a stall, not a page that simply ended
+    // The warning republishes the same four numbers; a reader must never have to
+    // decide which copy to believe.
+    expect(d.warnings[0]).toMatchObject({
+      shortByPt: blocked?.shortByPt,
+      residualPt: blocked?.residualPt,
+      smallestPiecePt: blocked?.smallestPiecePt,
+      gapBeforePt: blocked?.gapBeforePt,
+      nextRole: blocked?.role
+    })
+
+    // (3) Page 1's fill, pinned to the 3dp the diagnostics publish. This is v2
+    // OCCUPANCY — (fixedPt + usedPt) / capacityPt — so it describes how full the
+    // PAGE is, not how full the leftover experience budget is; the same page
+    // read 0.484 under v1's denominator, which is the misleading number §3.9
+    // replaced. Recomputed from the page's own published terms as well as
+    // pinned, so a redefinition of `fill` cannot pass by moving both.
+    expect(d.pages[0].main.fill).toBe(0.73)
+    expect(d.pages[0].main.fill).toBe(
+      Math.round(
+        ((Number(d.pages[0].main.fixedPt) + Number(d.pages[0].main.usedPt)) /
+          Number(d.pages[0].main.capacityPt)) *
+          1000
+      ) / 1000
+    )
+
+    // (5) A BOUNDED canary. It cannot fail on a better model — a fidelity fix
+    // can only ever measure this content SHORTER, and 2 or 1 pages passes — but
+    // it fails the moment phantom height comes back and pushes a fourth page,
+    // which is the regression this fixture exists to catch.
+    expect(d.totalPages).toBeLessThanOrEqual(3)
+
+    // Both call sites report it identically — the build path computes its own.
+    expect((await buildPdf({ dir })).diagnostics).toEqual(d)
+    cleanupFixtureDirs()
+  }, 60000)
+
+  it.skipIf(!hasPdftoppm())(
+    'edge-page1-blocked: the sheets on the paper are the pages the plan numbered',
+    async () => {
+      // (4) The honesty property, and the one that actually regressed in F6:
+      // ending a page early must not cost a sheet the numbering cannot count.
+      // Unlike `edge-summary-exceeds-page` (whose over-tall summary legitimately
+      // flows onto an uncounted sheet), this fixture has no irreducible block —
+      // so sheets and `totalPages` must be EQUAL, not merely ordered.
+      const dir = fixtureWorkspace('edge-page1-blocked-sheets')
+      const built = buildViaCli(dir)
+      const sheets = rowsByPage(path.join(dir, built.filename), () => true).length
+      expect(built.diagnostics.totals.overflowPages).toBe(0)
+      expect(sheets).toBe(built.diagnostics.totalPages)
+      cleanupFixtureDirs()
+    },
+    60000
+  )
+
   it('edge-forced-split-config: the REMOVED legacy keys are ignored — no forced overflow, no attribution', async () => {
     // This fixture's config.yaml still declares page1ExperienceCount: 2 +
     // page1SplitBullets: 2, exactly like a legacy workspace. The keys were

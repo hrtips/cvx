@@ -1,7 +1,7 @@
 // MCP tool layer: same behavior as the CLI's JSON envelopes, driven as
 // plain functions with an explicit workspace dir.
 
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'

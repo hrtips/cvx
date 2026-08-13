@@ -111,9 +111,19 @@ export function progressionSteps(n, i) {
  * the S2a head axes. All four are OPT-IN and absent by default: every fixture
  * that predates them keeps byte-identical content, which is what makes the
  * `baseline.json` diff for S2a four new keys and zero moved rows.
+ *
+ * `entryShapes[i]` overrides those two axes for ONE entry. Every knob above
+ * applies the same shape to every entry, which is right for the S2a fixtures
+ * (the axis under test is the entry) and wrong for a fixture whose whole point
+ * is that entries DIFFER — `edge-page1-blocked` (design-layout-fidelity.md
+ * §5.5) needs a first entry that fills about half of page 1 and a SECOND entry
+ * whose smallest legal piece does not fit what is left. Also opt-in and absent
+ * by default, for the same baseline reason.
  */
 function buildExperienceEntry(i, spec) {
-  const bulletsN = { short: 2, typical: 4, long: 5, overflowing: 7 }[spec.textLength] ?? 3
+  const shape = spec.entryShapes?.[i] ?? {}
+  const bulletsN =
+    shape.bullets ?? { short: 2, typical: 4, long: 5, overflowing: 7 }[spec.textLength] ?? 3
   const bullets = bulletsFor(spec.textLength, `exp${i}`, bulletsN)
   if (spec.pageTallBullet && i === 0) {
     bullets[0] = `${bullets[0]} ${'One more clause of the same delivery, spelled out at length. '.repeat(30).trim()}`
@@ -132,7 +142,8 @@ function buildExperienceEntry(i, spec) {
   if (spec.entryLocation)
     entry.location =
       spec.entryLocation === 'wrapping' ? HEAD_SHAPES.wrappingLocation : HEAD_SHAPES.shortLocation
-  if (spec.entryProgression) entry.progression = progressionSteps(spec.entryProgression, i)
+  const progression = shape.progression ?? spec.entryProgression
+  if (progression) entry.progression = progressionSteps(progression, i)
   return entry
 }
 
@@ -219,6 +230,8 @@ function buildConfig(spec) {
  *   entryProgression?: number,           // gets the same shape; absent by default so
  *   wrappingRole?: boolean,              // no pre-existing fixture's content moves.
  *   wrappingCompany?: boolean,
+ *   entryShapes?: { bullets?: number, progression?: number }[],  // per-ENTRY override of the two above
+
  *   page1ExperienceCount?, page1SplitBullets?, theme?,
  *   oversizedSection?: keyof ITEM_BUILDERS, oversizedCount?: number,
  * }

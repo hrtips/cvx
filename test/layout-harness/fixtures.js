@@ -354,6 +354,57 @@ function namedEdgeCaseFixtures() {
       volume: 'multi-page',
       entryLocation: 'wrapping'
     },
+    // ── S5: the F3 regression fixture (design-layout-fidelity.md §5.5) ──────
+    //
+    // The post-mortem's F3 shape, synthesized: page 1 ends with room to spare
+    // because the NEXT entry's smallest legal piece (its head plus one bullet)
+    // does not fit what is left. That is the stall §3.8's `blockedBy` and the
+    // `page1-ends-early` warning exist to name, and until this fixture the
+    // corpus could only express its DEGENERATE case (`edge-summary-crosses-
+    // cliff`, where page 1 gets no entry at all and the warning is
+    // `page1-no-experience`). The two are mutually exclusive by construction,
+    // so both shapes need their own fixture or one of the two code paths is
+    // never executed on real content.
+    //
+    // The numbers are chosen, not stumbled into (all measured with the real
+    // fontkit measurer — test/layoutOptimality.test.js re-derives them, and
+    // test/planLayout.test.js asserts the arithmetic identity):
+    //   summary       5 'long' bullets  -> summaryH 273.90pt (§5.5 asks for
+    //                                      270-290: big enough to squeeze page
+    //                                      1's budget to 356.09pt, small enough
+    //                                      that an entry still fits under it)
+    //   entry 0       2 bullets         -> 172.27pt, ~48% of page 1's budget
+    //                                      ("roughly half", so the page is
+    //                                      visibly not full when it ends)
+    //   entry 1       4 progression     -> smallest legal piece 191.18pt vs
+    //                 steps                150.07pt left after the 33.75pt
+    //                                      entry divider: short by 41.11pt
+    //   entries 2-3   default            -> enough content for the flow to keep
+    //                                      going, so page 1 ending early is a
+    //                                      DECISION and not simply the last page
+    //
+    // Deliberately NOT asserted anywhere: the page count. 3 pages is the
+    // correct output for this content, so pinning it would pin a content fact
+    // that any legitimate future fidelity improvement may move — and it would
+    // have passed on the pre-S3 engine too, i.e. it is exactly the assertion
+    // that would not have caught the defect (§5.5).
+    {
+      id: 'edge-page1-blocked',
+      description:
+        'page 1 ends EARLY with one entry on it: the second entry carries a 4-step progression whose smallest legal piece (head + 1 bullet, 191.18pt) is taller than the 150.07pt left after the entry divider. The F3 shape from the post-mortem, and the only fixture that reaches the `page1-ends-early` warning — `edge-summary-crosses-cliff` reaches its degenerate twin (`page1-no-experience`, zero entries on page 1) instead.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'long',
+      volume: 'multi-page',
+      experienceCount: 4,
+      summaryBullets: 5,
+      entryShapes: [{ bullets: 2 }, { progression: 4 }]
+    },
     {
       id: 'edge-forced-split-config',
       description:
