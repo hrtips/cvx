@@ -10,7 +10,7 @@ const makeStyles = (t) =>
     divider: {
       height: t.chrome.dividerHeight,
       backgroundColor: t.palette.divider,
-      marginVertical: 16.5
+      marginVertical: t.chrome.dividerMargin
     }
   })
 

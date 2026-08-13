@@ -22,8 +22,17 @@ const makeStyles = (t) =>
     link: { color: t.palette.textDark, textDecoration: 'underline' }
   })
 
-/** @param {{ items: import('../types.js').BulletItem[], gap?: number }} props */
-export default function BulletList({ items, gap = 4.5 }) {
+/**
+ * `gap` is required and always a theme token (`spacing.bulletGap` /
+ * `spacing.summaryBulletGap`) — never a literal. The packing model reads the
+ * same tokens (`entryH`/`summaryH`), and a literal here is how they once went
+ * out of sync: the theme said one number, the render did another, and every
+ * spacing edit moved the plan while changing zero pixels. The
+ * token-perturbation test in layout.mirror.test.js pins the wiring.
+ *
+ * @param {{ items: import('../types.js').BulletItem[], gap: number }} props
+ */
+export default function BulletList({ items, gap }) {
   const s = useStyles(makeStyles)
   return (
     <View style={s.list}>

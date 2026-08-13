@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from '@react-pdf/renderer'
-import { useStyles } from '../ThemeContext.jsx'
+import { useStyles, useTheme } from '../ThemeContext.jsx'
 import BulletList from './BulletList.jsx'
 
 /** @param {import('../types.js').Theme} t */
@@ -71,6 +71,7 @@ export default function ExpItem({
   isContinuation = false
 }) {
   const s = useStyles(makeStyles)
+  const t = useTheme()
   const visibleBullets = (bullets ?? []).slice(startBullet, endBullet)
 
   if (isContinuation) {
@@ -79,7 +80,9 @@ export default function ExpItem({
         <Text style={s.contRole}>
           {role} <Text style={s.contTag}>(cont'd)</Text>
         </Text>
-        {visibleBullets.length > 0 && <BulletList items={visibleBullets} gap={4.5} />}
+        {visibleBullets.length > 0 && (
+          <BulletList items={visibleBullets} gap={t.spacing.bulletGap} />
+        )}
       </View>
     )
   }
@@ -107,7 +110,7 @@ export default function ExpItem({
           </View>
         )
       }
-      {visibleBullets.length > 0 && <BulletList items={visibleBullets} gap={4.5} />}
+      {visibleBullets.length > 0 && <BulletList items={visibleBullets} gap={t.spacing.bulletGap} />}
     </View>
   )
 }
