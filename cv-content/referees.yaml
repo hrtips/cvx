@@ -1,18 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/referees.schema.json
-- name: Diana Prince
-  title: Founding Member, Justice League
-  company: Themysciran Embassy
-  email: d.prince@justiceleague.org
-  phone: "+1 (202) 555-0177"
-
-- name: Clark Kent
-  title: Founding Member, Justice League
-  company: Daily Planet
-  email: c.kent@justiceleague.org
-  phone: "+1 (816) 555-0142"
-
-- name: Oliver Queen
-  title: Chairman & CEO / Fellow Vigilante
-  company: Queen Industries
-  email: o.queen@queen-industries.com
-  phone: "+1 (206) 555-0168"
+#
+# An empty list prints "References available upon request." wherever a layout
+# includes the `referees` slot. The ATS layout does; the designed two-column
+# layout deliberately does not — a referees section costs ~231pt there, a whole
+# extra page for this CV, and modern guidance treats even the one-line version as
+# filler. See layouts/two-column.yaml.
+#
+# To list real referees, replace `[]` with entries and add `- referees` to a
+# sidebar slot in layouts/two-column.yaml:
+#
+#   - name: Diana Prince
+#     title: Founding Member, Justice League
+#     company: Themysciran Embassy
+#     email: d.prince@justiceleague.org
+#     phone: "+1 (202) 555-0177"
+[]

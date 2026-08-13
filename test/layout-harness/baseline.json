@@ -590,17 +590,17 @@
       "oracle": {
         "ok": true,
         "designed": {
-          "pageCount": 3,
+          "pageCount": 2,
           "blankPages": [],
           "emptyColumns": []
         },
         "ats": {
-          "pageCount": 3,
+          "pageCount": 2,
           "blankPages": [],
           "emptyColumns": null
         }
       },
-      "logicalTotalPages": 3
+      "logicalTotalPages": 2
     }
   },
   "measureDiffCorpus": [

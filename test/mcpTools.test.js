@@ -90,8 +90,8 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
 
     // The build reports how it paginated, so an assistant does not need a
     // second call to tell the user what it just produced.
-    expect(build.diagnostics.totalPages).toBe(3)
-    expect(build.diagnostics.pages).toHaveLength(3)
+    expect(build.diagnostics.totalPages).toBe(2)
+    expect(build.diagnostics.pages).toHaveLength(2)
     expect(build.diagnostics.warnings).toEqual([])
     // ONE field named `warnings` in this envelope, and it is the structured one
     // inside `diagnostics`. The run's plain-text notes are `notices` (C6a review
@@ -110,12 +110,12 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(existsSync(path.join(dir, 'bruce-wayne.pdf'))).toBe(false)
     expect(plan.theme).toBe('teal')
     expect(plan.layout).toBe('two-column')
-    expect(plan.diagnostics.totalPages).toBe(3)
+    expect(plan.diagnostics.totalPages).toBe(2)
 
     // Every page reports both columns, 1-based. This CV fits, so every fill is
     // in (0,1] — but that is a fact about THIS content, not a property of the
     // field (see the overflow test below, where it reads 2.098).
-    expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2, 3])
+    expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2])
     for (const page of plan.diagnostics.pages) {
       for (const col of [page.main, page.sidebar]) {
         if (col.fill === null) continue
@@ -124,11 +124,16 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
         expect(col.usedPt).toBeGreaterThan(0)
       }
     }
-    // The scaffold's known shape: one role on page 1, and page 3 is the tail of
-    // the sidebar flow (an empty main column — the deliberate G1 residual).
+    // The scaffold's known shape: one role on page 1, and NO stranded tail page.
+    // This used to assert the opposite — `pages[2].emptyColumn === 'main'` and
+    // `emptyColumnPages === 1` — pinning the demo's own worst defect as expected
+    // behaviour: a third sheet holding nothing but the tail of the sidebar flow
+    // beside a completely empty main column. The scaffold was trimmed to two
+    // pages (referees dropped from the layout, education 4→3, certifications
+    // 2→1), so the assertion is now that the defect is absent.
     expect(plan.diagnostics.pages[0].main.entries).toHaveLength(1)
-    expect(plan.diagnostics.pages[2].emptyColumn).toBe('main')
-    expect(plan.diagnostics.totals.emptyColumnPages).toBe(1)
+    expect(plan.diagnostics.pages.every((p) => p.emptyColumn === null)).toBe(true)
+    expect(plan.diagnostics.totals.emptyColumnPages).toBe(0)
     expect(plan.diagnostics.totals.overflowPages).toBe(0)
     // No lever set: the pagination is the content's, not the config's.
     expect(plan.diagnostics.leversUsed).toEqual({
