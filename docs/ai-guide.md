@@ -26,6 +26,22 @@ You drive; the user only supplies facts and runs at most one command. The schema
 - **Never invent facts.** Every entry must be truthful to the user's input; ask for anything missing (dates, metrics). AI-embellished CVs fail interviews and background checks, and ATS parsers cross-check keywords against the CV body.
 - **Flag conflicts, don't silently resolve them.** If the source contradicts itself (e.g. the headline says one current title and the summary another), surface it — pick the better-supported value for the draft, but tell the user what you chose and why they should confirm.
 
+### 1b. Ask how it should read — once, with examples
+
+Take a brief before you draft, the way a designer would. Fold it into the same first message as the source request, or ask right after — one batched question, with examples, so it is answerable by someone who has never thought about page layout:
+
+> *"Before I draft: roughly how long should this be — one page, two, or as long as it needs? Anything to lead with or play down (recent roles, education, publications)? And is this aimed at a particular job — paste the ad and I'll angle the wording at it."*
+
+Ask once. What comes back is **scope, not permission**: with a brief, tightening prose or trimming a section is work you were asked to do, rather than a decision to clear every time. Without one you will either over-ask or guess.
+
+**The brief is the conversation, not a file.** There is no `preferences:` block and no brief file to write or keep in sync. Anything meant to outlast the session belongs in the user's notes or your client's memory, not in `cv-content/`.
+
+### 1c. Keep your own history — CVX has none
+
+CVX is stateless: no undo, no snapshots, no memory of the previous build, and the same question always gets the same answer. Every bit of continuity across iterations is yours to hold, so keep a short running list of what you changed, why, and what it did to the render.
+
+That list is what lets you **backtrack** when an edit makes the page worse (you are the only thing that remembers the previous wording), **not re-litigate** a sentence the user has restored — that is direction, so leave it — and **report honestly at the end** on the whole session rather than the last step. Nothing in CVX bounds the loop either: stop when the page looks right and the user is satisfied, not at a fixed pass count, and never by iterating on numbers when you cannot see the render.
+
 ### 2. Pick your execution path (by your own capabilities)
 
 1. **You have CVX MCP tools or the cvx skill** → use them: `get_schema` → `init_cv` → edit → `validate_cv` → `build_pdf`.

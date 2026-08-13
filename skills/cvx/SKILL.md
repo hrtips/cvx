@@ -29,6 +29,28 @@ Always validate after every edit and before every build. Findings include the fi
 
 If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the AI guide's default flow (see below — it ships with CVX, so no network is needed to read it) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
 
+## Ask about shape before you draft — once, with examples
+
+A designer takes a brief before working, and so should you. Before writing any YAML, ask the user how they want the CV to *read* — one message, batched, with concrete examples so the question is answerable by someone who has never thought about layout:
+
+> *"Before I draft: roughly how long should this be — one page, two, or as long as it needs? Anything you want to lead with or play down (recent roles, education, publications)? And is this aimed at a particular job — if so, paste the ad and I'll angle the wording at it."*
+
+Ask once and move on; don't interrogate. What you get back is **scope, not permission**: with it, trimming a section or tightening prose is work you were asked to do rather than a decision you need to clear each time. Without it, you'll either over-ask or guess.
+
+**The brief is the conversation, not a file.** There is no `preferences:` block and no brief file — nothing to write, nothing to keep in sync. It lives in your context for this session, and anything that should outlast the session is the user's own notes or your client's memory feature, not `cv-content/`.
+
+## Track your own changes — CVX cannot
+
+CVX is stateless. It has no undo, no snapshots, no history, and it does not remember the previous build: ask it the same question twice and you get the same answer. Every bit of continuity in the loop is yours to hold.
+
+So keep a short running list as you go — what you changed, why, and what it did to the render (*"tightened the two 2019 bullets to pull page 3's referees up; page count unchanged"*). You need it to:
+
+- **Backtrack.** If an edit made the page worse, put the previous wording back — you are the only thing that knows what it was.
+- **Not re-litigate.** If the user restored a sentence you had rewritten, that is direction: leave it alone from then on.
+- **Report honestly at the end.** Tell the user what you changed across the whole session, not just the last step.
+
+And know when to stop: nothing in CVX bounds the loop. Stop when the page looks right and the user is satisfied — not after a fixed number of passes, and never by iterating on measurements when you cannot see the render.
+
 ## The full docs ship with CVX — don't fetch them
 
 `docs/ai-guide.md` (the complete playbook) and `docs/cv-schema.md` (the field-by-field reference) are inside the installed package, alongside this skill — `../../docs/ai-guide.md` relative to this file. Read them from disk when you can; they match the version you are actually running.
