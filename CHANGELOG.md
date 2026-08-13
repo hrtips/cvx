@@ -8,6 +8,46 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 (currently `1`). Within a schema major, your content files never break — new
 keys may appear, existing ones keep working.
 
+## Unreleased
+
+**The scaffolded example CV is now the two pages the README promised.** It
+rendered three, and page 3 was a near-empty main column beside a half-filled
+sidebar — the first artifact every new user saw was the product's own worst
+example. Two pages needed the sidebar to shed a measured 235pt, so the example
+now omits the `referees` section from the designed layout (231pt, and CVX's own
+guidance already treats a referees section as filler — the ATS variant still
+carries it), lists three degrees instead of four, and one certification instead
+of two. **Your own `cv-content/` is untouched**; this changes only what
+`cvx init` scaffolds. The ATS variant dropped from three pages to two as well.
+
+**Removed the dead `geometry:` block from the scaffolded layouts.** Both shipped
+layout files carried page-geometry keys — `size`, `topBar`, `sidebarFraction`,
+three padding arrays — that CVX ignored entirely. Editing `sidebarFraction` did
+nothing, silently, with no validation error, while looking exactly like the
+page-control lever the docs say does not exist. Page geometry still comes from
+the theme; the keys are gone rather than left in place pretending to work. Files
+that still contain a `geometry:` block keep validating, so nothing breaks.
+
+**Stopped telling assistants they cannot see the PDF.** Ten places across the
+skill, the AI guide, the MCP server's handshake instructions, `plan_layout`'s
+tool description and two engine modules stated that an assistant can't see the
+render — false for the clients that matter, which open PDFs natively — or
+forbade an assistant from ever editing content, even under the user's explicit
+direction. Looking at the returned PDF is now part of the documented loop, and
+the rule is stated as it should be: never drop content to fit, the user chooses
+what goes, and carrying out the edit they chose is the assistant's job.
+
+**Stopped recommending `page1ExperienceCount` as a way to shorten a CV.** It
+cannot do that: measured on the example CV, the sheet count never moved and
+every setting above automatic only added overflow (0 → 184 → 420 → 590pt). Both
+keys still work as explicit page-1 overrides and are documented as such.
+
+**Fixed a test-harness bug that could hide a real regression.** Three harness
+sites planned the layout against the built-in default while rendering the
+scaffold's own layout file. It stayed invisible while the two happened to agree,
+and on divergence the sidebar measure-diff silently measured *nothing* while
+still reporting agreement on what remained.
+
 ## 1.7.2 — 2026-08-09
 
 **Fixed: `cvx validate` crashed on an ordinary typo.** Deleting a bullet's text

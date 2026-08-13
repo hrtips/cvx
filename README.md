@@ -208,9 +208,13 @@ Everything visual is controlled by `cv-content/config.yaml`:
 ```yaml
 theme: teal               # teal | coral | mono
 layout: two-column        # two-column | single-column
-page1ExperienceCount: 2   # experience entries on page 1
-page1SplitBullets: 2      # split the last entry: N bullets on page 1, rest continue
 ```
+
+Two optional pagination keys exist as well — `page1ExperienceCount` and
+`page1SplitBullets` — but they are explicit page-1 *overrides*, not a way to
+shorten a CV. Leave them out unless you specifically want to force what page 1
+holds; automatic packing never overflows, and forcing a count that doesn't fit
+only adds unplanned pages. See **Pagination** below.
 
 Change a value, re-run `npx @hrtips/cvx build`, done.
 
@@ -229,7 +233,7 @@ Change a value, re-run `npx @hrtips/cvx build`, done.
 | `two-column` | Sidebar + main column | Designed CV with photo, identity block, achievements |
 | `single-column` | Full width | ATS-safe, no sidebar, no decorative elements |
 
-**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing). Set `page1ExperienceCount` / `page1SplitBullets` to control page 1 explicitly. Example with 6 entries and the config above:
+**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing), and automatic packing never overflows. `page1ExperienceCount` / `page1SplitBullets` force what page 1 holds instead. **They will not reduce your page count** — measured on the example CV, the sheet count never moved and every setting above the automatic one only added overflow (0 → 184 → 420 → 590pt). Use them when you want a specific entry on page 1, not to make a CV fit. Example with 6 entries and `page1ExperienceCount: 2`, `page1SplitBullets: 2`:
 
 - **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
 - **Page 2** — Entry 2 (cont'd) + Entries 3–6

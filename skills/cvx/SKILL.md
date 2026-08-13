@@ -50,7 +50,9 @@ Apply the answers, re-validate, then build both variants. A truthful thin bullet
 
 ## Reading the layout
 
-You can't see the PDF. `plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` tells you how it paginated, without rendering anything:
+**Open the PDF and look at it.** `build_pdf` returns an absolute `path` — open it and read every page. Most clients (Claude Code, Claude Desktop, the IDE extensions) render PDFs natively, and the defects that matter most — a stranded heading, a page that ends early, a near-empty column — appear in no diagnostic field. If your client genuinely cannot open a PDF, build once and hand off; don't iterate on measurements alone.
+
+`plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` reports how it paginated without rendering anything. Measurements tell you what the layout *costs*; looking at the page tells you whether it's any good. Use both:
 
 - It describes the **designed two-column variant only**. The ATS variant is a single column react-pdf flows by itself — CVX never packs it, there is no dry run for it, and its sheet count can differ. Build it to find out.
 - `totalPages` is the number of **planned** pages, not necessarily the sheet count of the PDF: an overflowing page spills onto an extra sheet the numbering can't count. Check `totals.overflowPt` before telling the user "your CV is 3 pages".
@@ -63,7 +65,7 @@ You can't see the PDF. `plan_layout` (MCP) or the `diagnostics` block in `build 
 
 **There are no layout levers.** The layout is a function of the content, so `plan_layout` returns the same answer every time until the YAML changes — calling it in a loop achieves nothing. Use it once before the build, and once after a content edit if the user asked about length.
 
-**Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither should you. If the CV is longer than the user wants, name the options and what each one costs — *"we could cut the two oldest roles to 2 bullets each, or drop the publications section — which would you prefer?"* — and let them decide. Deleting a section, or trimming bullets, is a content edit the user approves; it is never a layout fix you apply on your own.
+**Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither do you. If the CV is longer than the user wants, name the options and what each one costs — *"we could cut the two oldest roles to 2 bullets each, or drop the publications section — which would you prefer?"* — and let them decide. Once they've given you direction, editing the text is your job: tighten the prose, make the cut they chose, and say what you changed each time you change it. The rule is that the user decides *what* goes, not that you may never act.
 
 **Don't promise a page count for an edit you haven't planned.** Cuts don't map to pages the way they look like they should: on the shipped example CV, dropping the whole publications section still renders 3 pages (page 3 holds the referees), and so does trimming the two oldest roles to 2 bullets each. Sidebar and main are two independent flows, and the page count is the longer of them — so removing main-column text can leave the total untouched. If the user wants a number, make the edit and re-run `plan_layout`.
 

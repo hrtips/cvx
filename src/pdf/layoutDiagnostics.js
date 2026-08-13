@@ -1,11 +1,17 @@
 // ── Layout diagnostics (C6a — design doc §7.2) ─────────────────────────────
 //
-// The pagination plan, re-expressed for a reader that is not the renderer: an
-// assistant driving CVX cannot see the PDF, so this turns `LayoutPlan` into
-// fills, ranges, counts and warnings it can reason about without rasterizing
-// anything. `plan_layout` returns it from a dry run; `build_pdf` returns the
-// same object for the plan it actually rendered, so a caller that just built
-// does not need a second call to see the numbers.
+// The pagination plan, re-expressed for a reader that is not the renderer: this
+// turns `LayoutPlan` into fills, ranges, counts and warnings a caller can reason
+// about without rasterizing anything. `plan_layout` returns it from a dry run;
+// `build_pdf` returns the same object for the plan it actually rendered, so a
+// caller that just built does not need a second call to see the numbers.
+//
+// This is a COMPLEMENT to looking at the PDF, not a substitute for it. An
+// earlier version of this comment asserted that "an assistant driving CVX cannot
+// see the PDF" — false for the clients that matter, which open PDFs natively,
+// and not something a stateless callee can know about its caller anyway. What
+// these numbers give you is the *price* of a layout; whether the page looks
+// right is a judgement only a reader of the render can make.
 //
 // PURE FUNCTION OF THE PLAN. It takes `LayoutPlan` (+ the config, for
 // `overflowWarnings`) and reads nothing else — in particular it never reads CV
@@ -146,7 +152,7 @@ function page1WithoutExperience(pages) {
         `block) leaves less room than the smallest piece of the first role, so the page ends early ` +
         `and the roles start on page 2. This is not the harmless empty column of a last page — the ` +
         `reader's first page shows no work history. Shortening the summary is the only content ` +
-        `change that moves it, and it is the user's call to make.`
+        `change that moves it — raise it with the user, and make the edit they choose.`
     }
   ]
 }

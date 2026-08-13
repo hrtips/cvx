@@ -99,7 +99,7 @@ My details:
 <paste your old CV / LinkedIn text / notes here — or point the agent at a file, e.g. "read ~/Downloads/old-cv.pdf">
 ```
 
-The scaffolded `cv-content/README.md` ships the full schema, so the agent needs no internet access and no further instructions. It will edit the YAML, build, and hand you `<your-name>.pdf`. Iterate in plain language: *"tighten the bullets for the 2019 role"*, *"make it fit two pages"* (the agent can tune `page1ExperienceCount` in `config.yaml`), *"switch to the coral theme"*.
+The scaffolded `cv-content/README.md` ships the full schema, so the agent needs no internet access and no further instructions. It will edit the YAML, build, and hand you `<your-name>.pdf`. Iterate in plain language: *"tighten the bullets for the 2019 role"*, *"this page looks thin — fix it"*, *"switch to the coral theme"*. Length is a content conversation, not a setting: there is no config key that makes a CV shorter (see *Reading the layout* below).
 
 Finish by dropping your photo at `cv-content/images/profile.jpg` (square, 400×400px+) and rebuilding.
 
@@ -228,13 +228,15 @@ Useful follow-up prompts once the first PDF renders:
 
 - *"Rewrite the experience bullets to emphasise leadership / data engineering / customer impact."* (retargeting for a specific job ad — paste the ad)
 - *"It overflows page 2 — trim the two oldest roles to 2 bullets each."*
-- *"Set page1ExperienceCount: 2 and page1SplitBullets: 3 in config.yaml"* (page-1 layout control)
+- *"Open the PDF and tell me what looks wrong on page 2."*
 - *"Generate keywords.yaml for this job description, using only skills I actually list."*
 - *"Produce the ATS variant too"* → `npx @hrtips/cvx build --ats` for job portals.
 
 ## Reading the layout
 
-An assistant can't see the PDF. It doesn't have to: the MCP `plan_layout` tool (a dry run — no PDF written) and the `diagnostics` block in `build --json` / `build_pdf` report how the CV paginated.
+**Open the PDF and look at it.** `build_pdf` returns an absolute `path`, and most assistant clients render PDFs natively. Do that first: the defects that matter most — a stranded heading, a page that ends early, a column left near-empty — appear in no diagnostic field at all. A client that genuinely cannot open a PDF should build once and hand off, not iterate on numbers alone.
+
+Measurements complement looking, they don't replace it. The MCP `plan_layout` tool (a dry run — no PDF written) and the `diagnostics` block in `build --json` / `build_pdf` report how the CV paginated.
 
 Per page: how full each column is (`main.fill` / `sidebar.fill` — `used / budget`), which roles landed there (with company and period, so two same-titled roles stay apart), which sidebar sections and which of their items, and `overflowPt`. Plus `diagnostics.warnings`, the entries that mean something is wrong — each with a `code` to match on (`overflow`, `page1-no-experience`) rather than wording — and `notices`, a separate plain-text list of notes about the run.
 
@@ -245,7 +247,7 @@ Five things worth knowing before you act on any of it:
 - **`fill` is a ratio, not a gauge.** Normally 0–1, and above 1 exactly when the page is over budget (measured: `main.fill: 2.098` on the example CV with `page1ExperienceCount: 3`). A value over 1 always comes with `overflowPt` and a warning.
 - **Ranges are 0-based and end-exclusive.** `range: [6, 8)` of `of: 8` is the last two items; `items` already carries the count. Experience entries decompose the same way (`bulletRange` / `bullets` / `ofBullets`).
 - **`emptyColumn` is a diagnostic, not a target** — and it means "no packed blocks in that column", not "blank": page 1 can report `emptyColumn: 'main'` and still carry the summary. A final page whose sidebar outlasts the experience list is normal. CVX was measured against a packer tuned to eliminate those, and the result was worse CVs — sections fragmented across five pages, headings with a single bullet under them. Report the number; don't optimise it. The exception is page 1 with no roles on it, which is a real defect and arrives as its own `page1-no-experience` warning.
-- **There are no layout levers, so nothing changes between two `plan_layout` calls.** The layout follows the content. If the CV is longer than you want, that is a content decision — and it is the user's, not the assistant's: **never drop content to fit; surface the trade-off** (*"we could drop publications, or trim the two oldest roles to 2 bullets — which would you prefer?"*) and let them choose. Don't promise a page count for an edit you haven't planned: on the shipped example CV, dropping publications entirely still renders 3 pages, because the sidebar flow, not the experience list, is what needs the third one. Make the edit, then re-plan. CVX renders 100% of the YAML and never clips or hides text to save a page.
+- **There are no layout levers, so nothing changes between two `plan_layout` calls.** The layout follows the content. If the CV is longer than the user wants, that is a content decision: **never drop content to fit** — surface the trade-off (*"we could drop publications, or trim the two oldest roles to 2 bullets — which would you prefer?"*) and let them choose what goes. Once they've chosen, making the edit is your job; report what you changed as you change it. Don't promise a page count for an edit you haven't planned: cuts don't map to pages the way they look like they should, because sidebar and main are independent flows and the page count is the longer of them — so removing main-column text can leave the total untouched. Make the edit, then re-plan. CVX renders 100% of the YAML and never clips or hides text to save a page.
 
 ## For AI assistants reading this
 

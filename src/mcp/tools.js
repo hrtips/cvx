@@ -13,8 +13,9 @@
  * author-a-CV loop: it answers "how will this paginate?" without writing a PDF,
  * so an assistant can tell the user which roles land on page 1, and whether
  * anything overflows, before it builds. The surface stayed at four for four
- * releases on purpose; this one earns its place by being the only way to see
- * the layout at all without rasterizing a PDF the model cannot look at.
+ * releases on purpose; this one earns its place by pricing a layout before a
+ * build, which is a different question from how the page looks — the caller
+ * answers that by opening the PDF `build_pdf` returns.
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -270,9 +271,9 @@ export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
     notices.push(
       `plan_layout has returned the identical layout ${iteration.count} times for this workspace — ` +
         `nothing you have done since the first call changed it. Stop planning and act: build the ` +
-        `PDF, or put the trade-off to the user (shorter bullets, one fewer role, a section they ` +
-        `choose to cut) and let them pick — their call, not yours. CVX has no layout levers: the ` +
-        `layout follows the content. Never drop content to fit.`
+        `PDF and look at it, or put the trade-off to the user (shorter bullets, one fewer role, a ` +
+        `section they choose to cut) so they can pick what goes. CVX has no layout levers: the ` +
+        `layout follows the content, so only a content edit moves it. Never drop content to fit — the user chooses what goes.`
     )
   }
 
@@ -402,7 +403,7 @@ export const TOOLS = [
     name: 'plan_layout',
     title: 'See how the CV will paginate — without rendering a PDF',
     description:
-      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill ratios (used/budget, normally 0..1, and ABOVE 1 exactly when that page is over budget — see overflowPt), the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items), overflow in points, and which column holds no packed blocks. totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). The one exception has its own warning code: page1-no-experience means page 1 carries no roles at all, which IS worth raising with the user. CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide — never drop content on their behalf.',
+      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill ratios (used/budget, normally 0..1, and ABOVE 1 exactly when that page is over budget — see overflowPt), the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items), overflow in points, and which column holds no packed blocks. totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). The one exception has its own warning code: page1-no-experience means page 1 carries no roles at all, which IS worth raising with the user. CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide what goes — never drop content on your own initiative to hit a page count. Once they have chosen, making the edit is your job. These numbers price the layout — they do not tell you whether the page looks right. Open the PDF that build_pdf returns and look at it.',
     inputSchema: {
       type: 'object',
       properties: {
