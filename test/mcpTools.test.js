@@ -92,7 +92,13 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     // second call to tell the user what it just produced.
     expect(build.diagnostics.totalPages).toBe(2)
     expect(build.diagnostics.pages).toHaveLength(2)
-    expect(build.diagnostics.warnings).toEqual([])
+    // Since S4 the healthy scaffold carries exactly ONE named condition:
+    // page1-ends-early — page 1's roles stop 71pt short of taking any piece of
+    // the next one, and the summary is the lever. Not a defect (overflow is
+    // absent); a priced fact. Its firing on a well-packed 2-page CV is by
+    // design (§3.8's predicate has no judgement threshold).
+    expect(build.diagnostics.warnings.map((w) => w.code)).toEqual(['page1-ends-early'])
+    expect(build.diagnostics.warnings[0].shortByPt).toBeGreaterThan(0)
     // ONE field named `warnings` in this envelope, and it is the structured one
     // inside `diagnostics`. The run's plain-text notes are `notices` (C6a review
     // blocker 4: the two used to sit side by side carrying the same sentence).
@@ -160,9 +166,11 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     const plan = await planLayout({ dir })
     const page1 = plan.diagnostics.pages[0]
     expect(page1.main.fill).toBeGreaterThan(1)
-    // 2.033 since S3 corrected the entry model (was 2.098 while entryH over-
-    // measured each entry by 6.7pt — same forced shape, honest numerator now).
-    expect(page1.main.fill).toBeCloseTo(2.033, 3)
+    // 1.58 since S4's v2 fill: (fixed + used) / capacity — same forced shape,
+    // same fact (page 1 holds far more than fits), now stated as occupancy of
+    // the whole column rather than a multiple of the residual budget. (History:
+    // 2.098 under v1 with the pre-S3 model, 2.033 v1 post-S3.)
+    expect(page1.main.fill).toBeCloseTo(1.58, 3)
     // `> 1` and `overflowPt > 0` are the same fact seen twice; neither may be
     // reported without the other.
     expect(page1.overflowPt).toBeGreaterThan(0)

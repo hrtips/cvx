@@ -10,6 +10,32 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**The diagnostics now say why a page ended, and their fill is honest.**
+`plan_layout` / `build_pdf` responses carry `version: 2`: `fill` is now
+**column occupancy** — `(fixed + used) / capacity`, the same measurement on
+every page — instead of a ratio over the residual budget that made page 1 look
+far emptier than it was (a real CV read 0.595 while its column was 80%
+occupied, and six of eight shortening edits made the number WORSE). `fill > 1`
+still means over budget, exactly as before. Each column also reports
+`blockedBy` — why the next role or section could not start on that page — and
+a new named condition, `page1-ends-early`, prices the one trade page 1 offers:
+*"short by 53.64pt; the summary is the lever."* Its `shortByPt` is the one
+number that falls monotonically as you shorten the content above it, which
+`fill` never was. It fires on well-packed CVs too — it is a fact with a
+price, not a defect; `overflow` remains the defect.
+
+**The main column's measurements are now exact.** The box model over-measured
+every experience entry (6.7–13.1pt each: a phantom margin scaled 15/11, rows
+modelled at the wrong line height) and under-measured wrapping role/company/
+location rows by a full line; the line-breaker mirror ignored the renderer's
+ability to shrink inter-word spaces, mis-counting near-boundary lines (13.5pt
+per line). All corrected model-side — no rendered pixel moves — and pinned by
+a new render-diff harness that verifies every entry height against the real
+PDF at 0.01pt, the same bar the sidebar has had since C3a. On the CV that
+prompted this work, the phantom height totalled 46.7pt — the difference
+between "needs a third page" and "2.4pt short of two".
+
+
 **The scaffolded example CV is now the two pages the README promised.** It
 rendered three, and page 3 was a near-empty main column beside a half-filled
 sidebar — the first artifact every new user saw was the product's own worst

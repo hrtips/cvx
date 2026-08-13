@@ -56,6 +56,8 @@ const planOf = (pages) => ({
     sidebarSlices: [],
     mainFill: null,
     sidebarFill: null,
+    mainBlockedBy: null,
+    sidebarBlockedBy: null,
     overflowPt: 0,
     emptyColumn: null,
     ...p
@@ -63,26 +65,42 @@ const planOf = (pages) => ({
 })
 
 describe('layoutDiagnostics — fills', () => {
-  it('reports used/budget as a 0..1 ratio, per column, per page', () => {
+  it('reports COLUMN OCCUPANCY as a 0..1 ratio, per column, per page (v2)', () => {
+    // v2 (§3.9): fill = (fixed + used) / capacity, where fixed = capacity −
+    // budget. With no fixed content (capacity == budget) it degenerates to the
+    // old used/budget; with fixed content the two DIFFER, and that difference
+    // is the point — v1's page-1 number was not comparable to page 2's.
     const d = layoutDiagnostics(
       planOf([
         {
-          mainFill: { used: 300, budget: 600 },
-          sidebarFill: { used: 450, budget: 600 },
+          mainFill: { used: 300, budget: 600, capacity: 600 },
+          sidebarFill: { used: 300, budget: 600, capacity: 800 },
           mainBlocks: [{ role: 'Engineer', bullets: ['a', 'b'] }],
           sidebarSlices: [slice('education', 0, 2, 2, 450)]
         }
       ])
     )
-    expect(d?.pages[0].main.fill).toBe(0.5)
+    expect(d?.version).toBe(2)
+    expect(d?.pages[0].main.fill).toBe(0.5) // (0 + 300) / 600
     expect(d?.pages[0].main.usedPt).toBe(300)
     expect(d?.pages[0].main.budgetPt).toBe(600)
-    expect(d?.pages[0].sidebar.fill).toBe(0.75)
+    expect(d?.pages[0].main.capacityPt).toBe(600)
+    expect(d?.pages[0].main.fixedPt).toBe(0)
+    // 200pt of identity block above 300pt of packed content in an 800pt column:
+    // v1 said 0.5 (300/600) and invited comparison with main's 0.5, which
+    // described a different thing. v2 says 0.625 of the column is occupied.
+    expect(d?.pages[0].sidebar.fill).toBe(0.625)
+    expect(d?.pages[0].sidebar.fixedPt).toBe(200)
   })
 
   it('rounds a ratio to 3dp and points to 2dp — deterministic, not float noise', () => {
     const d = layoutDiagnostics(
-      planOf([{ mainFill: { used: 1 / 3, budget: 1 }, sidebarFill: { used: 2.005, budget: 3 } }])
+      planOf([
+        {
+          mainFill: { used: 1 / 3, budget: 1, capacity: 1 },
+          sidebarFill: { used: 2.005, budget: 3, capacity: 3 }
+        }
+      ])
     )
     expect(d?.pages[0].main.fill).toBe(0.333)
     expect(d?.pages[0].sidebar.fill).toBe(0.668)
@@ -96,26 +114,42 @@ describe('layoutDiagnostics — fills', () => {
     // which is a different (and wrong) claim from "this flow ended".
     const d = layoutDiagnostics(
       planOf([
-        { mainFill: { used: 10, budget: 20 }, sidebarFill: { used: 10, budget: 20 } },
-        { mainFill: null, sidebarFill: { used: 5, budget: 20 }, emptyColumn: 'main' }
+        {
+          mainFill: { used: 10, budget: 20, capacity: 20 },
+          sidebarFill: { used: 10, budget: 20, capacity: 20 }
+        },
+        {
+          mainFill: null,
+          sidebarFill: { used: 5, budget: 20, capacity: 20 },
+          emptyColumn: 'main'
+        }
       ])
     )
     expect(d?.pages[1].main).toEqual({
       fill: null,
       usedPt: null,
       budgetPt: null,
+      capacityPt: null,
+      fixedPt: null,
+      blockedBy: null,
       entries: []
     })
     expect(d?.pages[1].emptyColumn).toBe('main')
   })
 
-  it('reports fill: null (not a negative ratio) when the budget itself is negative', () => {
+  it('reports fill ABOVE 1 (not null) when the fixed content alone exceeds the column', () => {
     // `edge-summary-exceeds-page`: the summary alone is taller than the main
-    // column, so the experience budget goes negative. used/budget would be a
-    // plausible-looking negative number; the honest answer is "no fill" plus
-    // the overflow warning.
-    const d = layoutDiagnostics(planOf([{ mainFill: { used: 100, budget: -50 }, overflowPt: 150 }]))
-    expect(d?.pages[0].main.fill).toBe(null)
+    // column, so the experience budget goes negative. v1 refused a ratio here
+    // (used/budget would be a plausible-looking NEGATIVE number). Under v2 an
+    // honest ratio exists — the content genuinely exceeds the column — so it is
+    // a number above 1, and `null` keeps its one remaining meaning: "this flow
+    // ended on an earlier page" (§3.9's deliberate semantic change).
+    const d = layoutDiagnostics(
+      planOf([{ mainFill: { used: 100, budget: -50, capacity: 200 }, overflowPt: 150 }])
+    )
+    // fixed = 200 − (−50) = 250; (250 + 100) / 200 = 1.75
+    expect(d?.pages[0].main.fill).toBe(1.75)
+    expect(d?.pages[0].main.fixedPt).toBe(250)
     expect(d?.pages[0].main.budgetPt).toBe(-50)
     expect(d?.pages[0].overflowPt).toBe(150)
   })
@@ -217,7 +251,7 @@ describe('layoutDiagnostics — totals and warnings', () => {
     const d = layoutDiagnostics(
       planOf([
         {
-          mainFill: { used: 700, budget: 600 },
+          mainFill: { used: 700, budget: 600, capacity: 600 },
           overflowPt: 100,
           mainBlocks: [{ role: 'A', bullets: ['x'] }],
           sidebarSlices: [slice('education', 0, 2, 4, 300)]
@@ -225,12 +259,12 @@ describe('layoutDiagnostics — totals and warnings', () => {
         {
           emptyColumn: 'main',
           sidebarSlices: [slice('education', 2, 4, 4, 200)],
-          sidebarFill: { used: 200, budget: 600 }
+          sidebarFill: { used: 200, budget: 600, capacity: 600 }
         },
         {
           emptyColumn: 'sidebar',
           mainBlocks: [{ role: 'A', bullets: ['x', 'y'], isContinuation: true, startBullet: 1 }],
-          mainFill: { used: 100, budget: 600 }
+          mainFill: { used: 100, budget: 600, capacity: 600 }
         }
       ])
     )
@@ -271,7 +305,9 @@ describe('layoutDiagnostics — totals and warnings', () => {
   })
 
   it('names the summary when the FIXED page-1 content is what overflowed', () => {
-    const d = layoutDiagnostics(planOf([{ overflowPt: 474, mainFill: { used: 100, budget: -20 } }]))
+    const d = layoutDiagnostics(
+      planOf([{ overflowPt: 474, mainFill: { used: 100, budget: -20, capacity: 500 } }])
+    )
     expect(d?.warnings[0].message).toMatch(/summary alone is taller/)
   })
 
@@ -281,14 +317,16 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // value means the reader's first page shows no work history (C3b rule 1b —
     // fixed page-1 content left less room than the smallest legal entry piece).
     // Nothing else distinguished them: overflowPt is 0 because the packer did
-    // the right thing, and fill is 0, not null.
+    // the right thing, and fill reports the fixed content that DID land (the
+    // summary block that crowded the roles out) — 518.41 of 600 = 0.864 under
+    // v2, not null.
     const d = layoutDiagnostics(
       planOf([
-        { mainFill: { used: 0, budget: 81.59 }, emptyColumn: 'main' },
+        { mainFill: { used: 0, budget: 81.59, capacity: 600 }, emptyColumn: 'main' },
         { mainBlocks: [{ role: 'First Role', bullets: ['a'] }] }
       ])
     )
-    expect(d?.pages[0].main.fill).toBe(0)
+    expect(d?.pages[0].main.fill).toBe(0.864)
     expect(d?.pages[0].overflowPt).toBe(0)
     expect(d?.warnings).toHaveLength(1)
     expect(d?.warnings[0]).toMatchObject({ code: 'page1-no-experience', page: 1 })
@@ -311,7 +349,11 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // only code — a second code silently inflated it. Both fire here.
     const d = layoutDiagnostics(
       planOf([
-        { overflowPt: 438.21, mainFill: { used: 0, budget: 50 }, emptyColumn: 'main' },
+        {
+          overflowPt: 438.21,
+          mainFill: { used: 0, budget: 50, capacity: 600 },
+          emptyColumn: 'main'
+        },
         { mainBlocks: [{ role: 'Later Role', bullets: ['a'] }] }
       ])
     )
@@ -369,8 +411,11 @@ describe('layoutDiagnostics — against a real plan', () => {
     // main/sidebar transposed. Both leave the shape valid and every number
     // plausible, which is why this compares the WHOLE per-page projection in
     // one equality rather than spot-checking a field.
+    // v2 fill recomputed from the plan's own numbers: (fixed + used) / capacity.
     const round3 = (/** @type {import('./types.js').ColumnFill | null} */ f) =>
-      f && f.budget > 0 ? Math.round((f.used / f.budget) * 1000) / 1000 : null
+      f && f.capacity > 0
+        ? Math.round(((f.capacity - f.budget + f.used) / f.capacity) * 1000) / 1000
+        : null
     const fromPlan = plan.pages.map((p) => ({
       main: round3(p.mainFill),
       sidebar: round3(p.sidebarFill),

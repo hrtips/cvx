@@ -283,6 +283,10 @@ describe('LayoutPlanPage carries each fact once (C4 collapse)', () => {
         [
           'emptyColumn',
           'identity',
+          // §3.8: why the next block did not start on this page — one per
+          // column, null when it did or the flow ended.
+          'mainBlockedBy',
+          'sidebarBlockedBy',
           'mainBlocks',
           'mainFill',
           'overflowPt',

@@ -257,7 +257,16 @@ describe('packBlocks — a page ends early when nothing of the next block fits (
     // smallest legal piece is 80pt: too big for page 0, fine for page 1.
     const pages = packBlocks([chunky('L', 2)], (i) => (i === 0 ? 50 : 200))
     expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([[], ['L']])
-    expect(pages[0]).toEqual({ blocks: [], used: 0, budget: 50 })
+    // The empty page RECORDS why it is empty (§3.8): the price of this page
+    // break, at the moment rule 1b declined the block. smallestPiecePt is the
+    // block's minimum legal piece (its 80pt head), residualPt the whole 50pt
+    // budget (nothing was placed), gapBefore 0 (a lead never charges one).
+    expect(pages[0]).toEqual({
+      blocks: [],
+      used: 0,
+      budget: 50,
+      blockedBy: { index: 0, smallestPiecePt: 80, residualPt: 50, gapBeforePt: 0 }
+    })
     // ...and the page it moved to is not over budget, which is the whole point
     expect(pages[1].used).toBeLessThanOrEqual(pages[1].budget)
   })

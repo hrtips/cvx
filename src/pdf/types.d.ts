@@ -272,6 +272,34 @@ export interface Measurer {
 export interface ColumnFill {
   used: number
   budget: number
+  /**
+   * The whole column this page offers, before ANY content — fixed or packed —
+   * is charged: body box minus badge (main only), pads, and the safety
+   * backstop. `capacity − budget` is the page's fixed content (summary +
+   * spacer + section title on the main column's page 1; the identity block in
+   * the sidebar), which is what makes v2 fills comparable across pages (§3.9).
+   */
+  capacity: number
+}
+
+/**
+ * Why the next block did NOT start on a page: the price of that page break,
+ * recorded by packBlocks at the decline (§3.8). Data, not judgement — it is
+ * true at nearly every break. `null` on a flow's last page and on any page
+ * where the next block did start (whole, or split).
+ */
+export interface BlockedBy {
+  /** Flow index of the block that could not start here. */
+  index: number
+  /** The block's smallest legal piece (head + one item), or its whole height when it has no legal cut. */
+  smallestPiecePt: number
+  /** Room left on the page before the gap the block would have charged. */
+  residualPt: number
+  gapBeforePt: number
+  /** Main column: the declined entry (packExperiences). */
+  entry?: ExperienceEntry | null
+  /** Sidebar: the declined section's key (packSidebar). */
+  key?: string | null
 }
 
 /**
@@ -348,6 +376,9 @@ export interface LayoutPlanPage {
   sidebarSlices: SidebarSlice[]
   mainFill: ColumnFill | null
   sidebarFill: ColumnFill | null
+  /** Why the next main block did not start on this page (§3.8). `null` when it did, or this is the flow's last page. */
+  mainBlockedBy: BlockedBy | null
+  sidebarBlockedBy: BlockedBy | null
   /** pt past budget on this page across both columns; 0 unless Invariant 0 forced an over-tall block. */
   overflowPt: number
   emptyColumn: 'main' | 'sidebar' | 'both' | null
@@ -372,20 +403,25 @@ export interface LayoutPlan {
 /** One column of one page, as diagnostics report it (layoutDiagnostics.js). */
 export interface ColumnDiagnostics {
   /**
-   * `used / budget`, rounded to 3dp.
+   * COLUMN OCCUPANCY, v2 (§3.9): `(fixedPt + usedPt) / capacityPt`, rounded
+   * to 3dp — the same measurement on every page, so page 1 and page 2 can be
+   * compared. (v1 divided by the residual `budget`, which made page 1 read
+   * 0.595 while the column was ~0.80 occupied; `LayoutDiagnostics.version`
+   * is how a consumer knows which semantics it is reading.)
    *
-   * 0..1 NORMALLY — but it is a ratio, not a percentage-full gauge, and it goes
-   * ABOVE 1 exactly when the page is over budget: the surplus is real content
-   * that react-pdf flows onto an extra physical sheet. Measured on the shipped
-   * scaffold with `page1ExperienceCount: 3`, page 1 reports `main.fill: 2.098`
-   * with `overflowPt: 420.46`. Never clamp it — `> 1` and `overflowPt > 0` are
-   * the same fact seen twice, and hiding one of them hides the defect.
+   * It goes ABOVE 1 exactly when the page is over budget — the surplus is real
+   * content react-pdf flows onto an extra physical sheet. The invariant
+   * survives the redefinition: fill > 1 ⟺ fixed + used > capacity ⟺
+   * used > budget ⟺ overflowPt > 0. Never clamp it. A fixed block taller than
+   * the whole column (an over-tall summary) is a number above 1 too, not null.
    *
-   * `null` in two cases, both meaning "there is no ratio to report": this flow
-   * ended on an earlier page (the column is structurally empty — see
-   * `LayoutPageDiagnostics.emptyColumn`), or the budget is <= 0 because the
-   * page's FIXED content (an over-tall summary) is already taller than the
-   * column, which `warnings` reports by name.
+   * `null` means exactly one thing: this flow ended on an earlier page (see
+   * `LayoutPageDiagnostics.emptyColumn`).
+   *
+   * FILL DESCRIBES A PAGE; IT IS NOT A PROGRESS SIGNAL. Shortening content
+   * LOWERS it until a block moves up, then it jumps — measured on a real CV,
+   * six of eight shortening edits lowered it before one crossed the threshold.
+   * The number that moves monotonically with an edit is `blockedBy.shortByPt`.
    */
   fill: number | null
   /**
@@ -399,8 +435,31 @@ export interface ColumnDiagnostics {
    * paginates with and what the page shows are the same number.
    */
   usedPt: number | null
-  /** Usable height for this column on this page, pt. `null` when the flow ended earlier. */
+  /** Usable height for this column's PACKED content on this page, pt. `null` when the flow ended earlier. */
   budgetPt: number | null
+  /** The whole column on this page, pt (§3.9) — the fill's denominator. `null` when the flow ended earlier. */
+  capacityPt: number | null
+  /** `capacityPt − budgetPt`: this page's fixed content, pt. `null` when the flow ended earlier. */
+  fixedPt: number | null
+  /**
+   * Why the next block did not start on this page (§3.8): identity, its
+   * smallest legal piece, the room that was left, and `shortByPt` — the ONE
+   * number that falls monotonically as the user shortens what is above.
+   * `null` when the next block did start, or this is the flow's last page.
+   * Never aggregated across pages, deliberately (risk R1).
+   */
+  blockedBy: {
+    /** Main column: the declined entry's role. Sidebar: null (see `key`). */
+    role: string | null
+    /** Sidebar only: the declined section's key. */
+    key?: string | null
+    entryIndex: number
+    residualPt: number
+    gapBeforePt: number
+    smallestPiecePt: number
+    /** `smallestPiecePt − (residualPt − gapBeforePt)`: what would have to be freed for the block to start here. */
+    shortByPt: number
+  } | null
 }
 
 /** The main column's diagnostics: the experience entries placed on this page. */
@@ -468,8 +527,9 @@ export interface LayoutPageDiagnostics {
    * a packed block (the summary in the main column; the identity/photo block in
    * the sidebar), and that content still renders on a page this field calls
    * empty. `edge-summary-crosses-cliff` is the shape that makes the difference
-   * visible: page 1 reports `emptyColumn: 'main'` with `main.fill: 0` while the
-   * page holds the whole summary.
+   * visible: page 1 reports `emptyColumn: 'main'` while its v2 fill counts the
+   * summary the page genuinely holds (under v1 it read `fill: 0`, which is the
+   * kind of misreading the occupancy redefinition exists to end).
    *
    * A DIAGNOSTIC, NOT A TARGET — with one exception, and it is a different
    * animal. On a LATER page this is the deliberate residual of one flow being
@@ -503,13 +563,30 @@ export interface LayoutPageDiagnostics {
  * Match on `code`, never on `message`: the wording is for humans and will change.
  */
 export interface LayoutDiagnosticWarning {
-  code: 'overflow' | 'page1-no-experience'
+  /**
+   * `overflow` — real content flows onto an unnumbered extra sheet; always a
+   * defect. `page1-no-experience` — roles exist and page 1 shows none; worth
+   * raising. `page1-ends-early` (§3.8) — page 1 has roles but the next one
+   * could not start there; a PRICED FACT, not necessarily a defect: it fires
+   * on well-packed CVs too, and its numbers say what shortening the summary
+   * would buy. Mutually exclusive with `page1-no-experience` by construction.
+   */
+  code: 'overflow' | 'page1-no-experience' | 'page1-ends-early'
   /** 1-based page number. */
   page: number
   overflowPt: number
-  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. Always false for `page1-no-experience`. */
+  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. Always false for the page1-* codes. */
   forcedByConfig: boolean
   message: string
+  /** page1-ends-early only: what would have to be freed on page 1 for the next role's smallest piece to start there. Falls monotonically as the user shortens the summary. */
+  shortByPt?: number
+  /** page1-ends-early only. */
+  residualPt?: number
+  smallestPiecePt?: number
+  gapBeforePt?: number
+  /** page1-ends-early only: page 1's fixed content (summary + spacer + section title) — the lever. */
+  fixedPt?: number
+  nextRole?: string | null
 }
 
 /**
@@ -523,6 +600,13 @@ export interface LayoutDiagnosticWarning {
  * the ATS PDF's sheet count can differ from `totalPages`.
  */
 export interface LayoutDiagnostics {
+  /**
+   * Diagnostics-shape version. 2 = §3.9's comparable fill (occupancy over
+   * capacity) + §3.8's blockedBy + this field itself. Key on it before
+   * interpreting `fill`: v1's denominator was the residual budget. The
+   * envelope's `schemaVersion: 1` is unchanged — its fields are only added to.
+   */
+  version: 2
   /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything

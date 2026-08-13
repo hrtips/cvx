@@ -220,7 +220,13 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
         stats.sidebarPagesMeasured++
         const observed =
           Number(tops[tops.length - 1]) - Number(tops[0]) + sections[sections.length - 1].heightPt
-        const fill = Math.round((observed / Number(page.sidebar.budgetPt)) * 1000) / 1000
+        // v2 fill (§3.9): occupancy — (fixed + used) / capacity — recomputed
+        // here from the RENDERED used height, so this asserts both that usedPt
+        // matches the render and that fill is derived from it the v2 way.
+        const fill =
+          Math.round(
+            ((Number(page.sidebar.fixedPt) + observed) / Number(page.sidebar.capacityPt)) * 1000
+          ) / 1000
         if (Math.abs(Number(page.sidebar.usedPt) - observed) >= 0.011 || fill !== page.sidebar.fill)
           sidebarFillOff.push({
             page: page.page,
@@ -325,7 +331,11 @@ describe('the diagnostics name the defects a build warns about', () => {
     // The page it names is the page whose numbers say so, 1-based both times.
     const page = d?.pages.find((p) => p.page === d.warnings[0].page)
     expect(page?.overflowPt).toBeGreaterThan(15)
-    expect(page?.main.fill).toBe(null) // negative budget: no honest ratio exists
+    // v2: an honest ratio DOES exist when fixed content alone exceeds the
+    // column — the content genuinely overfills it, so fill reads above 1
+    // (§3.9's deliberate semantic change; null now only means "flow ended on
+    // an earlier page").
+    expect(page?.main.fill).toBeGreaterThan(1)
     // ...and the same overflow reaches a CLI user, through the same predicate.
     // `notices` is the CLI's plain-text list (the lines it also prints to
     // stderr); the structured list is `diagnostics.warnings`. Two fields called
@@ -505,8 +515,30 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
     expect(control.diagnostics?.pages[0].main.entries.length).toBeGreaterThanOrEqual(3)
     expect(control.diagnostics?.totalPages).toBeGreaterThan(1)
     // 1. Page 1 is bit-for-bit what it was: same roles, same bullet counts, same
-    //    sections, same fills.
-    expect(d?.pages[0]).toEqual(control.diagnostics?.pages[0])
+    //    sections, same fills — with ONE principled carve-out. `blockedBy`
+    //    (§3.8) describes the NEXT entry, and the directive bullet lives in
+    //    that entry, so its two measured fields (smallestPiecePt, and the
+    //    shortByPt derived from it) honestly measure different text — which is
+    //    this test's own thesis: a directive changes only its own measured
+    //    height. Everything else about blockedBy (which entry, the residual,
+    //    the gap) must still be identical.
+    const page1 = (/** @type {NonNullable<typeof d>['pages'][0] | undefined} */ p) => {
+      if (!p) return p
+      const { blockedBy, main, ...rest } = p
+      const { blockedBy: mainBlocked, ...mainRest } = main
+      return { ...rest, main: mainRest }
+    }
+    expect(page1(d?.pages[0])).toEqual(page1(control.diagnostics?.pages[0]))
+    const pick = (/** @type {any} */ x) =>
+      x?.pages[0].main.blockedBy
+        ? (({ role, entryIndex, residualPt, gapBeforePt }) => ({
+            role,
+            entryIndex,
+            residualPt,
+            gapBeforePt
+          }))(x.pages[0].main.blockedBy)
+        : null
+    expect(pick(d)).toEqual(pick(control.diagnostics))
     // 2. Nothing was dropped: every section the clean plan placed is still
     //    placed, languages and publications included (the two it asked to cut).
     expect(sectionsOf(d)).toEqual(sectionsOf(control.diagnostics))

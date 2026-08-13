@@ -184,6 +184,22 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
     ['README.md', readme]
   ]
 
+  it('every doc that explains fill teaches the v2 occupancy semantics, and none the v1 denominator', () => {
+    // §3.9: fill's denominator changed (residual budget → whole column). A doc
+    // describing v1 next to a v2 payload would send every reader to the exact
+    // misreading the redefinition exists to end — page 1 "40% empty" while the
+    // column is 80% occupied.
+    for (const [name, text] of MODEL_FACING) {
+      if (!/\bfill\b/.test(text)) continue
+      expect(text, `${name} explains fill without the v2 occupancy definition`).toMatch(
+        /occupancy/i
+      )
+      expect(text, `${name} still teaches fill's v1 denominator`).not.toMatch(
+        /fill.{0,40}used \/ budget/i
+      )
+    }
+  })
+
   it('every shipped tool is named in the docs a model reads first', () => {
     for (const [name, text] of MODEL_FACING) {
       for (const tool of TOOL_NAMES) {

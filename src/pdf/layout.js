@@ -486,7 +486,13 @@ export function entryH(
 
 /**
  * @template {{ height: number, gapBefore?: number }} B
- * @typedef {{ blocks: B[], used: number, budget: number }} PackedPage
+ * @typedef {{ blocks: B[], used: number, budget: number, blockedBy: BlockDecline | null }} PackedPage
+ */
+
+/**
+ * §3.8's decline record: why the next block did not start on a page. See
+ * declineOf().
+ * @typedef {{ index: number, smallestPiecePt: number, residualPt: number, gapBeforePt: number }} BlockDecline
  */
 
 /**
@@ -667,7 +673,17 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
       // which is exact for the two budget functions this engine has (page 0,
       // then a constant) and provably terminating for any other.
       if (!deferred && canPlaceOn(lead, budgetFn(pages.length + 1))) {
-        pages.push({ blocks: [], used: 0, budget: quantize(budget) })
+        // The page ends EMPTY, and packBlocks knows exactly why: the lead's
+        // smallest legal piece is taller than this page's whole budget. That
+        // reason used to be thrown away here — recording it is what lets the
+        // diagnostics say "short by Xpt" instead of nothing (§3.8's blockedBy;
+        // the post-mortem's T7 is this line staying silent).
+        pages.push({
+          blocks: [],
+          used: 0,
+          budget: quantize(budget),
+          blockedBy: declineOf(lead, i, quantize(budget), 0)
+        })
         deferred = true
         continue
       }
@@ -681,6 +697,8 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
     else i++
     deferred = false
 
+    /** @type {ReturnType<typeof declineOf> | null} */
+    let blockedBy = null
     /** @type {B[]} */
     const blocks = [leadCut ? leadCut.head : lead]
     let used = blocks[0].height
@@ -701,16 +719,47 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
       // Rule 4: the block does not fit whole — pour as much of it as fits into
       // the page's remaining room instead of leaving that room empty.
       const cut = b.split?.(quantize(budget - used - gap), false) ?? null
-      if (cut === null) break
+      if (cut === null) {
+        // The decline that ends most pages: block b could not start here, not
+        // even cut to its smallest legal piece. Record why (§3.8). A page that
+        // ends via a SPLIT instead (cut !== null, carry set) records null —
+        // the next block DID start here, as a head.
+        blockedBy = declineOf(b, i, quantize(budget - used), gap)
+        break
+      }
       assertCarryShrinks(b, cut.tail, i)
       blocks.push(cut.head)
       used += gap + cut.head.height
       carry = cut.tail
       i++
     }
-    pages.push({ blocks, used: quantize(used), budget: quantize(budget) })
+    pages.push({ blocks, used: quantize(used), budget: quantize(budget), blockedBy })
   }
   return pages
+}
+
+/**
+ * Why a page ended without the next block starting on it: the price of the
+ * page break, recorded at the moment packBlocks declines the block. Data, not
+ * a warning — it is true at nearly every page boundary and carries no
+ * judgement. `smallestPiecePt` is the block's minimum legal piece (head +
+ * one item), or its whole height when it has no legal cut; `residualPt` is
+ * the room that was left BEFORE the gap the block would have charged.
+ *
+ * @template {{ height: number, gapBefore?: number, split?: SplitFn<B> }} B
+ * @param {B} block
+ * @param {number} index   the block's flow index
+ * @param {number} residualPt
+ * @param {number} gapBeforePt
+ */
+function declineOf(block, index, residualPt, gapBeforePt) {
+  const min = block.split?.(0, true) ?? null
+  return {
+    index,
+    smallestPiecePt: quantize(min ? min.head.height : block.height),
+    residualPt,
+    gapBeforePt
+  }
 }
 
 /**
@@ -1033,7 +1082,7 @@ function experienceBlocks(entries, m, measure) {
  *   page1Experiences: import('./types.js').ExperienceEntry[],
  *   continuationChunks: import('./types.js').ExperienceEntry[][],
  *   totalPages: number,
- *   pageMetrics: { used: number, budget: number }[],
+ *   pageMetrics: { used: number, budget: number, capacity: number, blockedBy: (BlockDecline & { entry: import('./types.js').ExperienceEntry | null }) | null }[],
  * }}
  *   `pageMetrics[i]` is page `i`'s packed experience height and its budget —
  *   the per-page fill signal the C0 harness's front-load / over-budget
@@ -1100,9 +1149,16 @@ export function packExperiences(
         // render.js warns when it is; see overflowWarnings()).
         {
           used: forcedUsed,
-          budget: quantize(mainFirstBudget(m, summaryH(summary ?? [], m, measure)))
+          budget: quantize(mainFirstBudget(m, summaryH(summary ?? [], m, measure))),
+          capacity: quantize(mainColumnCapacity(m, m.mainPad)),
+          blockedBy: null
         },
-        ...packed.map(({ used, budget }) => ({ used, budget }))
+        ...packed.map(({ used, budget, blockedBy }) => ({
+          used,
+          budget,
+          capacity: quantize(mainColumnCapacity(m, m.contPad)),
+          blockedBy: blockedBy ? { ...blockedBy, entry: null } : null
+        }))
       ]
     }
   }
@@ -1116,8 +1172,33 @@ export function packExperiences(
     page1Experiences: pages[0] ?? [],
     continuationChunks: pages.slice(1),
     totalPages: pages.length,
-    pageMetrics: packed.map(({ used, budget }) => ({ used, budget }))
+    // `capacity` is the WHOLE column this page offers (§3.9): what remains
+    // after the physical frame (pads, badge, safety) but before any fixed
+    // content. `capacity − budget` is therefore the page's fixed content —
+    // summary + spacer + section title on page 1, the title alone on
+    // continuation pages — which is what makes fills comparable across pages.
+    // `blockedBy` names the entry that could not start on this page (§3.8).
+    pageMetrics: packed.map(({ used, budget, blockedBy }, i) => ({
+      used,
+      budget,
+      capacity: quantize(
+        i === 0 ? mainColumnCapacity(m, m.mainPad) : mainColumnCapacity(m, m.contPad)
+      ),
+      blockedBy: blockedBy ? { ...blockedBy, entry: experience[blockedBy.index] ?? null } : null
+    }))
   }
+}
+
+/**
+ * The whole main column on one page, before any content — fixed or packed —
+ * is charged: body box minus the page-number badge, this page kind's paddings,
+ * and the safety backstop. Denominator of the §3.9 comparable fill.
+ *
+ * @param {Metrics} m
+ * @param {{ top: number, bottom: number }} pad
+ */
+function mainColumnCapacity(m, pad) {
+  return m.bodyH - m.cornerH - pad.top - pad.bottom - m.safety
 }
 
 // ── Sidebar measurement (C3, design doc §5's `measureSidebarBlock` sibling) ─
@@ -1943,7 +2024,7 @@ function sidebarBlock(ctx, start, end) {
  * @param {import('./types.js').NormalizedLayout | undefined} layout
  * @param {import('./types.js').Theme} [theme]
  * @param {import('./types.js').Measurer} [measure]
- * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number }[], totalPages: number }}
+ * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number, capacity: number, blockedBy: (BlockDecline & { key: string | null }) | null }[], totalPages: number }}
  *   `pages[i]` is page `i`'s ordered slices. A section that fits whole is a
  *   single slice spanning `[0, itemCount)`; a slice with `start > 0` is a
  *   continuation (`isContinuedSlice`).
@@ -2002,7 +2083,15 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
         gapBefore: i === 0 ? 0 : gapBefore
       }))
     ),
-    pageMetrics: packed.map(({ used, budget }) => ({ used, budget })),
+    // Same §3.9 decomposition as the main column: sidebar capacity is the
+    // column minus pads and safety; `capacity − budget` is this page's
+    // identity block. `blockedBy` carries the section key (§3.8).
+    pageMetrics: packed.map(({ used, budget, blockedBy }) => ({
+      used,
+      budget,
+      capacity: quantize(sm.bodyH - sm.padTop - sm.padBottom - sm.safety),
+      blockedBy: blockedBy ? { ...blockedBy, key: flow[blockedBy.index]?.key ?? null } : null
+    })),
     totalPages: packed.length
   }
 }
@@ -2063,8 +2152,16 @@ export function planTwoColumn({
       // order" is `page.sidebarSlices.map(s => s.key)` — derived at the point
       // of use, never stored.
       const sidebarSlices = sidebar.pages[index] ?? []
-      const mainFill = main.pageMetrics[index] ?? null
-      const sidebarFill = sidebar.pageMetrics[index] ?? null
+      // pageMetrics rows carry the fill numbers AND the §3.8 decline record;
+      // the plan publishes them as two fields — ColumnFill stays a pure number
+      // bag, and blockedBy is page data a diagnostics reader keys on directly.
+      const mainRow = main.pageMetrics[index] ?? null
+      const sidebarRow = sidebar.pageMetrics[index] ?? null
+      const fillOf = (
+        /** @type {{ used: number, budget: number, capacity: number } | null} */ r
+      ) => (r ? { used: r.used, budget: r.budget, capacity: r.capacity } : null)
+      const mainFill = fillOf(mainRow)
+      const sidebarFill = fillOf(sidebarRow)
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>
         f ? Math.max(0, quantize(f.used - f.budget)) : 0
       const mainEmpty = mainBlocks.length === 0
@@ -2077,6 +2174,9 @@ export function planTwoColumn({
         sidebarSlices,
         mainFill,
         sidebarFill,
+        /** Why the NEXT main block did not start on this page; null when it did, or this is the flow's last page (§3.8). */
+        mainBlockedBy: mainRow?.blockedBy ?? null,
+        sidebarBlockedBy: sidebarRow?.blockedBy ?? null,
         /**
          * How far past its budget this page's content reaches, in pt. Non-zero
          * only where Invariant 0 forced an over-tall block onto a page (see

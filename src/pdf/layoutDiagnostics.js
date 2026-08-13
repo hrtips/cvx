@@ -76,14 +76,56 @@ function pt(/** @type {number} */ n) {
  * fill, see the overflow warning".
  *
  * @param {import('./types.js').ColumnFill | null} f
- * @returns {import('./types.js').ColumnDiagnostics}
+ * @returns {Omit<import('./types.js').ColumnDiagnostics, 'blockedBy'>}
  */
 function columnFill(f) {
-  if (!f) return { fill: null, usedPt: null, budgetPt: null }
+  if (!f) return { fill: null, usedPt: null, budgetPt: null, capacityPt: null, fixedPt: null }
+  // v2 (§3.9): fill is COLUMN OCCUPANCY — (fixed + packed) / whole column — so
+  // the number means the same thing on every page. v1 divided by the residual
+  // budget, which made page 1 (where the summary eats 40% of the column before
+  // packing starts) read 0.595 while physically ~0.80 full, and invited every
+  // reader to compare it against page 2's differently-based 0.997. The
+  // documented invariant survives the redefinition and is asserted by tests:
+  // fill > 1  ⟺  fixed + used > capacity  ⟺  used > budget  ⟺  over budget.
+  // `null` now means exactly one thing: this flow ended on an earlier page.
+  // (v1 also returned null for a fixed block taller than the page — an honest
+  // ratio exists there, and it is now a number above 1.)
+  const fixed = quantizeFixed(f)
   return {
-    fill: f.budget > 0 ? ratio(f.used, f.budget) : null,
+    fill: f.capacity > 0 ? ratio(fixed + f.used, f.capacity) : null,
     usedPt: pt(f.used),
-    budgetPt: pt(f.budget)
+    budgetPt: pt(f.budget),
+    capacityPt: pt(f.capacity),
+    fixedPt: pt(fixed)
+  }
+}
+
+/** The page's fixed content: everything the column holds before packing starts. */
+function quantizeFixed(/** @type {{ capacity: number, budget: number }} */ f) {
+  return Math.max(0, f.capacity - f.budget)
+}
+
+/**
+ * The §3.8 decline record, published: why the next block did not start on this
+ * page. Data, not a warning — true at nearly every page break. `shortByPt` is
+ * the one number that moves MONOTONICALLY with the edit an author would make
+ * (shorten the fixed content above by S and it falls by S until the block
+ * moves up); `fill` has no such property under any definition, which is why
+ * fill must never be sold as a progress signal. Never aggregated across pages
+ * — no totals.shortByPt exists, and none may be added (risk R1).
+ *
+ * @param {{ index: number, smallestPiecePt: number, residualPt: number, gapBeforePt: number, entry?: import('./types.js').ExperienceEntry | null, key?: string | null } | null | undefined} d
+ */
+function blockedByOf(d) {
+  if (!d) return null
+  return {
+    role: d.entry ? (d.entry.role ?? null) : null,
+    ...(d.key !== undefined ? { key: d.key } : {}),
+    entryIndex: d.index,
+    residualPt: pt(d.residualPt),
+    gapBeforePt: pt(d.gapBeforePt),
+    smallestPiecePt: pt(d.smallestPiecePt),
+    shortByPt: pt(d.smallestPiecePt - (d.residualPt - d.gapBeforePt))
   }
 }
 
@@ -134,6 +176,57 @@ function bulletsOn(entry) {
  * @param {import('./types.js').LayoutDiagnostics['pages']} pages
  * @returns {import('./types.js').LayoutDiagnosticWarning[]}
  */
+/**
+ * §3.8's warning: page 1's experience list ended early — at least one role IS
+ * on page 1, but the next one could not start there, and page 1 is the only
+ * page with a LEVER (fixed content the user can shorten). Mutually exclusive
+ * with `page1-no-experience` by construction (that code requires zero
+ * entries; this one requires at least one) — that warning is the degenerate
+ * case of this phenomenon and keeps its own code.
+ *
+ * Main column and page 1 only, deliberately: a later page ending early is the
+ * ordinary price of a page break (the data is still on that page's blockedBy),
+ * and the sidebar's fixed content is the identity block, which is not
+ * editable content. Like page1-no-experience, this is diagnostics-only — the
+ * CLI's stderr notices stay overflow-only, so a human building a 3-page CV is
+ * not shouted at about a normal page break.
+ *
+ * @param {import('./types.js').LayoutDiagnostics['pages']} pages
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function page1EndsEarly(pages) {
+  const page1 = pages[0]
+  if (!page1?.main.blockedBy || page1.main.entries.length === 0) return []
+  const d = page1.main.blockedBy
+  const fixed = page1.main.fixedPt ?? 0
+  return [
+    {
+      code: /** @type {const} */ ('page1-ends-early'),
+      page: 1,
+      overflowPt: page1.overflowPt,
+      forcedByConfig: false,
+      shortByPt: d.shortByPt,
+      residualPt: d.residualPt,
+      smallestPiecePt: d.smallestPiecePt,
+      gapBeforePt: d.gapBeforePt,
+      fixedPt: fixed,
+      nextRole: d.role,
+      message:
+        `page 1's experience list ends ${d.residualPt}pt before the foot of the column: the next ` +
+        `role${d.role ? ` ("${d.role}")` : ''} cannot start here because its smallest legal piece — the role heading ` +
+        `plus one bullet — needs ${d.smallestPiecePt}pt, and after the ${d.gapBeforePt}pt entry divider ` +
+        `only ${pt(d.residualPt - d.gapBeforePt)}pt remain. Short by ${d.shortByPt}pt. The only lever on ` +
+        `page 1 is the fixed content above the roles (${fixed}pt: the summary, its spacer, and the ` +
+        `section title); shortening the summary by ${d.shortByPt}pt, or shortening that role's first ` +
+        `bullet by the same, starts it on page 1. This is a content decision — raise it with the user.`
+    }
+  ]
+}
+
+/**
+ * @param {import('./types.js').LayoutDiagnostics['pages']} pages
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
 function page1WithoutExperience(pages) {
   const page1 = pages[0]
   if (!page1 || page1.main.entries.length > 0) return []
@@ -178,6 +271,7 @@ export function layoutDiagnostics(plan, config = {}) {
     page: p.index + 1,
     main: {
       ...columnFill(p.mainFill),
+      blockedBy: blockedByOf(p.mainBlockedBy),
       entries: p.mainBlocks.map((entry) => ({
         role: entry.role,
         // Two roles can share a title across employers ("Engineering Manager"
@@ -191,6 +285,7 @@ export function layoutDiagnostics(plan, config = {}) {
     },
     sidebar: {
       ...columnFill(p.sidebarFill),
+      blockedBy: blockedByOf(p.sidebarBlockedBy),
       sections: p.sidebarSlices.map((s) => ({
         key: s.key,
         items: s.end - s.start,
@@ -208,6 +303,7 @@ export function layoutDiagnostics(plan, config = {}) {
   // `cvx validate` warn through (layout.js `overflowWarnings`) — a second
   // overflow test here would be a second threshold to keep in agreement.
   const warnings = [
+    ...page1EndsEarly(pages),
     ...overflowWarnings(plan, config).map((w) => ({
       code: /** @type {const} */ ('overflow'),
       page: w.page,
@@ -219,6 +315,11 @@ export function layoutDiagnostics(plan, config = {}) {
   ]
 
   return {
+    // Diagnostics-shape version. 2 = §3.9's comparable fill (occupancy over
+    // capacity, not used-over-residual-budget) plus blockedBy and this field
+    // itself. Consumers key on it to know fill's denominator changed; the
+    // envelope's schemaVersion stays 1 (its fields are only added to).
+    version: 2,
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,
