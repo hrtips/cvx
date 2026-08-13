@@ -216,15 +216,67 @@ evidence rather than merely breaking a test.
 
 Three rows above are judgement calls I could not derive from anything measured.
 
-### 6.1 `sidebarFraction` range `0.28 – 0.45`
+### 6.1 `sidebarFraction` — **MEASURED 2026-08-13, and it is not what §2.3 assumed**
 
-The highest-leverage number in the whole system — the demo needs three pages
-because the *sidebar* is the longer flow, so this is the one control that can
-actually move the page count. My bounds are reasoned, not measured: below ~0.28
-the photo and contact rows stop fitting, above ~0.45 the main column stops holding
-a readable bullet line. **Both ends should be measured before P3 ships** — render
-the demo at 0.25 / 0.28 / 0.32 / 0.37 / 0.45 / 0.50 and look. That is cheap and
-would replace two guesses with two facts.
+Rendered the (now two-page) demo at 0.25 / 0.28 / 0.32 / 0.37 / 0.45 / 0.50 and
+looked at each:
+
+| value | pages | splits | note |
+|---|---|---|---|
+| 0.25 | 3 | **2** | sidebar fill 0.95 / 0.99; contact email visually clipped |
+| 0.28 | 3 | 0 | |
+| 0.32 | 3 | 0 | |
+| **0.37** | **2** | 0 | the shipped value |
+| 0.45 | 3 | 0 | page 3 now holds **main** at 0.23, sidebar `null` |
+| 0.50 | 3 | 0 | page 3 holds main at 0.43 |
+
+Three results worth carrying into P3, none of them anticipated:
+
+1. **0.37 is already optimal, and it is a knife edge.** Every other value tested
+   costs a page. ±0.05 in either direction breaks the two-page result.
+2. **It is not a monotonic lever — it trades which flow binds.** Below 0.37 the
+   sidebar needs the third page; at 0.45 and above the *main column* does. There
+   is no direction that is simply “less”.
+3. **Narrowing the sidebar makes things worse, which falsifies the motivating
+   example in `design-cvx-as-instrument.md` §4.3** — *“an LLM that looks at a page
+   and thinks narrow the sidebar … can do none of it.”* A narrower sidebar wraps
+   more, so it gets *taller*; at 0.25 it also forces two section splits. The
+   control the design doc holds up as the obvious win is, for this document,
+   harmful.
+
+**Decision (maintainer, 2026-08-13): keep it exposed, and record what it actually
+does.** Bounds stay `0.28 – 0.45` as *legibility* limits, with the lower one now
+evidenced rather than guessed (see §6.4). But P3 must not present this as a
+page-count control: it is an expert trade between two flows, and the spacing
+tokens in §3.1 are where the predictable leverage lives.
+
+### 6.4 Clipping: a numeric lower bound cannot be content-independent
+
+Looking at the 0.25 render surfaced a **defect in the shipped product**, unrelated
+to P3. At the *default* 0.37, a realistic long email renders as
+`bruce.wayne.field.commander@wayne-enterprises-inter` — clipped mid-token at the
+sidebar’s edge. `validate --strict` reports `ok: true` with no warnings, and no
+width guard exists anywhere in the engine.
+
+Two consequences:
+
+- **It violates Invariant 0 as stated.** That invariant says the renderer never
+  “omits, **clips**, or hides” content. This clips.
+- **The content oracle is structurally blind to it.** `checkCompleteness` reads
+  the `pdftotext` layer, and the full email *is* in the text layer — only the
+  glyphs are cut off. So Invariant 0 is enforced as “present in the text stream”
+  when it is written as “visible on the page”. This is a second gap in the same
+  guard, independent of the layout-omission conflation fixed on 2026-08-13.
+- **Therefore no fixed lower bound is ever sufficient.** An unbreakable token —
+  email, URL — can exceed any width. A bound is necessary but not sufficient; P3
+  needs a measured precondition (“the longest unbreakable sidebar token fits the
+  resolved column width”) or an explicit warning, not just min/max arithmetic.
+
+**Decided fix (maintainer, 2026-08-13): wrap rather than clip** — long unbreakable
+contact values break across lines so every glyph is visible, which is what
+Invariant 0 requires. Known cost: it changes sidebar heights, so §5’s 0.01pt
+measure-vs-render agreement must be re-derived, and a broken email reads slightly
+awkwardly. Not yet implemented; this is engine work in no current phase.
 
 ### 6.2 The `6.5pt` legibility floor — **DECIDED 2026-08-13**
 

@@ -241,6 +241,17 @@ So an LLM that looks at a page and thinks *narrow the sidebar*, *tighten this
 section*, or *drop the body size a quarter point* can do none of it. **The system
 was built to render one fixed design well, not to be designed with.**
 
+**One of those three examples is now measured, and it was the wrong instinct.**
+Rendering the demo across `sidebarFraction` 0.25 → 0.50 (`design-p3-surface.md`
+§6.1): the shipped 0.37 is the *only* value that yields two pages, ±0.05 costs a
+page, and **narrowing the sidebar makes things worse** — less width means more
+wrapping means a taller sidebar, and at 0.25 it also forces two section splits.
+Above 0.37 the binding flow flips to the main column. So it is not a page-count
+control at all; it is a trade between which flow overflows. Kept in P3 as an
+expert control, but the predictable leverage is in the spacing tokens. Worth
+holding onto as a caution: *“an LLM that looks at a page and thinks X”* is a
+hypothesis about X, and this one did not survive measurement.
+
 **Design direction** — concrete shapes, key lists and bounds live in
 `design-p3-surface.md`; this is the reasoning only.
 
@@ -506,6 +517,25 @@ arithmetic is not intuitive and the obvious single cut fails.
 example “a designed two-page CV”; it renders three, and page 3 is the near-empty
 main column above. The first artifact every user sees is the product’s own worst
 example.
+
+**A long contact value clips at the default sidebar width, and nothing catches
+it.** At the shipped `sidebarFraction: 0.37`, the email
+`bruce.wayne.field.commander@wayne-enterprises-international.com` renders as
+`…@wayne-enterprises-inter` — cut off mid-token at the sidebar edge, with
+`validate --strict` reporting `ok: true` and zero warnings. No width guard exists
+in the engine.
+
+It violates Invariant 0, which names clipping explicitly. And the guard that is
+supposed to catch exactly this cannot: `checkCompleteness` reads the `pdftotext`
+layer, where the **full email is present** — only the glyphs are cut. So the
+oracle enforces “in the text stream” for an invariant written as “visible on the
+page”. That is a second blind spot in the same guard, independent of the
+layout-omission conflation found the same day.
+
+Found by rendering a page and looking at it, which is the §4.1 argument in
+miniature: no diagnostic field reports this, and no test did either. Decided fix
+is to wrap rather than clip (`design-p3-surface.md` §6.4); engine work, in no
+current phase.
 
 **Every scaffolded CV ships a `geometry:` block that does nothing.**
 `template/cv-content/layouts/two-column.yaml:9-15` emits six keys — `size: A4`,
