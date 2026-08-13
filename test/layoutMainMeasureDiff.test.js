@@ -7,24 +7,28 @@
 // test at all. Five classes of error live in it, worth 46.70pt of phantom height
 // on the CV that prompted this work — see research/design-layout-fidelity.md §2.
 //
-// ── WHY THIS TEST PINS NUMBERS THAT ARE WRONG ─────────────────────────────
+// ── THE TABLE BELOW IS ZEROS, AND THAT IS THE CLAIM ────────────────────────
 //
-// The box-model fix (§3.1–3.6) has NOT landed. S2 lands FIRST, on purpose, and
-// records TODAY's deltas as its expectations. C0's rule, restated by §4: build
-// the ruler before cutting. If the model were corrected first, this table would
-// be written against the corrected engine and could not demonstrate that
-// anything changed. S3 replaces every number below with a flat 0.01pt
-// tolerance, and **the diff of this table across those two commits IS the
-// evidence the fix worked**.
+// S2 landed this test one commit before the box-model fix, with TODAY's
+// measured defects pinned as its expectations (+6.70 plain, +9.10 located,
+// +13.10 at four progression rows, −6.30 wrapping role, +13.50 glue-shrink on
+// a near-boundary summary — each decomposed to its term). S3 then corrected
+// the model, and this table flipped to zero with the tolerance at 0.01pt.
+// The diff between those two commits is the evidence the fix worked: same
+// instrument, same shapes, defect table → zero table.
 //
-// So: a non-zero expectation here is a recorded defect, never a target. Each one
-// carries the term that explains it. If one of these numbers moves before S3,
-// something changed that nobody described — investigate, do not re-record.
+// So: any non-zero delta here is a NEW defect. Investigate; never re-record.
+// The historical defect table lives in the S2 commit and in
+// research/design-layout-fidelity.md §2.2–2.3.
 //
 // Guarded with `describe.skipIf(!hasPdftoppm())` for the same reason as its
 // neighbours: only one pinned CI leg installs poppler.
 
+import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
+import { bulletWidth, deriveMetrics } from '../src/pdf/layout.js'
+import { createMeasurer } from '../src/pdf/measure.js'
+import { tealTheme } from '../src/pdf/themes/teal.js'
 import { buildContent } from './layout-harness/contentSpecs.js'
 import { buildFixturePlan } from './layout-harness/fixtures.js'
 import {
@@ -37,53 +41,46 @@ import {
   cleanupFixtureDirs,
   hasPdftoppm,
   mkFixtureDir,
+  ROOT,
   writeFixtureContent
 } from './layout-harness/scaffold.js'
 
 /**
- * TODAY's per-entry error, in pt, as `predicted - observed`. Positive means the
- * model reserves MORE room than the render needs (safe, wasteful); negative
- * means it reserves LESS (the direction that overflows a page).
+ * Per-entry error, in pt, as `predicted - observed`. Positive means the model
+ * reserves MORE room than the render needs (safe, wasteful); negative means it
+ * reserves LESS (the direction that overflows a page).
  *
- * Every row is decomposable, which is why it is trustworthy rather than merely
- * recorded — the terms are §2.2/§2.3's:
- *
- *   +4.00  the entry-margin fudge, `entryMb * (15/11)` against a rendered
- *          `marginBottom: entryMb`                                    (§3.1 A)
- *   +2.70  the company/period row: `lh(9, 1.5)` = 13.50 charged for a row the
- *          component leaves unstyled, which renders at 9 x 1.2 = 10.80 (§3.2 B)
- *   +2.40  the location row, same class: 12.00 charged, 9.60 rendered  (§3.2 B)
- *   +1.60  per progression row: 14.20 charged, 12.60 rendered         (§3.2 B)
- *   -13.00 per unmodelled second ROLE line                            (§3.3 C)
- *   -10.80 per unmodelled second COMPANY line                         (§3.3 C)
- *    -9.60 per unmodelled second LOCATION line                        (§3.3 C)
- *    0.00  the description term, which is exact today (its component sets an
- *          explicit lineHeight, so the model's `lh()` is right)
+ * All zero since S3 (design-layout-fidelity.md §3.1–3.6): the entry margin is
+ * charged as the component renders it, unstyled rows go through `rowH()` at
+ * the font's natural line height with real wrap counts, the bullet column
+ * mirrors the dash advance, and `lineCount` mirrors textkit's glue shrink.
+ * The per-shape structure is kept (rather than one scalar zero) so a future
+ * defect lands on the shape that names its term.
  */
 const EXPECTED_ENTRY_DELTA_PT = {
-  plain: 6.7, //                    4.00 + 2.70
-  filler: 6.7, //                   a plain entry under another name
-  description: 6.7, //              4.00 + 2.70 + 0.00 (description exact)
-  located: 9.1, //                  4.00 + 2.70 + 2.40
-  progression2: 9.9, //             4.00 + 2.70 + 2 x 1.60
-  progression4: 13.1, //            4.00 + 2.70 + 4 x 1.60 — the motivating CV's entry
-  'wrapping-role': -6.3, //         4.00 + 2.70 - 13.00
-  'wrapping-company': -4.1, //      4.00 + 2.70 - 10.80  (its meta row IS the wrap)
-  'wrapping-location': -0.5, //     4.00 + 2.70 + 2.40 - 9.60
-  'many-bullets-split': 6.7, //     22 bullets, whole: bullets themselves are exact
-  continuation: 4 //                the margin term ALONE — a continuation renders
-  //                                only a role line and bullets, both exact
+  plain: 0, //               §3.1 (margin) + §3.2 (meta row)
+  filler: 0, //              a plain entry under another name
+  description: 0, //         was exact before S3 and must stay exact
+  located: 0, //             §3.2 (location row)
+  progression2: 0, //        §3.2 (progression rows)
+  progression4: 0, //        §3.2 — the motivating CV's entry shape
+  'wrapping-role': 0, //     §3.3 (wrap counted, was -13.00/line)
+  'wrapping-company': 0, //  §3.3 (its meta row IS the wrap)
+  'wrapping-location': 0, // §3.3
+  'many-bullets-split': 0, // bullets were exact; §3.4 keeps them exact
+  continuation: 0 //         §3.1 + §3.3's composed "(cont'd)" role line
 }
 
 /**
- * The same defects seen through family 2, which measures the HEAD (role top to
- * first bullet text top) rather than the whole entry. Every row is its
- * `EXPECTED_ENTRY_DELTA_PT` twin minus 4.00: the entry margin sits BELOW the
- * bullets, so a head measurement cannot see it. That relationship is asserted
- * below rather than left as a coincidence — it is what proves the two families
- * are measuring the same document two different ways.
+ * The same shapes seen through family 2, which measures the HEAD (role top to
+ * first bullet text top) rather than the whole entry. The entry margin sits
+ * BELOW the bullets, so a head measurement cannot see it — before S3 that made
+ * every head delta `entry delta − 4.00` (the margin fudge); with the margin
+ * charged as rendered, the two families agree exactly and the offset is zero.
+ * The relationship is still asserted rather than left as a coincidence — it is
+ * what proves the two families are measuring the same document two ways.
  */
-const HEAD_MINUS_ENTRY_PT = -4
+const HEAD_MINUS_ENTRY_PT = 0
 const EXPECTED_HEAD_DELTA_PT = Object.fromEntries(
   Object.entries(EXPECTED_ENTRY_DELTA_PT).map(([k, v]) => [
     k,
@@ -95,23 +92,21 @@ const EXPECTED_HEAD_DELTA_PT = Object.fromEntries(
  * Family 3, `summaryH + spacer` vs the rendered Summary-title -> Experience-title
  * distance, per summary variant.
  *
- * `short` is 0.00 — the summary composition is right when nothing wraps near a
- * boundary. `near-boundary` is +13.50: exactly one body line (9 x 1.5), because
- * `measure.js`'s pure-greedy `lineCount` breaks a line that textkit keeps by
- * shrinking its inter-word glue (§3.5). That 13.50pt comes straight off page 1's
- * experience budget, and it is the single largest term in the 46.70pt total.
+ * Both zero since S3. `near-boundary` was +13.50 — exactly one body line —
+ * because `measure.js`'s pure-greedy `lineCount` broke a line textkit keeps by
+ * shrinking its inter-word glue (§3.5); `lineCount` now mirrors the shrink
+ * rule (width/3 per space), so a near-boundary bullet is the shape MOST worth
+ * keeping: it fails first if either side of that mirror drifts.
  */
-const EXPECTED_FIXED_DELTA_PT = { short: 0, 'near-boundary': 13.5 }
+const EXPECTED_FIXED_DELTA_PT = { short: 0, 'near-boundary': 0 }
 
 /**
- * Tolerance on the EXPECTATION match, not on the measurement. `observed` is
- * derived from PDF coordinates pdftotext prints to 6dp and then rounded to
- * hundredths, so two independent renders of the same shape can differ in the
- * last digit (75.62 vs 75.63 for the described entry). 0.05pt covers that and
- * nothing else — it is 1/270th of a body line. S3 replaces this whole table
- * with a flat 0.01pt tolerance against ZERO.
+ * 0.01pt, the sidebar harness's bar and justification: pdftotext prints
+ * coordinates to 6dp and the box model is exact arithmetic over quarter-points
+ * and real glyph advances — nothing here rounds. If this ever needs loosening,
+ * the formula is wrong, not the tolerance.
  */
-const EXPECTATION_TOLERANCE_PT = 0.05
+const EXPECTATION_TOLERANCE_PT = 0.01
 
 // ── Assertions that need no poppler, so every CI leg runs them ─────────────
 describe('main measure-diff — the shape corpus and the expectation table agree (no poppler needed)', () => {
@@ -175,8 +170,10 @@ describe.skipIf(!hasPdftoppm())(
      * agree. (Family 2 reaches every entry in every run; that is what it is for.)
      *
      * Two SUMMARIES, because family 3 has two things to say: that the summary
-     * composition is exact when nothing wraps near a boundary, and that it is
-     * 13.50pt out when something does (§3.5).
+     * composition is exact when nothing wraps near a boundary, and that it
+     * STAYS exact on a near-boundary bullet — the shape that measured +13.50
+     * before S3 mirrored textkit's glue shrink (§3.5), and the first to fail
+     * if either side of that mirror drifts.
      */
     const CORPUS_RUNS = [
       { label: 'forward', opts: { order: 'forward', summary: 'short' } },
@@ -202,7 +199,7 @@ describe.skipIf(!hasPdftoppm())(
     function checkRow(label, family, row, expected) {
       expect(
         Math.abs(row.deltaPt - expected),
-        `${label}: ${family} "${row.shape}" (${row.role}) measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}) but S2 recorded ${expected}pt. A moved delta means the engine changed without anyone describing the change — investigate it, do not re-record it.`
+        `${label}: ${family} "${row.shape}" (${row.role}) measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}) but the table expects ${expected}pt. A moved delta means the engine changed without anyone describing the change — investigate it, do not re-record it.`
       ).toBeLessThanOrEqual(EXPECTATION_TOLERANCE_PT)
     }
 
@@ -302,13 +299,27 @@ describe.skipIf(!hasPdftoppm())(
         )
         expect(
           Math.abs(row.deltaPt - expected),
-          `${label}: summaryH + spacer measured ${row.deltaPt}pt against the render, S2 recorded ${expected}pt`
+          `${label}: summaryH + spacer measured ${row.deltaPt}pt against the render, the table expects ${expected}pt`
         ).toBeLessThanOrEqual(EXPECTATION_TOLERANCE_PT)
       }
-      // Spelled out separately so the glue-shrink finding cannot quietly become
-      // a zero: the near-boundary bullet MUST cost a whole rendered body line.
-      const near = runs.get('near-boundary-summary').diff.fixedRows[0]
-      expect(near.deltaPt).toBeGreaterThan(13)
+      // Spelled out separately so the probe cannot quietly stop probing: the
+      // near-boundary bullet must sit INSIDE the shrink window — wider than the
+      // rendered column (a no-shrink breaker would wrap it) yet within the
+      // column plus textkit's 1/3-of-a-space-per-space shrink (the renderer
+      // keeps it on one line). If a font change or an edit to the string moves
+      // it out of that window, family 3 would go on passing with a probe that
+      // no longer exercises §3.5's mirror — this fails instead.
+      const m = deriveMetrics(tealTheme)
+      const measurer = createMeasurer(path.join(ROOT, 'src', 'fonts'))
+      const text = shapeCorpusContent({ summary: 'near-boundary' }).summary[0]
+      const natural = measurer.widthOf(text, m.bodySize, { weight: 400, italic: false })
+      const spaceW = measurer.widthOf(' ', m.bodySize, { weight: 400, italic: false })
+      const spaces = text.split(' ').length - 1
+      const column = bulletWidth(m, measurer)
+      expect(natural, 'no-shrink greedy must need a second line').toBeGreaterThan(column)
+      expect(natural, 'textkit must keep it on one line via shrink').toBeLessThanOrEqual(
+        column + (spaces * spaceW) / 3
+      )
     })
 
     it('no main-column ink past the content box, except the one shape that is a known render defect', () => {
@@ -349,24 +360,22 @@ describe.skipIf(!hasPdftoppm())(
 // were unreachable from the fixture plan entirely (§5.2).
 describe.skipIf(!hasPdftoppm())('main measure-diff — the S2a head-shape fixtures', () => {
   /**
-   * Per-entry delta each fixture's shape produces, from the same decomposition
-   * as the corpus table:
+   * All zero since S3 — the fixtures exist to prove the terms stay exact
+   * through the CURATED corpus, not only through the harness's own shapes.
+   * Their S2-era deltas (progression +13.10, located +9.10, wrapping heads
+   * −17.10, wrapping location −0.50) live in the S2 commit.
    *
-   *   progression x4    4.00 + 2.70 + 4 x 1.60           = +13.10
-   *   short location    4.00 + 2.70 + 2.40               =  +9.10
-   *   wrapping heads    4.00 + 2.70 - 13.00 - 10.80      = -17.10
-   *   wrapping location 4.00 + 2.70 + 2.40 - 9.60        =  -0.50
-   *
-   * A continuation slice measures +4.00 (entry) / 0.00 (head) whatever the head
-   * shape was — it renders a role line and bullets, and both are exact.
+   * inkPastBox is UNCHANGED by S3: the wrapping-company period still renders
+   * 5.59pt outside the content box on every such entry. That is a render
+   * defect (§2.4's family, same as the sidebar contact clipping), not a model
+   * defect — it stays pinned here until it is fixed render-side, and anything
+   * NEW past the box still fails.
    */
   const EDGE_EXPECTATIONS = {
-    'edge-progression-entries': { entry: 13.1, head: 9.1, inkPastBox: 'none' },
-    'edge-located-entries': { entry: 9.1, head: 5.1, inkPastBox: 'none' },
-    // The only fixture in the whole plan that pushes ink outside the content
-    // box, and it does so on every entry: §2.4's wrapping-company defect.
-    'edge-wrapping-heads': { entry: -17.1, head: -21.1, inkPastBox: 'periods' },
-    'edge-wrapping-location': { entry: -0.5, head: -4.5, inkPastBox: 'none' }
+    'edge-progression-entries': { entry: 0, head: 0, inkPastBox: 'none' },
+    'edge-located-entries': { entry: 0, head: 0, inkPastBox: 'none' },
+    'edge-wrapping-heads': { entry: 0, head: 0, inkPastBox: 'periods' },
+    'edge-wrapping-location': { entry: 0, head: 0, inkPastBox: 'none' }
   }
 
   for (const [id, expected] of Object.entries(EDGE_EXPECTATIONS)) {
@@ -393,14 +402,14 @@ describe.skipIf(!hasPdftoppm())('main measure-diff — the S2a head-shape fixtur
         const want = row.isContinuation ? EXPECTED_ENTRY_DELTA_PT.continuation : expected.entry
         expect(
           Math.abs(row.deltaPt - want),
-          `${id}: entry "${row.role}" measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}), S2 recorded ${want}pt`
+          `${id}: entry "${row.role}" measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}), the table expects ${want}pt`
         ).toBeLessThanOrEqual(EXPECTATION_TOLERANCE_PT)
       }
       for (const row of diff.headRows) {
         const want = row.isContinuation ? 0 : expected.head
         expect(
           Math.abs(row.deltaPt - want),
-          `${id}: head "${row.role}" measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}), S2 recorded ${want}pt`
+          `${id}: head "${row.role}" measured ${row.deltaPt}pt (predicted ${row.predicted}, observed ${row.observed}), the table expects ${want}pt`
         ).toBeLessThanOrEqual(EXPECTATION_TOLERANCE_PT)
       }
 

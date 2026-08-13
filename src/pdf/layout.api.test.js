@@ -170,10 +170,12 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 25 names the module docblock claims', () => {
-    expect(exported).toHaveLength(25)
+  it('exports exactly the 26 names the module docblock claims', () => {
+    // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
+    // main-column harness the same way deriveMetrics is for the sidebar's.
+    expect(exported).toHaveLength(26)
     expect(PUBLIC_API).toHaveLength(8)
-    expect(internal).toHaveLength(17)
+    expect(internal).toHaveLength(18)
   })
 
   it("the module docblock's harness roll-call matches the @internal tags", () => {

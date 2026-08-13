@@ -114,7 +114,7 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
 
     // Every page reports both columns, 1-based. This CV fits, so every fill is
     // in (0,1] — but that is a fact about THIS content, not a property of the
-    // field (see the overflow test below, where it reads 2.098).
+    // field (see the overflow test below, where it reads 2.033).
     expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2])
     for (const page of plan.diagnostics.pages) {
       for (const col of [page.main, page.sidebar]) {
@@ -160,7 +160,9 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     const plan = await planLayout({ dir })
     const page1 = plan.diagnostics.pages[0]
     expect(page1.main.fill).toBeGreaterThan(1)
-    expect(page1.main.fill).toBeCloseTo(2.098, 3)
+    // 2.033 since S3 corrected the entry model (was 2.098 while entryH over-
+    // measured each entry by 6.7pt — same forced shape, honest numerator now).
+    expect(page1.main.fill).toBeCloseTo(2.033, 3)
     // `> 1` and `overflowPt > 0` are the same fact seen twice; neither may be
     // reported without the other.
     expect(page1.overflowPt).toBeGreaterThan(0)

@@ -7,7 +7,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { deriveMetrics, NATURAL_LINE_HEIGHT } from './layout.js'
+import { bulletWidth, deriveMetrics, NATURAL_LINE_HEIGHT } from './layout.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -29,7 +29,11 @@ const FONTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 
 const CANARY_TEXT =
   'Established and scaled a citywide security operation from a solo initiative to a franchised network, extending coverage across multiple districts and international cities.'
 const CANARY_SIZE = 9
-const CANARY_WIDTH = deriveMetrics(tealTheme).bulletW
+// The REAL bullet wrap width (dash advance + BulletList's marginRight — §3.4),
+// computed with this test's own measurer so the canary keeps testing the width
+// the packer actually passes. 301.91pt for shipped Lato; the pinned line count
+// below was re-verified against a render at this width when S3 landed.
+const CANARY_WIDTH = bulletWidth(deriveMetrics(tealTheme), createMeasurer(FONTS_DIR))
 const CANARY_EXPECTED_LINES = 3
 
 describe('measure.js — canary (tripwire on fontkit/font-file drift)', () => {

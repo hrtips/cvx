@@ -391,13 +391,12 @@ export interface ColumnDiagnostics {
   /**
    * Content height on this page, pt. `null` when the flow ended earlier.
    *
-   * How this number is obtained differs by column, and the difference matters
-   * if you are comparing it against a rendered PDF: the sidebar's is MEASURED
-   * (real fontkit metrics, and `test/planLayout.test.js` holds it to within
-   * 0.01pt of the render), while the main column's is MODELLED from layout.js's
-   * entry-height formula and runs a few pt per entry above what renders. The
-   * model is what the packer paginates with, so it is the honest description of
-   * the plan — just not a measurement of the page.
+   * Both columns' numbers are verified against a real rendered PDF to within
+   * 0.01pt — the sidebar by `layoutSidebarMeasureDiff.test.js` (since C3a),
+   * the main column by `layoutMainMeasureDiff.test.js` (since S3, which
+   * corrected an entry model that previously ran 6.7–13.1pt per entry above
+   * the render and under-counted wrapped head rows). What the packer
+   * paginates with and what the page shows are the same number.
    */
   usedPt: number | null
   /** Usable height for this column on this page, pt. `null` when the flow ended earlier. */

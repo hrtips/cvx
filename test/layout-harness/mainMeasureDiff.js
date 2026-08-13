@@ -105,10 +105,12 @@ const bulletText = (/** @type {string | {text?: string}} */ b) =>
  * a zero-bullet slice and subtract the trailing margin it charged. When §3.1
  * lands, this becomes `m.entryMb` and every `headRows` delta below drops by
  * 4.00pt in step with the `entryRows` ones. It is deliberately written as "what
- * the model charges" rather than as the number 15, so the two cannot disagree
- * about which defect they are describing.
+ * the model charges" rather than as a literal, so the two cannot disagree
+ * about which defect they are describing. Since S3 the model charges the token
+ * itself — the 15/11 fudge is gone from `entryH` and from here in the same
+ * commit.
  */
-const chargedEntryMb = (/** @type {ReturnType<typeof deriveMetrics>} */ m) => m.entryMb * (15 / 11)
+const chargedEntryMb = (/** @type {ReturnType<typeof deriveMetrics>} */ m) => m.entryMb
 
 /**
  * What the render puts between a role's top and its first bullet's text top:
@@ -208,13 +210,16 @@ const FILLER_ENTRIES = [
  * the Summary→Experience distance exactly.
  *
  * `near-boundary` is the §3.5 probe, and its width is the whole point. Its
- * natural width is 309.12pt: WIDER than the column the model wraps at (303.03pt
- * = `innerW - bulletIndent`), so `measure.js`'s pure-greedy `lineCount` breaks
- * it into two lines — and NARROWER than the rendered column plus textkit's glue
- * shrink (301.91 + spaces x spaceWidth / 3 = 311.75pt), so the renderer squeezes
- * the inter-word spaces and keeps it on one. One body line, 13.50pt, taken
- * straight off page 1's experience budget. Both margins are >2.6pt, so this is
- * a stable fact about Lato at 9pt, not a knife-edge.
+ * natural width (309.12pt for shipped Lato) is WIDER than the rendered column
+ * (301.91pt = `bulletWidth()`), so a no-shrink greedy breaker would wrap it —
+ * and NARROWER than the column plus textkit's glue shrink
+ * (301.91 + spaces x spaceWidth / 3 = 311.75pt), so the renderer squeezes the
+ * inter-word spaces and keeps it on one line. Before S3 that mismatch cost
+ * 13.50pt of page-1 budget; since S3 `lineCount` mirrors the shrink rule, and
+ * this string is the first thing to fail if either side of the mirror drifts.
+ * Both margins are >2.6pt, so it is a stable fact about Lato at 9pt, not a
+ * knife-edge — and the width-window is asserted from glyph advances in the
+ * test, not assumed.
  */
 const SUMMARY_TEXT = {
   short: ['A single short summary bullet, one rendered line long.'],

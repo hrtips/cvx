@@ -22,20 +22,19 @@
 //      and is checked within a bounded, one-directional tolerance, for a reason
 //      this file measured and records below.
 //
-// MEASURED FINDING, pre-existing and deliberately NOT fixed here. Differencing
-// the shipped scaffold's page-2 role tops shows `entryH()` predicts each
-// experience entry ~6.7pt TALLER than react-pdf lays it out: 4.0pt of trailing
-// entry margin (`entryMb * 15/11` = 15pt predicted vs the 11pt ExpItem renders)
-// and 2.7pt on the company/period meta row (predicted at the theme's 1.5 body
-// leading, rendered at the font's natural 1.2). It is in the SAFE direction —
-// the packer reserves more room than the render needs, so a page can never
-// silently overflow because of it — and it is invisible in the sidebar, whose
-// box model is verified at 0.00pt by layoutSidebarMeasureDiff.test.js. Fixing
-// it would move real page breaks and therefore `baseline.json`, which this
-// slice must not do: C6a adds an observer, not a packing decision. So the
-// main-column assertion is `0 <= predicted - observed <= 8pt per interior
-// entry`, which pins BOTH the direction and the magnitude — if the looseness
-// grows, or ever flips sign, this fails.
+// HISTORY: this file once recorded a "measured finding, deliberately not
+// fixed" — entryH() predicting ~6.7pt/entry taller than the render (the 15/11
+// margin fudge + an unstyled meta row modelled at 1.5 leading) — and bounded
+// the slack at 8pt per interior entry, claiming the direction was safe ("a
+// page can never silently overflow because of it"). Both halves aged badly:
+// the claim was FALSE for shapes the corpus couldn't generate (a wrapping
+// role under-measured by 13pt/line, and no fixture had a location or
+// progression at all), and the bound was breached by any located (9.10) or
+// progression-bearing (13.10) entry. S3 corrected the model
+// (design-layout-fidelity.md §3.1-3.6); the main column is now verified
+// exactly, the same way as the sidebar, by layoutMainMeasureDiff.test.js.
+// The slack bound here tightens accordingly: predicted symmetric-equal to
+// observed within the same 0.01pt everywhere.
 
 import { cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -67,7 +66,7 @@ const FONTS = path.join(ROOT, 'src', 'fonts')
  * shape this corpus does not reach; going UNDER the render is never allowed at
  * all, because that is the direction that overflows a page.
  */
-const MAIN_SLACK_PER_ENTRY_PT = 8
+const MAIN_SLACK_PER_ENTRY_PT = 0.01
 const SIDEBAR_MAX_X = tealTheme.geometry.pageWidth * tealTheme.geometry.sidebarFraction
 /** Whitespace-free, so a letter-spaced title ("E D U C AT I O N") compares to its label. */
 const squash = (/** @type {string} */ s) => s.replace(/\s+/g, '')
@@ -243,7 +242,9 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
           entryH(lastEntry, m, measure)
         const slack = Number(page.main.usedPt) - observed
         const interior = page.main.entries.length - 1
-        if (slack < 0 || slack > MAIN_SLACK_PER_ENTRY_PT * interior)
+        // Symmetric since S3: the model equals the render, so slack is pdftotext
+        // print-precision noise in either direction — never a real reserve.
+        if (Math.abs(slack) > MAIN_SLACK_PER_ENTRY_PT * Math.max(interior, 1))
           mainFillOff.push({
             page: page.page,
             reportedUsedPt: page.main.usedPt,
@@ -259,7 +260,7 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
     expect(sidebarFillOff, `${label}: sidebar fill != rendered geometry`).toEqual([])
     expect(
       mainFillOff,
-      `${label}: main fill under-counts the render (a page could overflow) or is looser than ${MAIN_SLACK_PER_ENTRY_PT}pt per interior entry`
+      `${label}: main fill != rendered geometry beyond ${MAIN_SLACK_PER_ENTRY_PT}pt per entry — the box model and the render have diverged`
     ).toEqual([])
 
     console.log(

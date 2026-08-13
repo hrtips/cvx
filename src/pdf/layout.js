@@ -102,6 +102,7 @@
 //   carries `@internal` in its own docblock, and `layout.api.test.js` proves
 //   the two lists agree AND that no shipped module imports one of them:
 //     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
+//     bulletWidth,
 //     summaryH, entryH, packBlocks, packExperiences, packSidebar, identityH,
 //     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
 //     SIDEBAR_SECTION_KEYS, CONTINUED_SUFFIX, assertShrinks
@@ -143,7 +144,12 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
 
   const mainW = g.pageWidth * (1 - g.sidebarFraction)
   const innerW = mainW - g.mainPad.left - g.mainPad.right
-  const bulletW = innerW - sp.bulletIndent
+  // NOTE: there is deliberately no `bulletW` here. The bullet column's width is
+  // `bulletWidth(m, measure)` — the dash's real advance plus BulletList's
+  // marginRight — and keeping a second, slightly-wider answer derived from
+  // `spacing.bulletIndent` is how the model under-counted wrapped bullet lines
+  // (design-layout-fidelity.md §3.4). `bulletIndent` survives only inside
+  // bulletWidth's isomorphic browser fallback.
 
   return {
     // Page geometry
@@ -160,12 +166,13 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
     // mainColumnBudget().
     cornerH: ch.cornerHeight,
     innerW,
-    bulletW,
     // Typography
     sectionTitleSize: ty.sectionTitle.size,
     sectionTitleLeading: ty.sectionTitle.leading,
     roleSize: ty.role.size,
     roleLeading: ty.role.leading,
+    roleWeight: ty.role.weight,
+    captionSize: ty.caption.size,
     bodySize: ty.body.size,
     bodyLeading: ty.body.leading,
     metaSize: ty.meta.size,
@@ -186,6 +193,7 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
     progMt: sp.progMt,
     progMb: sp.progMb,
     progPy: sp.progPy,
+    progPl: sp.progPl,
     dividerHeight: ch.dividerHeight,
     dividerMargin: ch.dividerMargin,
     spacer: sp.spacer,
@@ -357,6 +365,27 @@ const BODY_STYLE = { weight: 400, italic: false }
 // 'italic'` — independent of the theme object, so this mirrors that
 // component fact rather than deriving from theme data that doesn't exist.
 const DESC_STYLE = { weight: 400, italic: true }
+// BulletList.jsx draws an en dash at the body size in semibold with a literal
+// 5pt marginRight; the dash column is therefore its ADVANCE + 5, not the
+// theme's `bulletIndent` guess. Mirrors a component fact, like BODY_STYLE.
+const CONTINUED_ROLE_SUFFIX = "(cont'd)"
+const BULLET_DASH = '\u2013'
+const BULLET_DASH_STYLE = { weight: 600, italic: false }
+const BULLET_DASH_MR = 5
+/**
+ * The bullet column's wrap width: innerW minus the dash column BulletList
+ * actually draws (dash advance + its literal 5pt marginRight).
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
+export function bulletWidth(
+  /** @type {Metrics} */ m,
+  /** @type {import('./types.js').Measurer | undefined} */ measure
+) {
+  const dash = measure?.widthOf
+    ? measure.widthOf(BULLET_DASH, m.bodySize, BULLET_DASH_STYLE)
+    : BULLET_DASH.length * m.bodySize * m.cw
+  return m.innerW - dash - BULLET_DASH_MR
+}
 
 /**
  * Measured height of the whole summary block (title + bullet list).
@@ -372,7 +401,7 @@ export function summaryH(
   for (const b of summary) {
     const txt = typeof b === 'string' ? b : b.text
     h +=
-      countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+      countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
       lh(m.bodySize, m.bodyLeading)
   }
   h += (summary.length - 1) * m.summaryBulletGap
@@ -391,33 +420,52 @@ export function entryH(
   /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   if (e.isContinuation) {
-    let h = lh(m.roleSize, m.roleLeading)
+    let h = rowH(measure, `${e.role} ${CONTINUED_ROLE_SUFFIX}`, m.roleSize, m.innerW, m.cw, {
+      weight: m.roleWeight,
+      leading: m.roleLeading
+    })
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
     if (visible.length > 0) {
       h += m.descMt
       for (const b of visible) {
         const txt = typeof b === 'string' ? b : b.text
         h +=
-          countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+          countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
           lh(m.bodySize, m.bodyLeading)
       }
       h += (visible.length - 1) * m.bulletGap
     }
-    h += m.entryMb * (15 / 11) // 11.25pt scaled from entryMb
+    h += m.entryMb
     return quantize(h)
   }
 
   let h = 0
-  h += lh(m.roleSize, m.roleLeading)
-  h += m.entryMetaMt + lh(m.bodySize, m.bodyLeading)
-  if (e.location) h += m.locationMb + lh(m.metaSize, m.metaLeading)
+  h += rowH(measure, e.role, m.roleSize, m.innerW, m.cw, {
+    weight: m.roleWeight,
+    leading: m.roleLeading
+  })
+  h +=
+    m.entryMetaMt +
+    Math.max(
+      rowH(measure, e.company ?? '', m.bodySize, m.innerW, m.cw, {}),
+      rowH(measure, e.period ?? '', m.metaSize, m.innerW, m.cw, {})
+    )
+  if (e.location) h += m.locationMb + rowH(measure, e.location, m.metaSize, m.innerW, m.cw, {})
   if (e.description) {
     const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
     h += m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
   }
   if (e.progression?.length) {
     h += m.progMt + m.progMb
-    h += e.progression.length * (m.progPy * 2 + lh(m.metaSize, 1.4))
+    const pw = m.innerW - m.progPl - m.sectionBorderWidth
+    for (const p of e.progression) {
+      h +=
+        m.progPy * 2 +
+        Math.max(
+          rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+          rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+        )
+    }
   }
   const visibleBullets = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   if (visibleBullets.length > 0) {
@@ -425,12 +473,12 @@ export function entryH(
     for (const b of visibleBullets) {
       const txt = typeof b === 'string' ? b : b.text
       h +=
-        countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+        countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
         lh(m.bodySize, m.bodyLeading)
     }
     h += (visibleBullets.length - 1) * m.bulletGap
   }
-  h += m.entryMb * (15 / 11) // 11.25pt
+  h += m.entryMb
   return quantize(h)
 }
 
