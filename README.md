@@ -210,12 +210,6 @@ theme: teal               # teal | coral | mono
 layout: two-column        # two-column | single-column
 ```
 
-Two optional pagination keys exist as well — `page1ExperienceCount` and
-`page1SplitBullets` — but they are explicit page-1 *overrides*, not a way to
-shorten a CV. Leave them out unless you specifically want to force what page 1
-holds; automatic packing never overflows, and forcing a count that doesn't fit
-only adds unplanned pages. See **Pagination** below.
-
 Change a value, re-run `npx @hrtips/cvx build`, done.
 
 **Themes** control colour and styling:
@@ -233,12 +227,7 @@ Change a value, re-run `npx @hrtips/cvx build`, done.
 | `two-column` | Sidebar + main column | Designed CV with photo, identity block, achievements |
 | `single-column` | Full width | ATS-safe, no sidebar, no decorative elements |
 
-**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing), and automatic packing never overflows. `page1ExperienceCount` / `page1SplitBullets` force what page 1 holds instead. **They will not reduce your page count** — measured on the example CV, the sheet count never moved and every setting above the automatic one only added overflow (0 → 184 → 420 → 590pt). Use them when you want a specific entry on page 1, not to make a CV fit. Example with 6 entries and `page1ExperienceCount: 2`, `page1SplitBullets: 2`:
-
-- **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
-- **Page 2** — Entry 2 (cont'd) + Entries 3–6
-
-Forcing a count that doesn't fit is warned about by `validate` and `build`, and the overflow spills onto extra physical pages — nothing is ever clipped or dropped, your CV just gains unplanned pages.
+**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing), never overflowing a page, and an entry too tall for the remaining room is split at a bullet boundary and continued overleaf. There are no pagination settings: the layout follows the content. (The old `page1ExperienceCount` / `page1SplitBullets` keys were removed — measured, they never reduced the page count, and forcing them pushed content onto an unnumbered extra sheet. A config that still has them gets a validation message saying exactly that.)
 
 ### Script support
 

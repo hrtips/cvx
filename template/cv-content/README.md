@@ -33,7 +33,6 @@ The output PDF is named after `personal.yaml`'s `name` (e.g. `bruce-wayne.pdf` �
 
 - Delete what you don't need: an empty file (or `[]`) simply drops that section.
 - Start with `experience.yaml` — it's the bulk of the CV and the structure is self-explanatory once you see Bruce's entries next to the built PDF.
-- `config.yaml` controls how many experience entries fit on page 1 (`page1ExperienceCount` / `page1SplitBullets`); tune those last, after your content is in.
 
 ## Schema reference (for tools & AI assistants)
 
@@ -50,7 +49,7 @@ If you are an AI assistant replacing this example content with the user's real C
 - **achievements.yaml**: list of `{year, text}` — `year` is the bold headline (usually the award name), `text` the attribution, e.g. `"— 2024, Gotham Gazette"`.
 - **referees.yaml**: list of `{name, title, company, email, phone}`, or `[]` for "available upon request".
 - **keywords.yaml** (optional): flat list, or map of group → list (groups are flattened). PDF-metadata only; competencies and job titles are auto-derived, so list only what those miss — truthful terms only.
-- **config.yaml**: `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom layout filename), `page1ExperienceCount` (int, optional), `page1SplitBullets` (int, optional), `atsKeywords: {enabled, autoDerive, max}`.
+- **config.yaml**: `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom layout filename), `atsKeywords: {enabled, autoDerive, max}`.
 - **layouts/*.yaml** (optional): `template` + `pages: {first, continuation, last}`, each with `sidebar`/`main` lists of section keys (`identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees`, `summary`, `experience`, `experience:continued`, `header-ats`, `spacer: N`). The three **sidebar** lists are concatenated into one ordered flow and paginated by measurement — `last.sidebar: [referees]` means "referees comes last in the sidebar", not "referees renders on the last page". The **main** lists stay per-page-kind.
 - **images/profile.<ext>**: square photo ≥400×400px; `jpg`/`jpeg`/`png`/`webp` (that precedence). Ask the user to supply it — don't fabricate.
 

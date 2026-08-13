@@ -79,7 +79,7 @@ export function structuralFactsFor(content, layout = undefined) {
   // default still includes it, so planning without it measures a document the
   // render never produced and logicalTotalPages disagrees with the real sheet
   // count. Scaffold callers must pass the scaffold's layout.
-  const plan = planTwoColumn({ content, layout, config: content.config, theme: tealTheme, measure })
+  const plan = planTwoColumn({ content, layout, theme: tealTheme, measure })
 
   const mainPlan = mainPlanFromPackResult(
     {

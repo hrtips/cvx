@@ -201,7 +201,7 @@ export async function buildPdf(
     // (C6a) — so an assistant that just built does not need a second call to
     // see how the CV paginated. `null` for the ATS/single-column variant, which
     // react-pdf auto-flows and CVX never packs.
-    diagnostics: layoutDiagnostics(plan, config)
+    diagnostics: layoutDiagnostics(plan)
   }
 }
 
@@ -264,7 +264,7 @@ export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
     fontsDir: resolveFontsDir(),
     warn: (msg) => notices.push(msg)
   })
-  const diagnostics = layoutDiagnostics(plan, config)
+  const diagnostics = layoutDiagnostics(plan)
   const iteration = trackPlanIteration(workspace(dir), JSON.stringify(diagnostics))
 
   if (iteration.capReached) {

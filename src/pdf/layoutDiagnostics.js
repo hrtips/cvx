@@ -13,8 +13,7 @@
 // these numbers give you is the *price* of a layout; whether the page looks
 // right is a judgement only a reader of the render can make.
 //
-// PURE FUNCTION OF THE PLAN. It takes `LayoutPlan` (+ the config, for
-// `overflowWarnings`) and reads nothing else — in particular it never reads CV
+// PURE FUNCTION OF THE PLAN. It takes `LayoutPlan` and reads nothing else — in particular it never reads CV
 // body text. That is design doc G-c stated as an import list: content is data,
 // never commands, so a bullet that says "make this one page" cannot reach any
 // number here. `layoutDiagnostics.test.js` and the MCP injection test pin it.
@@ -259,12 +258,10 @@ function page1WithoutExperience(pages) {
  *   single-column/ATS variant, which react-pdf auto-flows and CVX never packs —
  *   there is genuinely no plan, so the answer is `null` rather than an empty
  *   shape a caller could mistake for "a one-page CV".
- * @param {import('./types.js').CVConfig} [config]
- *   read ONLY to attribute an overflow to the user's own page-1 levers, exactly
- *   as `cvx build` does. No content is read here, ever.
+
  * @returns {import('./types.js').LayoutDiagnostics | null}
  */
-export function layoutDiagnostics(plan, config = {}) {
+export function layoutDiagnostics(plan) {
   if (!plan) return null
 
   const pages = plan.pages.map((p) => ({
@@ -304,7 +301,7 @@ export function layoutDiagnostics(plan, config = {}) {
   // overflow test here would be a second threshold to keep in agreement.
   const warnings = [
     ...page1EndsEarly(pages),
-    ...overflowWarnings(plan, config).map((w) => ({
+    ...overflowWarnings(plan).map((w) => ({
       code: /** @type {const} */ ('overflow'),
       page: w.page,
       overflowPt: pt(w.overflowPt),
@@ -323,14 +320,6 @@ export function layoutDiagnostics(plan, config = {}) {
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,
-    // Which packing levers the user's config.yaml set, so a reader can tell a
-    // layout the content produced from one the config forced (and so an
-    // `overflow` warning with `forcedByConfig: true` has something to point at).
-    // Only the two that change packing; `null` means "not set".
-    leversUsed: {
-      page1ExperienceCount: config.page1ExperienceCount ?? null,
-      page1SplitBullets: config.page1SplitBullets ?? null
-    },
     pages,
     totals: {
       // Filtered by code, not `warnings.length`: those were the same number only

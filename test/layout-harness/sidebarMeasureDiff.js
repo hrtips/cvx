@@ -203,7 +203,7 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
 
   const measure = harnessMeasurer()
   const sm = deriveSidebarMetrics(tealTheme)
-  const plan = planTwoColumn({ content, layout, config: content.config, theme: tealTheme, measure })
+  const plan = planTwoColumn({ content, layout, theme: tealTheme, measure })
 
   const pages = sidebarRowsByPage(pdfPath, sm.colW)
   const rows = []

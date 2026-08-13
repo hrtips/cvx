@@ -149,6 +149,21 @@ function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
         break
       case 'additionalProperties': {
         const key = err.params.additionalProperty
+        // Not a typo: these two were real config keys, REMOVED by maintainer
+        // ruling (design-layout-fidelity.md, Review outcome #1) after being
+        // measured as an anti-lever — the page count never moved and every
+        // effective setting pushed content onto an unnumbered extra sheet.
+        // A "did you mean" here would send the user hunting for a near-miss
+        // spelling of a key that no longer exists.
+        if (key === 'page1ExperienceCount' || key === 'page1SplitBullets') {
+          finding = {
+            path: err.instancePath || '(root)',
+            message: `"${key}" was removed — automatic packing replaced it (it never reduced the page count, and forcing it pushed content onto an unnumbered extra sheet)`,
+            suggestion: 'delete the key; pagination is automatic and never overflows',
+            unknownKey: true
+          }
+          break
+        }
         const guess = didYouMean(key, Object.keys(err.parentSchema?.properties ?? {}))
         finding = {
           path: err.instancePath || '(root)',
@@ -377,17 +392,13 @@ export function validateContent(
     try {
       const plan = planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
-        config,
         theme,
         measure
       })
-      for (const w of overflowWarnings(plan, config)) {
-        add('warning', w.forcedByConfig ? 'config.yaml' : 'summary.yaml', 'page-overflow', {
-          ...(w.forcedByConfig ? { path: '/page1ExperienceCount' } : {}),
+      for (const w of overflowWarnings(plan)) {
+        add('warning', 'summary.yaml', 'page-overflow', {
           message: w.message,
-          suggestion: w.forcedByConfig
-            ? 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
-            : `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
+          suggestion: `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
         })
       }
     } catch {

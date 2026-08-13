@@ -11,7 +11,9 @@
     "bulletItem": {
       "description": "A bullet line. Either a plain string, or an object when part of the line should be a hyperlink: { text, link: { href, label }, suffix }. Rendered as: text + link.label (clickable) + suffix.",
       "oneOf": [
-        { "$ref": "#/$defs/nonEmptyString" },
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
         {
           "type": "object",
           "properties": {
@@ -31,7 +33,10 @@
                   "description": "Visible, clickable link text."
                 }
               },
-              "required": ["href", "label"],
+              "required": [
+                "href",
+                "label"
+              ],
               "additionalProperties": false
             },
             "suffix": {
@@ -39,7 +44,9 @@
               "description": "Text after the link."
             }
           },
-          "required": ["text"],
+          "required": [
+            "text"
+          ],
           "additionalProperties": false
         }
       ]
@@ -57,7 +64,9 @@
           "description": "Destination URL. Required."
         }
       },
-      "required": ["href"],
+      "required": [
+        "href"
+      ],
       "additionalProperties": false
     },
     "personal": {
@@ -112,17 +121,23 @@
         "links": {
           "type": "array",
           "description": "Extra labelled links beyond the built-in linkedin/facebook rows — portfolio, blog, GitHub, personal site, etc. Each item is { label, href }.",
-          "items": { "$ref": "#/$defs/linkEntry" }
+          "items": {
+            "$ref": "#/$defs/linkEntry"
+          }
         }
       },
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false
     },
     "summary": {
       "title": "summary.yaml",
       "description": "Professional summary as a list of bullet lines. Items may be plain strings or the object form with an inline hyperlink.",
       "type": "array",
-      "items": { "$ref": "#/$defs/bulletItem" }
+      "items": {
+        "$ref": "#/$defs/bulletItem"
+      }
     },
     "progressionStep": {
       "type": "object",
@@ -136,7 +151,9 @@
           "description": "Free-text date range for this step, e.g. \"2019 – 2021\"."
         }
       },
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "additionalProperties": false
     },
     "experienceEntry": {
@@ -165,22 +182,30 @@
         "progression": {
           "type": "array",
           "description": "Promotions / role changes within the same company, most recent first.",
-          "items": { "$ref": "#/$defs/progressionStep" }
+          "items": {
+            "$ref": "#/$defs/progressionStep"
+          }
         },
         "bullets": {
           "type": "array",
           "description": "Achievement bullet points. Items may be plain strings or the object form with an inline hyperlink.",
-          "items": { "$ref": "#/$defs/bulletItem" }
+          "items": {
+            "$ref": "#/$defs/bulletItem"
+          }
         }
       },
-      "required": ["role"],
+      "required": [
+        "role"
+      ],
       "additionalProperties": false
     },
     "experience": {
       "title": "experience.yaml",
       "description": "Work history as a list of entries, most recent first.",
       "type": "array",
-      "items": { "$ref": "#/$defs/experienceEntry" }
+      "items": {
+        "$ref": "#/$defs/experienceEntry"
+      }
     },
     "educationEntry": {
       "type": "object",
@@ -198,14 +223,19 @@
           "description": "Free-text date range or year. Omit to hide the date line."
         }
       },
-      "required": ["degree", "institution"],
+      "required": [
+        "degree",
+        "institution"
+      ],
       "additionalProperties": false
     },
     "education": {
       "title": "education.yaml",
       "description": "Education as a list of entries, most recent first.",
       "type": "array",
-      "items": { "$ref": "#/$defs/educationEntry" }
+      "items": {
+        "$ref": "#/$defs/educationEntry"
+      }
     },
     "certificationEntry": {
       "type": "object",
@@ -223,14 +253,18 @@
           "description": "Free-text year or date earned. Omit to hide the date line."
         }
       },
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false
     },
     "certifications": {
       "title": "certifications.yaml",
       "description": "Professional certifications as a list of entries, most recent first. Kept distinct from achievements.yaml (awards and recognitions).",
       "type": "array",
-      "items": { "$ref": "#/$defs/certificationEntry" }
+      "items": {
+        "$ref": "#/$defs/certificationEntry"
+      }
     },
     "publicationEntry": {
       "type": "object",
@@ -248,14 +282,18 @@
           "description": "Free-text year or date. Omit to hide the date line."
         }
       },
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "additionalProperties": false
     },
     "publications": {
       "title": "publications.yaml",
       "description": "Publications and written work as a list of entries, most recent first.",
       "type": "array",
-      "items": { "$ref": "#/$defs/publicationEntry" }
+      "items": {
+        "$ref": "#/$defs/publicationEntry"
+      }
     },
     "languageEntry": {
       "type": "object",
@@ -269,20 +307,26 @@
           "description": "Free-text proficiency, e.g. \"Native\", \"Professional\", \"Conversational\". Omit to show just the language."
         }
       },
-      "required": ["language"],
+      "required": [
+        "language"
+      ],
       "additionalProperties": false
     },
     "languages": {
       "title": "languages.yaml",
       "description": "Languages spoken as a list of entries.",
       "type": "array",
-      "items": { "$ref": "#/$defs/languageEntry" }
+      "items": {
+        "$ref": "#/$defs/languageEntry"
+      }
     },
     "competencies": {
       "title": "competencies.yaml",
       "description": "Core skills as a flat list of short strings. Rendered as pills in the designed layout; also feeds ATS keyword derivation.",
       "type": "array",
-      "items": { "$ref": "#/$defs/nonEmptyString" }
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
     },
     "achievementEntry": {
       "type": "object",
@@ -296,14 +340,19 @@
           "description": "Attribution / detail line rendered under the headline."
         }
       },
-      "required": ["year", "text"],
+      "required": [
+        "year",
+        "text"
+      ],
       "additionalProperties": false
     },
     "achievements": {
       "title": "achievements.yaml",
       "description": "Awards and recognitions as a list of entries.",
       "type": "array",
-      "items": { "$ref": "#/$defs/achievementEntry" }
+      "items": {
+        "$ref": "#/$defs/achievementEntry"
+      }
     },
     "refereeEntry": {
       "type": "object",
@@ -329,22 +378,33 @@
           "description": "Contact phone."
         }
       },
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false
     },
     "referees": {
       "title": "referees.yaml",
       "description": "References as a list of entries. An empty list ([]) prints \"References available upon request.\" in the two-column layout and omits the section in the ATS variant.",
       "type": "array",
-      "items": { "$ref": "#/$defs/refereeEntry" }
+      "items": {
+        "$ref": "#/$defs/refereeEntry"
+      }
     },
     "keywordGroup": {
       "type": "object",
       "description": "Named group of keywords. Group names are for your organisation only — they are flattened and discarded in the PDF metadata.",
       "additionalProperties": {
         "oneOf": [
-          { "type": "string" },
-          { "type": "array", "items": { "type": "string" } }
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -352,14 +412,22 @@
       "title": "keywords.yaml",
       "description": "Optional ATS keywords embedded in PDF metadata (never printed). Accepts a flat list of strings, a map of named groups, a mixed list of strings and group maps, or a single string. Merged with auto-derived keywords (competencies, titles) unless disabled in config.",
       "oneOf": [
-        { "type": "string" },
-        { "$ref": "#/$defs/keywordGroup" },
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/keywordGroup"
+        },
         {
           "type": "array",
           "items": {
             "oneOf": [
-              { "type": "string" },
-              { "$ref": "#/$defs/keywordGroup" }
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/keywordGroup"
+              }
             ]
           }
         }
@@ -377,7 +445,11 @@
         },
         "theme": {
           "type": "string",
-          "enum": ["teal", "coral", "mono"],
+          "enum": [
+            "teal",
+            "coral",
+            "mono"
+          ],
           "default": "teal",
           "description": "Colour theme. One of the built-in themes; an unknown value fails the build."
         },
@@ -385,16 +457,6 @@
           "type": "string",
           "default": "two-column",
           "description": "Layout name, matching a file in cv-content/layouts/ (built-ins: \"two-column\", \"single-column\"). An unknown value warns and falls back to the built-in default."
-        },
-        "page1ExperienceCount": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Exact number of experience entries on page 1 — entry N+1 starts page 2. If the forced count does not fit, validate/build warn and the overflow spills onto extra physical pages (nothing is clipped; the CV just gains unplanned pages). Omit for automatic page packing (never overflows)."
-        },
-        "page1SplitBullets": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Split the last page-1 experience entry after this many bullets, continuing overleaf. Omit to keep entries whole."
         },
         "atsKeywords": {
           "type": "object",
@@ -424,7 +486,9 @@
     "layoutSlot": {
       "description": "One slot in a page region: a section key string (identity-photo, identity-compact, contact, summary, experience, education, competencies, achievements, referees, header-ats, experience:continued, spacer:N), or an object form — { spacer: N } or { <section>: { continued: true } }.",
       "oneOf": [
-        { "$ref": "#/$defs/nonEmptyString" },
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
         {
           "type": "object",
           "minProperties": 1,
@@ -454,12 +518,16 @@
       "properties": {
         "sidebar": {
           "type": "array",
-          "items": { "$ref": "#/$defs/layoutSlot" },
+          "items": {
+            "$ref": "#/$defs/layoutSlot"
+          },
           "description": "Slots in the sidebar column (two-column template only). Part of the single ordered sidebar flow — see this object's description: you choose the order, the engine measures the page placement."
         },
         "main": {
           "type": "array",
-          "items": { "$ref": "#/$defs/layoutSlot" },
+          "items": {
+            "$ref": "#/$defs/layoutSlot"
+          },
           "description": "Slots in the main column, for this page kind specifically."
         }
       },
@@ -472,16 +540,25 @@
       "properties": {
         "template": {
           "type": "string",
-          "enum": ["two-column", "single-column"],
+          "enum": [
+            "two-column",
+            "single-column"
+          ],
           "default": "two-column",
           "description": "Page template the layout builds on."
         },
         "pages": {
           "type": "object",
           "properties": {
-            "first": { "$ref": "#/$defs/layoutPage" },
-            "continuation": { "$ref": "#/$defs/layoutPage" },
-            "last": { "$ref": "#/$defs/layoutPage" }
+            "first": {
+              "$ref": "#/$defs/layoutPage"
+            },
+            "continuation": {
+              "$ref": "#/$defs/layoutPage"
+            },
+            "last": {
+              "$ref": "#/$defs/layoutPage"
+            }
           },
           "additionalProperties": false
         },

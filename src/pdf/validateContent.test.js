@@ -152,22 +152,14 @@ describe('validateContent — schema findings', () => {
 })
 
 describe('validateContent — real-metric checks', () => {
-  it('warns when a forced page1ExperienceCount cannot fit', () => {
-    const experience = dump([
-      {
-        role: 'R',
-        company: 'C',
-        period: 'p',
-        bullets: Array.from(
-          { length: 20 },
-          () =>
-            'A long bullet line that spans a good fraction of the available column width for measurement purposes.'
-        )
-      }
-    ])
+  it('warns when fixed page-1 content alone overflows the column (the levers that could force one are removed)', () => {
+    // An over-tall summary is the one shape that can still overflow: it is
+    // fixed page-1 content the packer cannot paginate. (This test used to
+    // force overflow via page1ExperienceCount; that lever was removed —
+    // maintainer ruling, design-layout-fidelity.md Review outcome #1.)
     const summary = dump(
       Array.from(
-        { length: 5 },
+        { length: 40 },
         () =>
           'A long summary sentence used to consume vertical space on page one so the overflow estimate triggers.'
       )
@@ -176,8 +168,7 @@ describe('validateContent — real-metric checks', () => {
       contentDir: makeDir({
         'personal.yaml': 'name: X\n',
         'summary.yaml': summary,
-        'experience.yaml': experience,
-        'config.yaml': dump({ page1ExperienceCount: 1 })
+        'experience.yaml': dump([{ role: 'R', company: 'C', period: 'p', bullets: ['b'] }])
       }),
       fontsDir: FONTS
     })
@@ -340,8 +331,11 @@ describe('validateContent — schema keyword coverage (via config.yaml)', () => 
   })
 
   it('flags a wrong scalar type in config', () => {
+    // schemaVersion is the surviving typed scalar (page1ExperienceCount used
+    // to be the example here; it was removed and now surfaces as a removed-key
+    // warning instead of a type error).
     const res = validateContent({
-      contentDir: makeDir({ ...BASE, 'config.yaml': 'page1ExperienceCount: "not a number"\n' }),
+      contentDir: makeDir({ ...BASE, 'config.yaml': 'schemaVersion: "not a number"\n' }),
       fontsDir: FONTS
     })
     expect(res.ok).toBe(false)

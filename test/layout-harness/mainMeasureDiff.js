@@ -383,7 +383,7 @@ export function runMainDiff(fixtureDir, content, { layout = undefined, theme = t
   const measure = harnessMeasurer()
   const m = deriveMetrics(theme)
   const sm = deriveSidebarMetrics(theme)
-  const plan = planTwoColumn({ content, layout, config: content.config, theme, measure })
+  const plan = planTwoColumn({ content, layout, theme, measure })
   const dividerH = m.dividerHeight + m.dividerMargin * 2
 
   // The main column is everything right of the sidebar. One band, no per-page

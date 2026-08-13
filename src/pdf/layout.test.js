@@ -17,27 +17,20 @@ describe('packExperiences', () => {
     }))
 
   it('keeps a short CV on a single page (continuationChunks empty)', () => {
-    const r = packExperiences(exp(1), summary, {}, undefined)
+    const r = packExperiences(exp(1), summary, undefined)
     expect(r.continuationChunks.length).toBe(0)
     expect(r.totalPages).toBe(1)
   })
 
   it('always places at least one entry on page 1', () => {
     expect(
-      packExperiences(exp(3), summary, {}, undefined).page1Experiences.length
+      packExperiences(exp(3), summary, undefined).page1Experiences.length
     ).toBeGreaterThanOrEqual(1)
   })
 
-  it('honours an explicit config split (page1ExperienceCount)', () => {
-    const r = packExperiences(
-      exp(4),
-      summary,
-      { page1ExperienceCount: 2, page1SplitBullets: null },
-      undefined
-    )
-    expect(r.page1Experiences.length).toBe(2)
-    expect(r.continuationChunks.flat().length).toBe(2)
-  })
+  // (An 'honours an explicit config split' test lived here until the
+  // page1ExperienceCount / page1SplitBullets levers were removed — maintainer
+  // ruling, design-layout-fidelity.md Review outcome #1.)
 })
 
 // C3b — the automatic branch may now cut an entry at a BULLET boundary when the
@@ -84,7 +77,7 @@ describe('packExperiences — automatic bullet-level splitting', () => {
       (_, i) =>
         `Summary line ${i}: several clauses of text so that the summary itself consumes most of page one's main column before any experience entry is placed.`
     )
-    const r = packExperiences([bigEntry(14)], summaryBullets, {}, undefined)
+    const r = packExperiences([bigEntry(14)], summaryBullets, undefined)
     expect(r.totalPages).toBeGreaterThan(1)
 
     const rendered = renderedBullets(r)
@@ -104,7 +97,6 @@ describe('packExperiences — automatic bullet-level splitting', () => {
     const r = packExperiences(
       [bigEntry(14)],
       Array.from({ length: 8 }, (_, i) => `Summary ${i}: ${'padding text '.repeat(12)}`),
-      {},
       undefined
     )
     for (const chunk of [r.page1Experiences, ...r.continuationChunks]) {
@@ -123,7 +115,7 @@ describe('packExperiences — automatic bullet-level splitting', () => {
       period: 'p',
       bullets: ['b']
     }))
-    const r = packExperiences(small, ['A short summary.'], {}, undefined)
+    const r = packExperiences(small, ['A short summary.'], undefined)
     for (const e of r.page1Experiences) {
       expect(e.endBullet).toBeUndefined()
       expect(e.isContinuation).toBeFalsy()
@@ -137,7 +129,7 @@ describe('packExperiences — automatic bullet-level splitting', () => {
       period: 'p',
       bullets: [`${'a very long bullet clause '.repeat(400)}`]
     }
-    const r = packExperiences([one], ['s'], {}, undefined)
+    const r = packExperiences([one], ['s'], undefined)
     expect(r.page1Experiences).toHaveLength(1)
     expect(r.page1Experiences[0].endBullet ?? 1).toBe(1)
   })

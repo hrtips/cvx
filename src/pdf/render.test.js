@@ -508,7 +508,7 @@ describe('renderCV — warnings and errors', () => {
   )
 
   it(
-    'warns when a forced page1ExperienceCount cannot fit',
+    'a legacy page1ExperienceCount is ignored at render time — no forced overflow, no lever warning',
     async () => {
       const bigBullets = Array.from(
         { length: 6 },
@@ -538,12 +538,11 @@ describe('renderCV — warnings and errors', () => {
       /** @type {string[]} */
       const warnings = []
       await renderCV({ contentDir: dir, fontsDir: FONTS, env: {}, warn: (m) => warnings.push(m) })
-      expect(
-        warnings.some((m) => m.includes('page1ExperienceCount') && m.includes('over budget'))
-      ).toBe(true)
-      // exactly one warning for the page, never a lever warning plus a
-      // general one for the same overflow
-      expect(warnings.filter((m) => m.includes('over budget'))).toHaveLength(1)
+      // The levers were removed (maintainer ruling): this exact shape used to
+      // force 3 over-tall entries onto page 1 and warn. Now packing is
+      // automatic — nothing overflows, and no warning mentions the dead key.
+      expect(warnings.filter((m) => m.includes('over budget'))).toHaveLength(0)
+      expect(warnings.some((m) => m.includes('page1ExperienceCount'))).toBe(false)
     },
     RENDER_TIMEOUT
   )

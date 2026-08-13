@@ -180,7 +180,7 @@ export default function CVDocument({
   measure,
   plan
 }) {
-  const { activeLayout, activeTheme, isSingleColumn, packing } = resolveDocument({
+  const { activeLayout, activeTheme, isSingleColumn } = resolveDocument({
     config,
     theme,
     layout
@@ -227,7 +227,6 @@ export default function CVDocument({
               planTwoColumn({
                 content: data,
                 layout: activeLayout,
-                config: packing,
                 theme: activeTheme,
                 measure
               })

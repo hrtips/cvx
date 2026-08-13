@@ -396,16 +396,18 @@ describe('the diagnostics name the defects a build warns about', () => {
     cleanupFixtureDirs()
   }, 60000)
 
-  it('edge-forced-split-config: an overflow the user`s own lever caused says which lever', async () => {
+  it('edge-forced-split-config: the REMOVED legacy keys are ignored — no forced overflow, no attribution', async () => {
+    // This fixture's config.yaml still declares page1ExperienceCount: 2 +
+    // page1SplitBullets: 2, exactly like a legacy workspace. The keys were
+    // removed (maintainer ruling): the engine must paginate automatically,
+    // nothing may overflow because of them, and no warning may attribute
+    // anything to config. `forcedByConfig` survives on the warning shape,
+    // permanently false, so old consumers keep matching.
     const dir = fixtureWorkspace('edge-forced-split-config')
     const planned = await planLayout({ dir })
-    const forced = planned.diagnostics?.warnings.filter((w) => w.forcedByConfig) ?? []
-    expect(forced.length).toBeGreaterThan(0)
-    expect(forced[0].message).toMatch(/page1ExperienceCount/)
-    // BOTH build paths must attribute it the same way — each passes the config
-    // to the diagnostics itself, so each can lose the attribution on its own.
-    // (Seeded: dropping `config` in either call site leaves this the only test
-    // that notices, because no other fixture sets a page-1 lever.)
+    expect(planned.diagnostics?.warnings.filter((w) => w.forcedByConfig)).toEqual([])
+    expect(planned.diagnostics?.warnings.map((w) => w.code)).not.toContain('overflow')
+    // Both build paths agree with the plan — and with each other.
     expect((await buildPdf({ dir })).diagnostics).toEqual(planned.diagnostics)
     expect(buildViaCli(dir).diagnostics).toEqual(planned.diagnostics)
     cleanupFixtureDirs()

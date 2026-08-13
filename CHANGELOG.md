@@ -10,6 +10,19 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**Removed: `page1ExperienceCount` and `page1SplitBullets`.** Maintainer
+ruling. Measured, they were an anti-lever — the page count never moved, and
+every effective setting pushed content onto an extra physical sheet the page
+numbering could not count (the plan said "2 pages", the printer said 3). A
+config.yaml that still sets them gets a validation message naming the removal
+("automatic packing replaced it — delete the key"), builds keep working, and
+the keys are ignored. Automatic packing never overflows and splits entries at
+bullet boundaries by itself; there are no pagination settings left, which is
+the point. `forcedByConfig` stays on the overflow warning shape, permanently
+false, so consumers that match on it keep working; `leversUsed` is gone from
+the diagnostics (part of the `version: 2` shape).
+
+
 **The diagnostics now say why a page ended, and their fill is honest.**
 `plan_layout` / `build_pdf` responses carry `version: 2`: `fill` is now
 **column occupancy** — `(fixed + used) / capacity`, the same measurement on

@@ -162,7 +162,6 @@ async function resolveAndPlan({ contentDir, config, content, profilePhoto, measu
     : planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ ({ ...content, profilePhoto }),
         layout: resolved.activeLayout,
-        config: resolved.packing,
         theme: resolved.activeTheme,
         measure
       })
@@ -170,11 +169,11 @@ async function resolveAndPlan({ contentDir, config, content, profilePhoto, measu
   // Overflow warnings come off the PLAN this build is about to render, not off
   // a separate estimate: one warning per page that genuinely reaches past its
   // budget, whatever caused it (C3b). The old call site warned only for the
-  // config-forced lever, so the far larger silent cases — an over-tall summary,
-  // one page-tall bullet, one page-tall sidebar item — produced an extra,
-  // unnumbered physical sheet with no diagnostic at all. `overflowWarnings`
-  // emits at most one line per page, so the lever case is not warned twice.
-  for (const { message } of overflowWarnings(plan, config)) warn(message)
+  // config-forced lever (since removed), so the far larger silent cases — an
+  // over-tall summary, one page-tall bullet, one page-tall sidebar item —
+  // produced an extra, unnumbered physical sheet with no diagnostic at all.
+  // `overflowWarnings` emits at most one line per page.
+  for (const { message } of overflowWarnings(plan)) warn(message)
 
   return { theme, layout, themeName, layoutName, resolved, plan }
 }
@@ -310,10 +309,7 @@ export async function renderCV({
     filename: deriveFilename(content.personal?.name, suffix),
     themeName,
     layoutName,
-    // The config this build used, so a caller can turn `plan` into diagnostics
-    // with the same overflow attribution `cvx build` warns with (a page-1
-    // overflow caused by the user's own page1ExperienceCount reads differently
-    // from one caused by an over-tall bullet — layout.js `overflowWarnings`).
+    // The config this build used (theme/layout resolution context for callers).
     config,
     plan
   }

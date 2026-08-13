@@ -303,7 +303,7 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
       // blind to the PDF as one driving the MCP server — so it gets the same
       // numbers `build_pdf` returns, from the same function. `null` for --ats
       // (single column, auto-flowed, never packed).
-      diagnostics: layoutDiagnostics(plan, config)
+      diagnostics: layoutDiagnostics(plan)
     })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`

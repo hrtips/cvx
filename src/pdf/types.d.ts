@@ -134,9 +134,6 @@ export interface CVConfig {
   schemaVersion?: number
   theme?: string
   layout?: string
-  /** null is the in-memory "unset" the renderer normalises to. */
-  page1ExperienceCount?: number | null
-  page1SplitBullets?: number | null
   atsKeywords?: AtsKeywords
 }
 
@@ -575,7 +572,12 @@ export interface LayoutDiagnosticWarning {
   /** 1-based page number. */
   page: number
   overflowPt: number
-  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. Always false for the page1-* codes. */
+  /**
+   * DEPRECATED, permanently `false`: the page1ExperienceCount /
+   * page1SplitBullets levers that could force an overflow were removed
+   * (maintainer ruling). The field stays so consumers that match on it keep
+   * working.
+   */
   forcedByConfig: boolean
   message: string
   /** page1-ends-early only: what would have to be freed on page 1 for the next role's smallest piece to start there. Falls monotonically as the user shortens the summary. */
@@ -611,24 +613,16 @@ export interface LayoutDiagnostics {
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything
    * overflows: react-pdf flows surplus content onto extra, unnumbered physical
-   * sheets. Measured on the shipped scaffold with `page1ExperienceCount: 3`:
-   * `totalPages: 3`, PDF 4 sheets. Check `totals.overflowPt` /
-   * `totals.overflowPages` before quoting this to a user as "your CV is N pages".
+   * sheets (reachable only through content no pagination can help — e.g. a
+   * summary taller than the whole column; the config lever that used to force
+   * it was removed). Check `totals.overflowPt` / `totals.overflowPages`
+   * before quoting this to a user as "your CV is N pages".
    */
   totalPages: number
   /** Pages the main flow alone needed (`totalPages` is the max of the two). */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
   sidebarPageCount: number
-  /**
-   * The packing levers config.yaml set for this plan (`null` = not set), so a
-   * reader can tell a pagination the content produced from one the config
-   * forced. There are no OTHER levers: everything else follows the content.
-   */
-  leversUsed: {
-    page1ExperienceCount: number | null
-    page1SplitBullets: number | null
-  }
   pages: LayoutPageDiagnostics[]
   totals: {
     /** Pages whose content reaches past budget (each has an `overflow` warning). */

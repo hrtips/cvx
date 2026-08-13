@@ -294,14 +294,12 @@ describe('layoutDiagnostics — totals and warnings', () => {
     expect(loud?.warnings[0].message).toMatch(/extra physical sheet/)
   })
 
-  it('attributes a page-1 overflow to the user`s own lever when config set one', () => {
-    const d = layoutDiagnostics(planOf([{ overflowPt: 87.46 }]), {
-      page1ExperienceCount: 3,
-      page1SplitBullets: 2
-    })
-    expect(d?.warnings[0].forcedByConfig).toBe(true)
-    expect(d?.warnings[0].message).toMatch(/page1ExperienceCount: 3/)
-    expect(d?.warnings[0].message).toMatch(/page1SplitBullets: 2/)
+  it('never attributes an overflow to config — the levers that could force one were removed', () => {
+    // forcedByConfig survives on the shape, permanently false (deprecated in
+    // types.d.ts), so consumers that match on it keep working.
+    const d = layoutDiagnostics(planOf([{ overflowPt: 87.46 }]))
+    expect(d?.warnings[0].forcedByConfig).toBe(false)
+    expect(d?.warnings[0].message).not.toMatch(/page1ExperienceCount|page1SplitBullets/)
   })
 
   it('names the summary when the FIXED page-1 content is what overflowed', () => {
@@ -361,14 +359,14 @@ describe('layoutDiagnostics — totals and warnings', () => {
     expect(d?.totals.overflowPages).toBe(1)
   })
 
-  it('reports which packing levers the config set, so a forced layout is legible', () => {
-    expect(layoutDiagnostics(planOf([{}]))?.leversUsed).toEqual({
-      page1ExperienceCount: null,
-      page1SplitBullets: null
-    })
-    expect(
-      layoutDiagnostics(planOf([{}]), { page1ExperienceCount: 3, page1SplitBullets: 2 })?.leversUsed
-    ).toEqual({ page1ExperienceCount: 3, page1SplitBullets: 2 })
+  it('carries no leversUsed field and takes no config — the page-1 levers were removed', () => {
+    // Maintainer ruling (design-layout-fidelity.md Review outcome #1): the
+    // levers are gone, so diagnostics are a pure function of the plan alone.
+    // version: 2 is the shape flag consumers key on.
+    const d = layoutDiagnostics(planOf([{}]))
+    expect(d?.version).toBe(2)
+    expect(d).not.toHaveProperty('leversUsed')
+    expect(layoutDiagnostics.length).toBe(1)
   })
 })
 

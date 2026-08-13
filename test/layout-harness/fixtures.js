@@ -357,7 +357,7 @@ function namedEdgeCaseFixtures() {
     {
       id: 'edge-forced-split-config',
       description:
-        "config-driven page1ExperienceCount + page1SplitBullets (mirrors the shipped scaffold's own config.yaml) — a distinct packExperiences() branch with no budget check of its own.",
+        'LEGACY config keys page1ExperienceCount + page1SplitBullets present in config.yaml — REMOVED (maintainer ruling, design-layout-fidelity.md Review outcome #1), so the engine must IGNORE them and paginate automatically: this fixture proves a legacy workspace builds, plans and renders identically to one without the keys. (It exercised the config-forced packExperiences() branch until that branch was deleted.)',
       sections: {
         certifications: 'one',
         publications: 'one',

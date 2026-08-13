@@ -125,7 +125,7 @@ Every scaffolded file carries a `$schema` header, pinned to the CVX release that
 - `achievements.yaml`: list of `{year, text}` — `year` is the bold headline (often the award name), `text` the attribution.
 - `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` to print "References available upon request." Modern guidance treats even that line as filler — offer to drop the section (a layout without the `referees` slot) and reclaim the space.
 - `keywords.yaml` (optional): extra truthful ATS keywords not already covered by competencies/titles; embedded in PDF metadata, never printed.
-- `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename); pagination keys only if page 1 overflows.
+- `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename). Pagination is automatic — the old page-1 keys were removed; if a legacy config still has them, validation says so and they are ignored.
 
 ## Variants
 

@@ -64,7 +64,7 @@ describe('validateContent', () => {
   it('collects all errors at once with paths and did-you-mean suggestions', () => {
     const contentDir = scaffold((dir) => {
       writeFileSync(path.join(dir, 'personal.yaml'), 'title: Engineer\nlinkdin: x\n')
-      writeFileSync(path.join(dir, 'config.yaml'), 'theme: neon\npage1ExperienceCount: 0\n')
+      writeFileSync(path.join(dir, 'config.yaml'), 'theme: neon\npage1ExperienceCount: 2\n')
       rmSync(path.join(dir, 'experience.yaml'))
       writeFileSync(path.join(dir, 'compitencies.yaml'), '- Leadership\n')
     })
@@ -76,13 +76,19 @@ describe('validateContent', () => {
     )
     expect(missingName?.code).toBe('schema')
 
-    const typo = result.warnings.find((f) => f.code === 'unknown-key')
+    const typo = result.warnings.find((f) => f.code === 'unknown-key' && f.file === 'personal.yaml')
     expect(typo?.suggestion).toMatch(/linkedin/)
 
     const theme = result.errors.find((f) => f.path === '/theme')
     expect(theme?.message).toMatch(/teal, coral, mono/)
 
-    expect(result.errors.some((f) => f.path === '/page1ExperienceCount')).toBe(true)
+    // The REMOVED lever key: not a typo, so no did-you-mean — a targeted
+    // message saying it was removed and why (maintainer ruling).
+    const removed = result.warnings.find(
+      (f) => f.code === 'unknown-key' && f.file === 'config.yaml'
+    )
+    expect(removed?.message).toMatch(/was removed — automatic packing replaced it/)
+    expect(removed?.suggestion).toMatch(/delete the key/)
     expect(
       result.errors.some((f) => f.file === 'experience.yaml' && f.code === 'missing-file')
     ).toBe(true)
@@ -214,18 +220,16 @@ function forceConfig(dir, extraYamlLine) {
 }
 
 describe('page-1 overflow estimate', () => {
-  it('warns when a forced page1ExperienceCount cannot fit (accurate measurement)', () => {
-    // count:6 against a 4-entry scaffold forces every entry whole onto page
-    // 1 (packExperiences: no splitEntry exists past the array's end) — a
-    // large, reliable overflow regardless of exact content tuning.
+  it('a legacy forced page1ExperienceCount is IGNORED — no overflow, and validate names the removal', () => {
+    // Pre-removal this exact shape (count: 6 against a 4-entry scaffold)
+    // forced every entry whole onto page 1 and warned page-overflow. The
+    // levers were removed (maintainer ruling): packing is automatic, nothing
+    // overflows, and the key itself surfaces as a removed-key finding.
     const contentDir = scaffold((dir) => forceConfig(dir, 'page1ExperienceCount: 6'))
     const result = validateContent({ contentDir, fontsDir: FONTS_DIR })
-    const finding = result.warnings.find((f) => f.code === 'page-overflow')
-    expect(finding).toBeDefined()
-    expect(finding.path).toBe('/page1ExperienceCount')
-    expect(finding.message).toMatch(/page 1 is ~\d+pt over budget/)
-    expect(finding.message).toMatch(/page1ExperienceCount: 6/)
-    expect(finding.suggestion).toMatch(/page1SplitBullets/)
+    expect(result.warnings.filter((f) => f.code === 'page-overflow')).toEqual([])
+    const removed = result.warnings.find((f) => f.code === 'unknown-key')
+    expect(removed?.message).toMatch(/was removed — automatic packing replaced it/)
   })
 
   it('stays silent when nothing forces a split — automatic pagination never overflows its own budget by construction', () => {
@@ -234,7 +238,17 @@ describe('page-1 overflow estimate', () => {
   })
 
   it('still runs the check without fontsDir, against the looser char-width fallback', () => {
-    const contentDir = scaffold((dir) => forceConfig(dir, 'page1ExperienceCount: 6'))
+    // The overflow estimate must still run with no fontsDir. The one shape
+    // that can genuinely overflow now is fixed content taller than the column
+    // — an over-tall summary (the levers that used to force one are removed).
+    const contentDir = scaffold((dir) => {
+      const line =
+        '- Led the delivery of a multi-year, multi-team programme across several regions and functions with measurable outcomes.'
+      writeFileSync(
+        path.join(dir, 'summary.yaml'),
+        `${Array.from({ length: 40 }, () => line).join('\n')}\n`
+      )
+    })
     const result = validateContent({ contentDir })
     expect(result.warnings.some((f) => f.code === 'page-overflow')).toBe(true)
   })

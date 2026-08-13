@@ -31,7 +31,6 @@ const LAYOUT_DEFAULT_THEME = {
  *   activeLayout: import('./types.js').ResolvedLayout,
  *   activeTheme: import('./types.js').Theme,
  *   isSingleColumn: boolean,
- *   packing: import('./types.js').CVConfig,
  * }}
  */
 export function resolveDocument({ config, theme, layout } = {}) {
@@ -46,7 +45,7 @@ export function resolveDocument({ config, theme, layout } = {}) {
     layoutName,
     activeLayout,
     activeTheme,
-    isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column',
+    isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column'
     // Normalised to the shape the packer reads: explicit nulls, never undefined,
     // so "unset" is one value rather than two.
     //
@@ -90,9 +89,5 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // white space and a section fragmented across five pages. The diagnostics
     // C6a publishes deliberately carry no score for an agent to optimise there
     // (see layoutDiagnostics.js), and a `balance` lever would hand it one anyway.
-    packing: {
-      page1ExperienceCount: config?.page1ExperienceCount ?? null,
-      page1SplitBullets: config?.page1SplitBullets ?? null
-    }
   }
 }

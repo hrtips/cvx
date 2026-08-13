@@ -57,7 +57,7 @@
 //   `CVDocument.mainSlotKeys` + `registry.renderSlot('summary')` (which today
 //   renders every bullet and would need a per-page slice, like the sidebar),
 //   the "Experience" title (fixed page-1 content that must move with the
-//   summary if the summary spills), `page1ExperienceCount`'s meaning, and four
+//   summary if the summary spills), and four
 //   harness modules (blocks.js, structuralFacts.js, contentOracle.js, the
 //   mirror test). It also changes the layout YAML's meaning a second time:
 //   after C3a made `pages.*.sidebar` mean ORDER rather than PAGE, this would do
@@ -947,53 +947,48 @@ const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
  * After C3b's rule 1b, a page that merely *cannot start* an over-tall block
  * ends early instead of overflowing, so a non-zero `overflowPt` now means
  * something genuinely irreducible: a single block — one summary, one bullet,
- * one description, one sidebar item — is taller than a whole page, or the
- * user's own `page1ExperienceCount` forces more onto page 1 than fits. Those
- * are the only two shapes this can report, and the message says which.
+ * one description, one sidebar item — is taller than a whole page. (A third,
+ * config-forced shape existed until the page1ExperienceCount lever was
+ * removed.) The message says which shape it is.
  *
- * Threshold is `PAGE1_OVERFLOW_WARN_THRESHOLD`, the same honest backstop the
- * lever estimate uses: the budgets already subtract `spacing.safety`, so a
+ * Threshold is `PAGE1_OVERFLOW_WARN_THRESHOLD`: the budgets already subtract `spacing.safety`, so a
  * sub-point overrun is measurement noise eating the margin, not a page break.
  *
  * @param {import('./types.js').LayoutPlan | undefined} plan
- * @param {import('./types.js').CVConfig} [config]
  * @returns {{ page: number, overflowPt: number, forcedByConfig: boolean, message: string }[]}
  */
-export function overflowWarnings(plan, config = {}) {
+export function overflowWarnings(plan) {
   const out = []
   for (const page of plan?.pages ?? []) {
     if (page.overflowPt <= PAGE1_OVERFLOW_WARN_THRESHOLD) continue
     const over = Math.round(page.overflowPt)
-    const forcedByConfig = page.index === 0 && config.page1ExperienceCount != null
-    const lever =
-      `page1ExperienceCount: ${config.page1ExperienceCount}` +
-      (config.page1SplitBullets != null
-        ? ` (+ page1SplitBullets: ${config.page1SplitBullets})`
-        : '')
-    // Which of the three shapes is it? A negative main budget means the FIXED
+    // Which of the two shapes is it? A negative main budget means the FIXED
     // content the packer subtracts before packing anything (the summary, the
     // spacer, the section title) is already taller than the column — no
     // pagination of the experience list can help, because the experience list
     // is not what overflowed.
+    //
+    // (There used to be a third, config-forced shape here. The
+    // page1ExperienceCount / page1SplitBullets levers were REMOVED — measured
+    // anti-lever, see design-cvx-as-instrument.md §7 and
+    // design-layout-fidelity.md §3.10's Review outcome — so automatic packing,
+    // which never overflows by itself, is the only packing there is.
+    // `forcedByConfig` stays on the shape, always false, so consumers that
+    // match on it keep working; documented deprecated in types.d.ts.)
     const fixedTooTall = (page.mainFill?.budget ?? 0) < 0
     out.push({
       page: page.index + 1,
       overflowPt: page.overflowPt,
-      forcedByConfig,
-      message: forcedByConfig
-        ? `page 1 is ~${over}pt over budget: ${lever} forces more onto it than fits. ` +
-          `The surplus flows onto an extra physical sheet the page numbering does not count. ` +
-          `Reduce page1ExperienceCount, set or lower page1SplitBullets, or remove both for ` +
-          `automatic pagination.`
-        : fixedTooTall
-          ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
-            `is placed: the summary alone is taller than the main column, so it flows onto an ` +
-            `extra physical sheet the page numbering does not count. Shorten the summary — the ` +
-            `packer cannot paginate it (it is fixed page-1 content, not a packed block).`
-          : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
-            `than a whole page and cannot be split any further, so it flows onto an extra ` +
-            `physical sheet the page numbering does not count. Shorten the longest single item ` +
-            `on that page (one bullet, one description, or one sidebar entry).`
+      forcedByConfig: false,
+      message: fixedTooTall
+        ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
+          `is placed: the summary alone is taller than the main column, so it flows onto an ` +
+          `extra physical sheet the page numbering does not count. Shorten the summary — the ` +
+          `packer cannot paginate it (it is fixed page-1 content, not a packed block).`
+        : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
+          `than a whole page and cannot be split any further, so it flows onto an extra ` +
+          `physical sheet the page numbering does not count. Shorten the longest single item ` +
+          `on that page (one bullet, one description, or one sidebar entry).`
     })
   }
   return out
@@ -1093,76 +1088,11 @@ function experienceBlocks(entries, m, measure) {
 export function packExperiences(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
   /** @type {import('./types.js').Summary} */ summary,
-  /** @type {import('./types.js').CVConfig} */ config = {},
   /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
   /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   const m = deriveMetrics(theme)
-  const { page1ExperienceCount, page1SplitBullets } = config
   const BC = mainContBudget(m)
-
-  // ── Config-driven explicit split ─────────────────────────────────────────
-  if (page1ExperienceCount != null) {
-    const count = page1ExperienceCount
-    const splitAt = page1SplitBullets ?? null
-
-    const fullOnPage1 = experience.slice(0, count - 1)
-    const splitEntry = experience[count - 1]
-    const afterPage1 = experience.slice(count)
-
-    let page1Experiences
-    /** @type {import('./types.js').ExperienceEntry[]} */
-    let continuationHead = []
-
-    if (!splitEntry) {
-      page1Experiences = fullOnPage1
-    } else if (splitAt != null && splitAt < (splitEntry.bullets?.length ?? 0)) {
-      page1Experiences = [...fullOnPage1, { ...splitEntry, endBullet: splitAt }]
-      continuationHead = [{ ...splitEntry, isContinuation: true, startBullet: splitAt }]
-    } else {
-      page1Experiences = [...fullOnPage1, splitEntry]
-    }
-
-    const packed = packBlocks(
-      experienceBlocks([...continuationHead, ...afterPage1], m, measure),
-      () => BC
-    )
-    // The forced page-1 set's height goes through packBlocks too, with an
-    // unbounded budget so nothing can break out of the page: same rule-3 gap
-    // accounting as every other page, one implementation. (Hand-rolling a
-    // `reduce` here duplicated the "gapBefore only for non-first" rule, which
-    // is exactly the kind of second copy that drifts.)
-    const forcedUsed =
-      page1Experiences.length === 0
-        ? 0
-        : packBlocks(
-            experienceBlocks(page1Experiences, m, measure),
-            () => Number.POSITIVE_INFINITY
-          )[0].used
-    return {
-      page1Experiences,
-      continuationChunks: packed.map((p) => p.blocks.map((b) => b.entry)),
-      totalPages: 1 + packed.length,
-      pageMetrics: [
-        // Page 1 is dictated by the config, not packed, so its budget is
-        // reported for reference only — it is legitimately exceeded here (and
-        // render.js warns when it is; see overflowWarnings()).
-        {
-          used: forcedUsed,
-          budget: quantize(mainFirstBudget(m, summaryH(summary ?? [], m, measure))),
-          capacity: quantize(mainColumnCapacity(m, m.mainPad)),
-          blockedBy: null
-        },
-        ...packed.map(({ used, budget, blockedBy }) => ({
-          used,
-          budget,
-          capacity: quantize(mainColumnCapacity(m, m.contPad)),
-          blockedBy: blockedBy ? { ...blockedBy, entry: null } : null
-        }))
-      ]
-    }
-  }
-
   // ── Automatic front-load bin-packing ─────────────────────────────────────
   const B1 = mainFirstBudget(m, summaryH(summary, m, measure))
   const packed = packBlocks(experienceBlocks(experience, m, measure), (i) => (i === 0 ? B1 : BC))
@@ -2112,7 +2042,6 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
  *   defaults to the built-in two-column layout. Defaulting (rather than
  *   treating "no layout" as "no sidebar sections") is the safe direction: an
  *   empty flow would silently plan a sidebar with nothing in it.
- * @param {import('./types.js').CVConfig} [args.config]
  * @param {import('./types.js').Theme} [args.theme]
  * @param {import('./types.js').Measurer} [args.measure]
  * @returns {import('./types.js').LayoutPlan}
@@ -2120,17 +2049,10 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
 export function planTwoColumn({
   content,
   layout = TWO_COLUMN_LAYOUT,
-  config = {},
   theme = undefined,
   measure = undefined
 }) {
-  const main = packExperiences(
-    content.experience ?? [],
-    content.summary ?? [],
-    config,
-    theme,
-    measure
-  )
+  const main = packExperiences(content.experience ?? [], content.summary ?? [], theme, measure)
   const sidebar = packSidebar(sidebarFlowKeys(layout), content, layout, theme, measure)
 
   // At least one page always exists, even for a CV with no experience at all.
