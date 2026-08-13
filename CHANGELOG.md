@@ -16,7 +16,10 @@ every effective setting pushed content onto an extra physical sheet the page
 numbering could not count (the plan said "2 pages", the printer said 3). A
 config.yaml that still sets them gets a validation message naming the removal
 ("automatic packing replaced it — delete the key"), builds keep working, and
-the keys are ignored. Automatic packing never overflows and splits entries at
+the keys are ignored — but note for CI: **`cvx validate --strict` treats
+unknown keys as errors, so a pipeline that gates on strict validation will
+fail until the two lines are deleted from config.yaml.** Automatic packing
+never overflows and splits entries at
 bullet boundaries by itself; there are no pagination settings left, which is
 the point. `forcedByConfig` stays on the overflow warning shape, permanently
 false, so consumers that match on it keep working; `leversUsed` is gone from

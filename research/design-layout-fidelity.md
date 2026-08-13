@@ -40,6 +40,65 @@ two of which amend it:
    run; it is the question this whole incident turned on. No score ships.
 4. **Everything else stands as written.**
 
+## Implementation review outcome — architecture pass, 2026-08-14
+
+The implementation (S1–S5 + the test slice) was reviewed by an independent
+architecture pass, which re-measured every load-bearing claim (including
+reproducing S1's byte-identity from the pre-S1 tree, and proving the §3.5
+glue-shrink mirror exact at the knife edge: 4.630/4.632pt → 1 line both sides,
+4.639/4.632 → 2 both sides). Verdict: faithful; four gates before complete.
+All four were closed the same day:
+
+- **D1** — S5 left five unused `config` bindings; `npm run lint` was red.
+  Fixed; `renderCV` also stopped returning the now-unconsumed `config`.
+- **D2 (product defect)** — §3.8's message template, written from the roomy
+  regime, emitted impossible advice on near-full pages: "only −30.73pt
+  remain", and "shorten the summary by 128.56pt" against a 114.30pt total
+  lever. The message now has two regimes: *actionable* (shortfall within the
+  lever) names the price and both edits; *not actionable* says plainly that no
+  edit above the roles can free enough and the break is the correct outcome.
+- **D3/D4** — the MCP tool descriptions and server handshake still taught v1
+  fill, omitted `page1-ends-early`, and called the array "defects" (D3), and
+  the handshake claimed a page ending early "shows up in no diagnostic field"
+  (D4) — the guard §3.9 ordered could not see either file because it iterated
+  only markdown. Both surfaces rewritten; `docsSync`'s MODEL_FACING list now
+  includes `src/mcp/tools.js` and `src/mcp/server.js` (it caught a fourth
+  stale sentence on its first run).
+- **D5/D6** — §3.7's token-perturbation test and ruling #3's optimality oracle
+  landed in the test slice (both mutation-verified: seeded bugs fail them).
+
+**Ruling on review question 4a (is `page1-ends-early` a "warning"?):**
+option A adopted — it stays in `warnings`, and every warning now carries
+`kind: 'defect' | 'fact'` (`overflow`/`page1-no-experience` = defect;
+`page1-ends-early` = fact). Additive on the unreleased v2 shape; CVX
+classifying its own message, not the CV; defects are ordered before facts in
+the array. **Ruling on 4b (the injection-test carve-out):** sound and
+load-bearing — the two measured fields move because the directive lives in the
+blocked entry's own head; the carve-out was replaced by one-sided assertions
+(the fields must GROW), plus a warnings code/kind comparison and a cap on the
+quoted role (single-line, 80 chars — review R-c: the first CVX message to
+interpolate CV body text into its own prose).
+
+**Fixed from the review's risk list:** R-b (a rule-1b decline of a carried
+split tail recorded the wrong flow index — unreachable today with two-valued
+budget functions, live the moment P3 adds a third; fixed with an explicit
+carryIndex), R-c (role quote capped), R-d (CHANGELOG now warns that
+`validate --strict` CI gates fail on the removed keys until deleted).
+
+**Tracked follow-ups, deliberately not closed here:**
+
+- **R-a** — §3.5's near-boundary corpus in `measureDiff.js` at *every* width
+  the engine uses. The review built it ad hoc and it passes everywhere,
+  including exact edges — the property holds; what is missing is the
+  standing instrument against a font/textkit/theme change. One near-boundary
+  probe (the summary width, with a glyph-derived window assertion) shipped in
+  S2/S3; the full per-width corpus should land with P3's theme threading,
+  which rebuilds these fixtures anyway.
+- **R-e** — §3.4's dash-column unit assertion as literally specified. The
+  property is pinned indirectly (the review's edge probes bound
+  `bulletWidth()` to ≪1pt; the near-boundary window assertion fails if it
+  drifts), but the named one-line assertion should accompany R-a.
+
 ---
 
 ## 0. Scope, in one paragraph

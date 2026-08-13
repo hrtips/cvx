@@ -65,14 +65,9 @@ function pt(/** @type {number} */ n) {
 }
 
 /**
- * A column's fill, or the three nulls that mean "no ratio to report here".
- *
- * `fill` is null when the budget is <= 0, which is not a rounding curiosity: it
- * is the `edge-summary-exceeds-page` shape, where the page's FIXED content (the
- * summary, which is not a packed block) is already taller than the column, so
- * the experience budget goes negative. A ratio against a negative denominator
- * would read as a healthy-looking negative number; the honest answer is "no
- * fill, see the overflow warning".
+ * A column's v2 fill decomposition, or the nulls that mean "this flow ended on
+ * an earlier page" — the ONE thing null means since §3.9 (a fixed block taller
+ * than the whole column is a fill above 1 now, not a null).
  *
  * @param {import('./types.js').ColumnFill | null} f
  * @returns {Omit<import('./types.js').ColumnDiagnostics, 'blockedBy'>}
@@ -149,33 +144,6 @@ function bulletsOn(entry) {
 }
 
 /**
- * The one shape where a page's main column is empty and that is NOT the benign
- * G1 residual: PAGE 1 with no experience entry on it at all.
- *
- * The empty column an agent must not chase is a LATER page whose sidebar simply
- * outlasts the experience list (sprint C4 finding 3b — packing to remove those
- * measurably produces worse CVs). Page 1 is different in kind: a CV whose first
- * page shows the reader no roles is the C3b rule-1b pathology, where fixed
- * page-1 content (an over-long summary, a tall identity block) leaves less room
- * than the smallest legal piece of an entry, so the packer correctly ends the
- * page early rather than force-placing and overflowing. Nothing else reported
- * this: `overflowPt` is 0 (the packer did the right thing), `fill` is 0, and
- * `emptyColumn` is the same value a harmless last page carries — so the shape
- * arrived looking exactly like the one the docs tell an agent to ignore.
- *
- * The fix is a content edit the USER decides on (shorten the summary), which is
- * why this is a warning and not a score: like `overflow`, it names a defect with
- * an owner, never a number to optimise.
- *
- * DIAGNOSTICS ONLY, deliberately: `cvx build`/`cvx validate` warn through
- * layout.js's `overflowWarnings`, whose contract is overflow. Adding a second
- * class to that function would put a layout-shape judgement inside the packer's
- * budget check; this stays where the audience is a reader of the plan.
- *
- * @param {import('./types.js').LayoutDiagnostics['pages']} pages
- * @returns {import('./types.js').LayoutDiagnosticWarning[]}
- */
-/**
  * §3.8's warning: page 1's experience list ended early — at least one role IS
  * on page 1, but the next one could not start there, and page 1 is the only
  * page with a LEVER (fixed content the user can shorten). Mutually exclusive
@@ -198,9 +166,40 @@ function page1EndsEarly(pages) {
   if (!page1?.main.blockedBy || page1.main.entries.length === 0) return []
   const d = page1.main.blockedBy
   const fixed = page1.main.fixedPt ?? 0
+  // The message has two regimes, and the architecture review is why (its D2):
+  // the design's wording template was written from a CV with a roomy residual
+  // and a small shortfall, and transcribed faithfully it produced impossible
+  // advice on near-full pages — "only -30.73pt remain", and "shorten the
+  // summary by 128.56pt" against a 114.30pt total lever. A priced fact whose
+  // price is unpayable is not a fact. So:
+  //
+  //   actionable — the shortfall is within the page-1 lever (and within the
+  //     next role's own head+bullet, or trimming that bullet cannot work
+  //     either): name the price and both edits.
+  //   not actionable — nothing above the roles can free enough: say THAT,
+  //     plainly, and point at the numbers instead of prescribing an edit.
+  //
+  // `room` is clamped at 0 for prose: a residual smaller than the divider the
+  // block would charge means "no room at all", never a negative number.
+  const room = Math.max(0, pt(d.residualPt - d.gapBeforePt))
+  const actionable = d.shortByPt <= fixed && d.shortByPt < d.smallestPiecePt
+  // The role is user-authored text quoted inside CVX's own sentence (review
+  // R-c): quote a single-line, length-capped form so a hostile or merely long
+  // title cannot restructure the message; the untruncated string is in the
+  // structured `nextRole` field.
+  const roleQuote = d.role ? ` ("${String(d.role).replace(/\s+/g, ' ').slice(0, 80)}")` : ''
+  const opening =
+    `page 1's experience list ends ${d.residualPt}pt before the foot of the column: the next ` +
+    `role${roleQuote} cannot start here because its smallest legal piece — the role heading ` +
+    `plus one bullet — needs ${d.smallestPiecePt}pt and ` +
+    (room > 0
+      ? `only ${room}pt remain after the ${d.gapBeforePt}pt entry divider. `
+      : `the ${d.gapBeforePt}pt entry divider alone exceeds the ${d.residualPt}pt left. `) +
+    `Short by ${d.shortByPt}pt. `
   return [
     {
       code: /** @type {const} */ ('page1-ends-early'),
+      kind: /** @type {const} */ ('fact'),
       page: 1,
       overflowPt: page1.overflowPt,
       forcedByConfig: false,
@@ -210,19 +209,46 @@ function page1EndsEarly(pages) {
       gapBeforePt: d.gapBeforePt,
       fixedPt: fixed,
       nextRole: d.role,
-      message:
-        `page 1's experience list ends ${d.residualPt}pt before the foot of the column: the next ` +
-        `role${d.role ? ` ("${d.role}")` : ''} cannot start here because its smallest legal piece — the role heading ` +
-        `plus one bullet — needs ${d.smallestPiecePt}pt, and after the ${d.gapBeforePt}pt entry divider ` +
-        `only ${pt(d.residualPt - d.gapBeforePt)}pt remain. Short by ${d.shortByPt}pt. The only lever on ` +
-        `page 1 is the fixed content above the roles (${fixed}pt: the summary, its spacer, and the ` +
-        `section title); shortening the summary by ${d.shortByPt}pt, or shortening that role's first ` +
-        `bullet by the same, starts it on page 1. This is a content decision — raise it with the user.`
+      message: actionable
+        ? opening +
+          `The only lever on page 1 is the fixed content above the roles (${fixed}pt: the ` +
+          `summary, its spacer, and the section title); shortening the summary by ` +
+          `${d.shortByPt}pt, or shortening that role's first bullet by the same, starts it on ` +
+          `page 1. This is a content decision — raise it with the user.`
+        : opening +
+          `No edit above the roles can free that much: the fixed content is ${fixed}pt in ` +
+          `total, so page 1 is as full as this content allows and the page break is the ` +
+          `correct outcome. Nothing to fix; report it only if the user asks why the role ` +
+          `starts overleaf.`
     }
   ]
 }
 
 /**
+ * The one shape where a page's main column is empty and that is NOT the benign
+ * G1 residual: PAGE 1 with no experience entry on it at all.
+ *
+ * The empty column an agent must not chase is a LATER page whose sidebar simply
+ * outlasts the experience list (sprint C4 finding 3b — packing to remove those
+ * measurably produces worse CVs). Page 1 is different in kind: a CV whose first
+ * page shows the reader no roles is the C3b rule-1b pathology, where fixed
+ * page-1 content (an over-long summary, a tall identity block) leaves less room
+ * than the smallest legal piece of an entry, so the packer correctly ends the
+ * page early rather than force-placing and overflowing. Nothing else reported
+ * this: `overflowPt` is 0 (the packer did the right thing), `fill` reports only
+ * the fixed content that DID land, and
+ * `emptyColumn` is the same value a harmless last page carries — so the shape
+ * arrived looking exactly like the one the docs tell an agent to ignore.
+ *
+ * The fix is a content edit the USER decides on (shorten the summary), which is
+ * why this is a warning and not a score: like `overflow`, it names a defect with
+ * an owner, never a number to optimise.
+ *
+ * DIAGNOSTICS ONLY, deliberately: `cvx build`/`cvx validate` warn through
+ * layout.js's `overflowWarnings`, whose contract is overflow. Adding a second
+ * class to that function would put a layout-shape judgement inside the packer's
+ * budget check; this stays where the audience is a reader of the plan.
+ *
  * @param {import('./types.js').LayoutDiagnostics['pages']} pages
  * @returns {import('./types.js').LayoutDiagnosticWarning[]}
  */
@@ -236,6 +262,7 @@ function page1WithoutExperience(pages) {
   return [
     {
       code: /** @type {const} */ ('page1-no-experience'),
+      kind: /** @type {const} */ ('defect'),
       page: 1,
       overflowPt: page1.overflowPt,
       forcedByConfig: false,
@@ -299,16 +326,23 @@ export function layoutDiagnostics(plan) {
   // One warning per over-budget page, from the SAME predicate `cvx build` and
   // `cvx validate` warn through (layout.js `overflowWarnings`) — a second
   // overflow test here would be a second threshold to keep in agreement.
+  // Defects first, the priced fact last (§3.8 says "appended", and a consumer
+  // reading warnings[0] should meet an overflow before a page-break price).
+  // `kind` is the discriminator (architecture review 4a, option A): CVX
+  // classifying its own MESSAGE — 'defect' = wrong, act; 'fact' = true and
+  // priced, act only if the user wants what it prices. It is additive on the
+  // unreleased version-2 shape and never aggregated.
   const warnings = [
-    ...page1EndsEarly(pages),
     ...overflowWarnings(plan).map((w) => ({
       code: /** @type {const} */ ('overflow'),
+      kind: /** @type {const} */ ('defect'),
       page: w.page,
       overflowPt: pt(w.overflowPt),
       forcedByConfig: w.forcedByConfig,
       message: w.message
     })),
-    ...page1WithoutExperience(pages)
+    ...page1WithoutExperience(pages),
+    ...page1EndsEarly(pages)
   ]
 
   return {

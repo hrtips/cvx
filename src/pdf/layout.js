@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 25 names. Only nine of them are API. The rest are
+// This module exports 26 names. Only eight of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -365,10 +365,15 @@ const BODY_STYLE = { weight: 400, italic: false }
 // 'italic'` — independent of the theme object, so this mirrors that
 // component fact rather than deriving from theme data that doesn't exist.
 const DESC_STYLE = { weight: 400, italic: true }
+// ExpItem renders "{role} (cont'd)" on a continuation; the model measures the
+// COMPOSED string. DECISION, not oversight (design §3.3): the suffix renders
+// at meta size but is measured at the ROLE size — ~20% wider — because that is
+// the safe side of a wrap boundary; an exact mirror would need a mixed-size
+// line the measurer cannot express.
+const CONTINUED_ROLE_SUFFIX = "(cont'd)"
 // BulletList.jsx draws an en dash at the body size in semibold with a literal
 // 5pt marginRight; the dash column is therefore its ADVANCE + 5, not the
 // theme's `bulletIndent` guess. Mirrors a component fact, like BODY_STYLE.
-const CONTINUED_ROLE_SUFFIX = "(cont'd)"
 const BULLET_DASH = '\u2013'
 const BULLET_DASH_STYLE = { weight: 600, italic: false }
 const BULLET_DASH_MR = 5
@@ -638,6 +643,12 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
   let deferred = false
   const maxPages = maxPagesFor(flow)
 
+  /** Flow index the current `carry` was cut from — kept so a decline of a
+   * carried tail names the right block (review R-b: `i` has already advanced
+   * past it, and both budget functions being two-valued is what keeps the
+   * wrong-index path unreachable TODAY; a third budget — P3's per-page
+   * geometry is the plausible route — would make it live). */
+  let carryIndex = -1
   while (carry !== null || i < flow.length) {
     if (pages.length >= maxPages) {
       // Never truncate: dropping the remainder would be a silent Invariant-0
@@ -682,7 +693,7 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
           blocks: [],
           used: 0,
           budget: quantize(budget),
-          blockedBy: declineOf(lead, i, quantize(budget), 0)
+          blockedBy: declineOf(lead, carry !== null ? carryIndex : i, quantize(budget), 0)
         })
         deferred = true
         continue
@@ -705,6 +716,7 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
     if (leadCut) {
       assertCarryShrinks(lead, leadCut.tail, i - 1)
       carry = leadCut.tail
+      carryIndex = i - 1
     }
 
     while (carry === null && i < flow.length) {
@@ -731,6 +743,7 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
       blocks.push(cut.head)
       used += gap + cut.head.height
       carry = cut.tail
+      carryIndex = i
       i++
     }
     pages.push({ blocks, used: quantize(used), budget: quantize(budget), blockedBy })
@@ -2102,8 +2115,8 @@ export function planTwoColumn({
         /**
          * How far past its budget this page's content reaches, in pt. Non-zero
          * only where Invariant 0 forced an over-tall block onto a page (see
-         * packBlocks' rule 1) or where a config-forced page-1 split exceeds what
-         * fits; react-pdf then FLOWS that surplus onto extra physical sheets.
+         * packBlocks' rule 1c) — the one genuinely irreducible shape; the
+         * config-forced split that could also cause it was removed in S5; react-pdf then FLOWS that surplus onto extra physical sheets.
          */
         overflowPt: quantize(over(mainFill) + over(sidebarFill)),
         /** Which column (if any) has no content on this page — the G1 residual signal. */

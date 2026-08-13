@@ -257,7 +257,6 @@ describe('main-column plan (packExperiences really packs this — testable today
   function planFor(dir) {
     const summary = readYaml(dir, 'summary.yaml')
     const experience = readYaml(dir, 'experience.yaml')
-    const _config = readYaml(dir, 'config.yaml')
     const packed = packExperiences(experience, summary, tealTheme, harnessMeasurer())
     return { packed, summary, experience }
   }
@@ -912,7 +911,7 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
       "design doc G7's irreducible residual: one bullet and one certification each taller than a whole page"
   }
 
-  it('no page reaches past its budget except the three named, argued cases — and each of those warns', () => {
+  it('no page reaches past its budget except the two named, argued cases — and each of those warns', () => {
     const unexpected = []
     const silent = []
     const noLongerOverflowing = []

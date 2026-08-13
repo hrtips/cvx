@@ -309,8 +309,6 @@ export async function renderCV({
     filename: deriveFilename(content.personal?.name, suffix),
     themeName,
     layoutName,
-    // The config this build used (theme/layout resolution context for callers).
-    config,
     plan
   }
 }

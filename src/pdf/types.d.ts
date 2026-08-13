@@ -569,6 +569,13 @@ export interface LayoutDiagnosticWarning {
    * would buy. Mutually exclusive with `page1-no-experience` by construction.
    */
   code: 'overflow' | 'page1-no-experience' | 'page1-ends-early'
+  /**
+   * CVX classifying its own message (architecture review 4a): 'defect' =
+   * something is wrong, act on it; 'fact' = true and priced, act only if the
+   * user wants what it prices (`page1-ends-early` fires on well-packed CVs
+   * too). Lets a consumer filter without hardcoding the code list.
+   */
+  kind: 'defect' | 'fact'
   /** 1-based page number. */
   page: number
   overflowPt: number

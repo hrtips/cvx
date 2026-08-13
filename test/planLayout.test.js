@@ -637,7 +637,7 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
     //    the gap) must still be identical.
     const page1 = (/** @type {NonNullable<typeof d>['pages'][0] | undefined} */ p) => {
       if (!p) return p
-      const { blockedBy, main, ...rest } = p
+      const { main, ...rest } = p
       const { blockedBy: mainBlocked, ...mainRest } = main
       return { ...rest, main: mainRest }
     }
@@ -652,6 +652,24 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
           }))(x.pages[0].main.blockedBy)
         : null
     expect(pick(d)).toEqual(pick(control.diagnostics))
+    // ...and the two measured fields are asserted ONE-SIDED, not ignored
+    // (architecture review 4b): the directive text lives in the blocked
+    // entry's own head, so its measured minimum must GROW — a tripwire on the
+    // fields instead of a hole.
+    const mb = (/** @type {any} */ x) => x?.pages[0].main.blockedBy
+    expect(mb(d).smallestPiecePt).toBeGreaterThan(mb(control.diagnostics).smallestPiecePt)
+    expect(mb(d).shortByPt).toBeGreaterThan(mb(control.diagnostics).shortByPt)
+    // The warning set is identical in code+kind, and the message quotes the
+    // role only in a single-line, capped form — a directive planted in body
+    // text cannot restructure CVX's own sentence (review R-c).
+    const wmeta = (/** @type {any} */ x) =>
+      x?.warnings.map((/** @type {any} */ w) => [w.code, w.kind, w.page])
+    expect(wmeta(d)).toEqual(wmeta(control.diagnostics))
+    for (const w of d?.warnings ?? []) {
+      expect(w.message).not.toMatch(/\n/)
+      // capped role quote (80 chars) bounds the whole sentence, role or not
+      expect(w.message.length).toBeLessThan(1200)
+    }
     // 2. Nothing was dropped: every section the clean plan placed is still
     //    placed, languages and publications included (the two it asked to cut).
     expect(sectionsOf(d)).toEqual(sectionsOf(control.diagnostics))

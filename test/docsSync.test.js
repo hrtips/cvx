@@ -21,6 +21,13 @@ const aiGuide = readFileSync(path.join(ROOT, 'docs', 'ai-guide.md'), 'utf8')
 const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8')
 const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
 const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
+// The two model-facing SOURCE surfaces: an MCP client shows these before any
+// markdown doc is ever read, and the architecture review (D3/D4) found both
+// still teaching v1 semantics while the markdown was already correct — the
+// original guard iterated only the markdown files, so it was structurally
+// unable to see the one place that was wrong.
+const mcpTools = readFileSync(path.join(ROOT, 'src', 'mcp', 'tools.js'), 'utf8')
+const mcpServer = readFileSync(path.join(ROOT, 'src', 'mcp', 'server.js'), 'utf8')
 
 const CONTENT_DEFS = [
   'personal',
@@ -181,8 +188,22 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
     ['skills/cvx/SKILL.md', skillMd],
     ['docs/ai-guide.md', aiGuide],
     ['llms.txt', llms],
-    ['README.md', readme]
+    ['README.md', readme],
+    ['src/mcp/tools.js', mcpTools],
+    ['src/mcp/server.js', mcpServer]
   ]
+
+  it('the MCP tool surface teaches the complete warning-code list and the kind discriminator', () => {
+    // An unlisted code inside an array documented as "defects", carrying an
+    // exact edit size, is the R1 gradient with a "please climb me" label
+    // (architecture review, D3). The code list and the defect/fact split must
+    // be visible on the surface a bare MCP client shows.
+    for (const text of [mcpTools]) {
+      expect(text).toContain('page1-ends-early')
+      expect(text).toMatch(/kind/)
+      expect(text).toMatch(/'fact'|"fact"|`fact`/)
+    }
+  })
 
   it('every doc that explains fill teaches the v2 occupancy semantics, and none the v1 denominator', () => {
     // §3.9: fill's denominator changed (residual budget → whole column). A doc

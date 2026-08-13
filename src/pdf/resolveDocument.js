@@ -64,7 +64,9 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // without ever executing the new code path (demonstrated in C4: a `balance`
     // mode seeded to DROP a block left the whole suite green).
     //
-    // C6a adds a FOURTH and FIFTH place, and a warning about which lever.
+    // (Kept after S5 removed the packing field this once documented: the
+    // three-places-in-one-commit rule below is the standing contract for ANY
+    // future lever, and C4 is the measured reason.)
     //
     // FOURTH: the MCP tools' `inputSchema`s (src/mcp/tools.js) — `plan_layout`'s,
     // which today accepts `dir` and nothing else (a lever an agent cannot pass to

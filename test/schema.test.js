@@ -168,7 +168,7 @@ describe('canonical schema rejects seeded mistakes', () => {
     ['referees', [{ title: 'CTO' }], 'entry missing name'],
     ['keywords', 42, 'number is not a keyword shape'],
     ['config', { theme: 'neon' }, 'unknown theme'],
-    ['config', { page1ExperienceCount: 0 }, 'count below 1'],
+    ['config', { page1ExperienceCount: 0 }, 'removed key (rejected as unknown, not by a minimum)'],
     ['config', { atsKeywords: { enable: true } }, 'unknown atsKeywords key'],
     ['config', { schemaVersion: 2 }, 'wrong schema major'],
     ['layout', { template: 'three-column' }, 'unknown template'],

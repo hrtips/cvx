@@ -273,7 +273,7 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
   const { layoutDiagnostics } = await import('../lib/pdf/layoutDiagnostics.js')
   /** @type {string[]} */
   const notices = []
-  const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
+  const { buffer, filename, themeName, layoutName, plan } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir: join(pkgRoot, 'lib', 'fonts'),
     ats,
