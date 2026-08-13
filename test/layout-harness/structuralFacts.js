@@ -69,9 +69,17 @@ export function harnessMeasurer() {
 /**
  * @param {{experience, summary, config, [key: string]: any}} content
  */
-export function structuralFactsFor(content) {
+export function structuralFactsFor(content, layout = undefined) {
   const measure = harnessMeasurer()
-  const plan = planTwoColumn({ content, config: content.config, theme: tealTheme, measure })
+  // `layout` defaults to undefined — the built-in default from defaultLayouts.js
+  // — which is correct for the synthetic fixtures, since writeFixtureContent
+  // deliberately omits cv-content/layouts/ (see scaffold.js). It is NOT correct
+  // for the shipped scaffold, which is copied verbatim and carries its own
+  // layouts/two-column.yaml: that file omits `referees` while the built-in
+  // default still includes it, so planning without it measures a document the
+  // render never produced and logicalTotalPages disagrees with the real sheet
+  // count. Scaffold callers must pass the scaffold's layout.
+  const plan = planTwoColumn({ content, layout, config: content.config, theme: tealTheme, measure })
 
   const mainPlan = mainPlanFromPackResult(
     {
@@ -87,7 +95,14 @@ export function structuralFactsFor(content) {
   const actualMain = flowIds(mainPlan, 'main')
 
   const actualSidebar = sidebarPlanItemIds(plan, content)
-  const expectedSidebar = sidebarItemIds(content)
+  // Scope the EXPECTED set to the same layout the plan used. `sidebarItemIds`
+  // already takes a layout (defaulting to the built-in TWO_COLUMN_LAYOUT); it
+  // was simply never threaded, so a scaffold whose layout omits `referees` was
+  // still expected to render the "(available upon request)" placeholder. This
+  // narrows *which sections are in scope*, not what Invariant 0 requires of the
+  // ones that are — a section the layout never asked for is not content the
+  // renderer dropped.
+  const expectedSidebar = sidebarItemIds(content, layout)
 
   return {
     logicalTotalPages: plan.totalPages,

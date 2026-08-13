@@ -29,6 +29,7 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { load } from 'js-yaml'
+import { normalizeLayout } from '../../src/pdf/loadLayout.js'
 import { BASELINE_PATH, normalizeOracleFacts, writeBaseline } from './baseline.js'
 import { checkCompleteness, sentinelsFor } from './contentOracle.js'
 import { buildContent } from './contentSpecs.js'
@@ -147,7 +148,19 @@ function main() {
       `scaffold-default: build failed (code ${scaffoldOracle.code}) — ${scaffoldOracle.stderr ?? ''}`.trim()
     )
   } else {
-    const structural = structuralFactsFor(scaffoldContent)
+    // Plan with the scaffold's own layout file, which the render uses — not
+    // the built-in default. See structuralFactsFor.
+    const structural = structuralFactsFor(
+      scaffoldContent,
+      normalizeLayout(
+        load(
+          readFileSync(
+            path.join(ROOT, 'template', 'cv-content', 'layouts', 'two-column.yaml'),
+            'utf8'
+          )
+        )
+      )
+    )
     for (const v of hardInvariantViolations(structural))
       fatalViolations.push(`scaffold-default: ${v}`)
     const sentinels = sentinelsFor(scaffoldContent)
