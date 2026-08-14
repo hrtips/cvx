@@ -661,6 +661,37 @@ way; sources in §10):
     implement.** No shortcuts. Doctrine 8 records refuted claims; this is the
     mechanism that caught them, both times it was used.
 
+### 6.1 The development process (roles and gates)
+
+Every increment moves through eight gates; each gate has an owning expert.
+The maintainer sits above the table (per §1's actor table): rulings before
+design, contested choices presented as questions with options and costs,
+final approval at ship. The orchestrator coordinates, implements most
+slices, and **verifies every expert claim first-hand** before acting on it
+(doctrine 1: agreement between agents is not verification).
+
+| Gate | What happens | Owner |
+|---|---|---|
+| 1. Pre-flight | Acceptance criteria re-read (§8); binding rulings confirmed (R-D/R-E/R-F…); corpus reachability checked (doctrine 6) | Orchestrator |
+| 2. Ruler first | The tests that would catch the defect land red, before the change; mutation-verified (doctrine 4, 9) | **QA expert** |
+| 3. The slice | Small, independently shippable; the system strictly more honest after than before | Implementer |
+| 4. Mirror | A render change moves its measurer in the same commit (§4); render-diff stays at zeros | Implementer, checked by architect |
+| 5. Full battery | All tests, lint, tsc, byte-repro; baseline regeneration in its own reviewed commit under the migration taxonomy | Orchestrator + QA |
+| 6. Doc sweep | SKILL, ai-guide, llms.txt, MCP tool descriptions + handshake move with the change; docsSync enforces | Implementer |
+| 7. Independent review | Architect (implementation accuracy, seams, invariants) + QA (test adequacy); the-fool adversarial pass when the change touches honesty surfaces or packing | **Architect, QA, the-fool** |
+| 8. Ship | CHANGELOG at ship time; item deleted from SPRINT.md in the same commit; version bump iff semantics changed (R-E); release version assigned at cut, never before | Maintainer approves |
+
+Ceremony scales with the increment: small slices (I1–I3-sized) run gates
+1–8 with three experts; large slices (I6, I9 — anything changing packing or
+plan shape) additionally require an **algorithm-designer design note first**,
+reviewed by architect + the-fool, with maintainer rulings on any forks,
+before gate 2 begins — doctrine 14 applied to scheduled work, and the same
+ceremony the sidebar rework received. Product manager and business analyst
+enter at sprint composition and findings-to-requirements conversion, not
+per commit. Binding on all roles: doctrine 8 (refuted by name) and doctrine
+12 (a number is measured twice by different instruments before it is
+written down).
+
 ---
 
 ## 7. Decision record
