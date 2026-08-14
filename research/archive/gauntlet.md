@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # The two-prompt gauntlet — monthly front-door eval
 
 *From the PM/BA review, 2026-07-25. Zero-telemetry success metric for the "two things" UX: run by hand monthly (and after any front-door doc change), scored here.*
@@ -30,7 +36,7 @@ Use a fixture identity, not your own: the LinkedIn "Save to PDF" export of a tes
 
 | Date | Assistant | S1 | S2 | S3 | S4 | Notes |
 |---|---|---|---|---|---|---|
-| 2026-07-26 | ChatGPT | ✅ | ✅ | ➖ | ❌ | Real-profile run (see `../cvx-dogfooding-report.md`). Followed docs, asked for Save-to-PDF export correctly, truthful, good YAML. Failed S4 on two counts: assistant research-sink + late runtime probe (needed 2 user nudges), and sandbox npm proxy 503 (environment). S3 untested by CVX (files not validated in-session; PyYAML-parse only). Doc fixes shipped same day: bounded probe first, same-turn fallback, no-research-sink rule, $schema headers in generated files, conflict flagging, ATS role-splitting guidance. |
+| 2026-07-26 | ChatGPT | ✅ | ✅ | ➖ | ❌ | Real-profile run (see `cvx-dogfooding-report.md`). Followed docs, asked for Save-to-PDF export correctly, truthful, good YAML. Failed S4 on two counts: assistant research-sink + late runtime probe (needed 2 user nudges), and sandbox npm proxy 503 (environment). S3 untested by CVX (files not validated in-session; PyYAML-parse only). Doc fixes shipped same day: bounded probe first, same-turn fallback, no-research-sink rule, $schema headers in generated files, conflict flagging, ATS role-splitting guidance. |
 | 2026-07-26 | Claude Code (MCP) | ✅ | ✅ | ✅ | ✅* | MCP-route dogfood (`/tmp/sss/cvx-session-report.md`): full tool loop, validate-first behavior, placeholder photo deleted unprompted. *S4 asterisk: the delivered PDF was silently corrupted by the page1ExperienceCount:4 overflow bug (renderer, not agent) — found, fixed, and warned-for same day (`3d7f6c4`). |
 | _(next run)_ | Claude web | | | | | |
 | | Gemini | | | | | |

@@ -126,7 +126,7 @@ function namedEdgeCaseFixtures() {
     {
       id: 'edge-oversized-section',
       description:
-        'single oversized section: certifications has ~60 items, everything else at "one" — does an individual sidebar section this large ever clip, or only waste pages? (untested territory per C0\'s own analysis — see research/c0-baseline.md)',
+        'single oversized section: certifications has ~60 items, everything else at "one" — does an individual sidebar section this large ever clip, or only waste pages? (untested territory per C0\'s own analysis — see research/archive/c0-baseline.md)',
       sections: {
         certifications: 'one',
         publications: 'one',
@@ -276,7 +276,7 @@ function namedEdgeCaseFixtures() {
     // `grep -rn progression test/` found nothing and no fixture set `location`,
     // so two of `entryH()`'s six head terms — and every wrapped-head shape —
     // were unreachable from the curated corpus
-    // (research/design-layout-fidelity.md §5.2). These four are ADDITIVE: they
+    // (research/archive/design-layout-fidelity.md §5.2). These four are ADDITIVE: they
     // introduce no pairwise factor and touch no existing spec, so `baseline.json`
     // gains four keys and no existing row moves.
     //
@@ -482,7 +482,7 @@ export function buildFixturePlan() {
   }
 }
 
-/** Human-readable one-paragraph-per-topic log of the fixture plan (used by the oracle test's console output and research/c0-baseline.md). */
+/** Human-readable one-paragraph-per-topic log of the fixture plan (used by the oracle test's console output and research/archive/c0-baseline.md). */
 export function describeFixturePlan(meta) {
   const lines = []
   lines.push(

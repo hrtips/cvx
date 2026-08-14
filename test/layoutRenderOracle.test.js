@@ -273,7 +273,7 @@ describe.skipIf(!hasPdftoppm())(
     // History: this test used to assert the scaffold's default config
     // (page1ExperienceCount: 2, page1SplitBullets: 2) reproduced bug (a)/(b)
     // (physical page count 4 vs logical 2, a blank page, an empty sidebar
-    // column) — the concrete example research/c0-baseline.md walked through.
+    // column) — the concrete example research/archive/c0-baseline.md walked through.
     // A review round (post-C2) found that forcing that split was never
     // actually necessary (the scaffold's own AGENTS.md rule: "add pagination
     // keys only if page 1 overflows") and, per real font measurement, was

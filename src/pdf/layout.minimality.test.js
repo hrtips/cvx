@@ -31,7 +31,7 @@
 // discipline (G-b) applies to tests too, and a flaky counter-example that
 // cannot be reproduced is worth nothing.
 //
-// Measured consequence, recorded 2026-08-02 (see research/sprint-layout-engine.md
+// Measured consequence, recorded 2026-08-02 (see research/archive/sprint-layout-engine.md
 // C4): across the 33-fixture corpus the shipped packer plans 100 sheets and the
 // balance prototype plans 100 sheets — identical, as this property requires.
 

@@ -5,7 +5,7 @@
 // and the main column has had nothing: `entryH()` predates both the measurement
 // primitives and the harness, composes literals by hand, and is verified by no
 // test at all. Five classes of error live in it, worth 46.70pt of phantom height
-// on the CV that prompted this work — see research/design-layout-fidelity.md §2.
+// on the CV that prompted this work — see research/archive/design-layout-fidelity.md §2.
 //
 // ── THE TABLE BELOW IS ZEROS, AND THAT IS THE CLAIM ────────────────────────
 //
@@ -19,7 +19,7 @@
 //
 // So: any non-zero delta here is a NEW defect. Investigate; never re-record.
 // The historical defect table lives in the S2 commit and in
-// research/design-layout-fidelity.md §2.2–2.3.
+// research/archive/design-layout-fidelity.md §2.2–2.3.
 //
 // Guarded with `describe.skipIf(!hasPdftoppm())` for the same reason as its
 // neighbours: only one pinned CI leg installs poppler.

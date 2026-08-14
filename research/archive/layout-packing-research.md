@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # CVX two-column layout packing — research report
 
 *2026-07-27. Consolidates: QA combinatorial render matrix, two subject-matter research passes (algorithms/papers + comparable-tool implementations), and an architecture design pass grounded in the actual CVX code. Prepared for the maintainer to decide the layout-engine work.*

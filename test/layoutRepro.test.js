@@ -1,4 +1,4 @@
-// C0 — byte-reproducibility (research/layout-packing-design.md §0 G-b /
+// C0 — byte-reproducibility (research/archive/layout-packing-design.md §0 G-b /
 // §11 "byte-repro integration test").
 //
 // Renders the same fixture content twice, in two independent temp dirs,

@@ -18,7 +18,7 @@ import { tealTheme } from './themes/teal.js'
 const FONTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fonts')
 
 // Pinned against an actual render (verified with pdftoppm ink-band counting
-// — see test/layout-harness/measureDiff.js and research/c0-baseline.md): at
+// — see test/layout-harness/measureDiff.js and research/archive/c0-baseline.md): at
 // 9pt in a column `bulletW` points wide — the REAL width layout.js's
 // entryH()/summaryH() actually pass for an experience/summary bullet
 // (deriveMetrics(tealTheme).bulletW, not an arbitrary round number: review

@@ -39,7 +39,7 @@ function resolveFontsDir() {
 
 /**
  * The model-facing docs that ship INSIDE the package (package.json "files"
- * lists them by path; docs/hostile-baseline.md is an internal quality record
+ * lists them by path; research/archive/hostile-baseline.md is an internal quality record
  * and deliberately stays out).
  *
  * Why they are reachable through `get_schema` and not just as a path: an MCP

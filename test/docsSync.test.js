@@ -399,11 +399,14 @@ describe('the docs a model is told to read are inside the tarball', () => {
   it('package.json ships the model-facing docs, by path, and not the internal ones', () => {
     expect(pkg.files).toContain('docs/ai-guide.md')
     expect(pkg.files).toContain('docs/cv-schema.md')
-    // Path-based on purpose: `docs` as a directory would drag in
-    // hostile-baseline.md, an internal quality record.
+    // Path-based on purpose: shipping `docs` as a directory would stop being a
+    // deliberate act the day an internal record lands back in it.
     expect(pkg.files).not.toContain('docs')
-    expect(existsSync(path.join(ROOT, 'docs', 'hostile-baseline.md'))).toBe(true)
-    expect(pkg.files.some((/** @type {string} */ f) => f.startsWith('docs/hostile'))).toBe(false)
+    // The internal quality record was folded into ARCHITECTURE.md and archived
+    // (2026-08-14); it must exist as a historical record and never ship.
+    expect(existsSync(path.join(ROOT, 'research', 'archive', 'hostile-baseline.md'))).toBe(true)
+    expect(existsSync(path.join(ROOT, 'ARCHITECTURE.md'))).toBe(true)
+    expect(pkg.files.some((/** @type {string} */ f) => f.startsWith('research'))).toBe(false)
   })
 
   it('get_schema advertises them, and returns the text inline when asked', () => {

@@ -39,7 +39,7 @@
 // grayscale rasterization: blank-page is a whole-page ink *ratio* (still a
 // threshold, but resolution/antialiasing-robust, not compression-implementation-
 // dependent); empty-column is ink-band *presence* (zero bands — no
-// threshold to mis-tune). See research/c0-baseline.md for the calibration
+// threshold to mis-tune). See research/archive/c0-baseline.md for the calibration
 // numbers and the one known trade-off this introduces (documented there,
 // not hidden): the corner badge itself always contributes exactly one ink
 // band to the main region on any page it lands on, so a physical page
@@ -59,7 +59,7 @@ import { buildAll, pdftoppmGray } from './scaffold.js'
 
 /**
  * Whole-page ink ratio below which a page counts as "blank". Calibrated
- * against the shipped scaffold (see research/c0-baseline.md): the badge-
+ * against the shipped scaffold (see research/archive/c0-baseline.md): the badge-
  * only trailing page (bug b) measures ≈0.37% whole-page ink; the sidebar-
  * overflow page (bug a, which has real referees/publications content in
  * the sidebar and should NOT read as blank) measures ≈1.75%; ordinary

@@ -1,5 +1,5 @@
-// C0 — packer-decision invariants (research/sprint-layout-engine.md C0 /
-// research/layout-packing-design.md §11): every block placed exactly once,
+// C0 — packer-decision invariants (research/archive/sprint-layout-engine.md C0 /
+// research/archive/layout-packing-design.md §11): every block placed exactly once,
 // order preserved, Invariant 0 (nothing dropped/clipped/duplicated), and no
 // orphaned heading, asserted as pure functions over the LayoutPlan shape
 // `{ pages: [{ index, main, sidebar }], totalPages }`.
@@ -150,7 +150,7 @@ describe('invariants.js — self-test on synthetic plans', () => {
   // (see estimator.js) without carrying that specific application forward
   // — front-load/budget assertions on today's (loose, ~20-33%-over)
   // estimate are out of scope for this pass (explicitly deferred, not
-  // silently dropped — see research/c0-baseline.md).
+  // silently dropped — see research/archive/c0-baseline.md).
   it('frontLoadHolds passes non-increasing fills and fails when a later page is fuller, outside tolerance', () => {
     expect(frontLoadHolds([1, 0.8, 0.5]).ok).toBe(true)
     expect(frontLoadHolds([0.5, 0.52], 0.05).ok).toBe(true) // within tolerance

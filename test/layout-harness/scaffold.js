@@ -46,7 +46,7 @@ export function assertLibMatchesSrc() {
 /**
  * Is `pdftoppm` on PATH? CI runs `npm test` on ubuntu/macOS/Windows with no
  * poppler installed by default (only one pinned CI leg installs it — see
- * .github/workflows/ci.yml and research/c0-baseline.md's "canonical
+ * .github/workflows/ci.yml and research/archive/c0-baseline.md's "canonical
  * environment" note); every describe block that shells out to `pdftoppm`
  * (or `pdftotext`, shipped in the same poppler package) must be guarded
  * with `describe.skipIf(!hasPdftoppm())` so those legs SKIP cleanly instead

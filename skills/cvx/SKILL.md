@@ -77,7 +77,7 @@ Apply the answers, re-validate, then build both variants. A truthful thin bullet
 `plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` reports how it paginated without rendering anything. Measurements tell you what the layout *costs*; looking at the page tells you whether it's any good. Use both:
 
 - It describes the **designed two-column variant only**. The ATS variant is a single column react-pdf flows by itself — CVX never packs it, there is no dry run for it, and its sheet count can differ. Build it to find out.
-- `totalPages` is the number of **planned** pages, not necessarily the sheet count of the PDF: an overflowing page spills onto an extra sheet the numbering can't count. Check `totals.overflowPt` before telling the user "your CV is 3 pages".
+- `totalPages` is the number of **planned** pages, not necessarily the sheet count of the PDF: an overflowing page spills onto an extra sheet the numbering can't count. Check `totals.overflowPt` before telling the user "your CV is 3 pages" — and know that `overflowPt` only prices the flows the planner *measures* (summary, experience, and the sidebar sections). A main slot carrying anything else (see "Student and first-job CVs" below) can spill extra sheets with `overflowPt: 0` and no warning. The one check that cannot lie: count the built PDF's actual pages (`pdfinfo`, or just open it and look at the last page) and compare to `totalPages`. Do this after every build whose layout puts non-experience sections in `main` — a mismatch is usually a trailing margin spilling a **blank** sheet, which no text-extraction check will ever notice.
 - Per page: `main.fill` / `sidebar.fill` — **column occupancy**: `(fixedPt + usedPt) / capacityPt`, the same measurement on every page so pages can be compared (`diagnostics.version: 2`; v1 divided by the residual budget, which made page 1 look far emptier than it was). Normally 0–1, and **above 1 exactly when that page is over budget**. Also per page: `blockedBy` — why the next role/section could not start there, with `shortByPt`, **the one number that falls monotonically as you shorten what is above it**. Fill is a description, not a progress signal: shortening content LOWERS fill until a block moves up, then it jumps — steer by `shortByPt`, never by fill. Plus the roles on that page, and the sidebar sections with their item ranges. Ranges are **0-based and end-exclusive**: `range: [6, 8)` of `of: 8` is the last *two* items — `items` already gives you the count, so you never have to do that arithmetic. `continued: true` = carried over from the previous page.
 - `diagnostics.warnings` is the list of **named conditions**, each with a `code` — match on that, not on the wording. Two are defects; one is a priced fact:
   - `overflow` — a page reaches past its budget and spills onto an extra sheet. The warning names the page and the fix (usually: shorten the longest single item, or the summary).
@@ -102,6 +102,37 @@ If the user gives you a target job description, tailor **truthfully** — never 
 - Recent graduate or career-changer with thin experience: make `education.yaml` and `competencies.yaml` do more of the work, and keep the experience section tight.
 
 Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reusable for the next application.
+
+## Student and first-job CVs (no experience yet)
+
+`experience.yaml: []` is valid — but the default two-column layout was designed around it being full. With it empty, page 1's wide column holds only the summary, education lands in the *narrow sidebar* (where entry text wraps badly), and nothing warns you: `page1-no-experience` needs at least one role to exist before it can fire, and the per-page `main.*` diagnostics all read `null`. The result looks like a rendering bug and is actually a layout mismatch.
+
+The fix is the layout file, not the content. Any section key can be placed in a `main` slot in `cv-content/layouts/two-column.yaml` — the renderer draws it there:
+
+```yaml
+pages:
+  first:
+    sidebar: [identity-photo, contact, certifications, referees]
+    main: [summary, {spacer: 14}, education, {spacer: 10}, competencies]
+```
+
+Two things to know when you do this:
+
+- **The planner measures only summary + experience in `main`.** Everything else renders unmeasured: the plan can say 1 page while the PDF has 2 (often a blank spill sheet from a trailing margin). After *every* build with such a layout, verify the physical sheet count against `totalPages` and open the last page. If a blank sheet appears, remove spacers or move a section to the other column — don't trust the diagnostics to price it, they can't see it.
+- **Sections cost different amounts per column.** Competency tags flow horizontally — cheap in the wide column, tall in the sidebar. Entry-style sections (education, certifications, referees) are the opposite: narrow-column wrapping roughly doubles them. Swapping which column carries which section is the strongest one-page lever you have, and it costs no content edits.
+
+## Converting an existing CV (PDF or export)
+
+When the source is a designed PDF, extract before you transcribe — never retype from a screenshot:
+
+```bash
+pdftotext -layout original.pdf -   # read the text with its visual structure
+pdfimages -png original.pdf img    # pull the photo; convert/rename to cv-content/images/profile.jpg
+```
+
+Transcribe **verbatim** into the nearest honest section — never relabel content under a heading that misrepresents it (a "Training / Courses" list belongs in `certifications.yaml` and will render as "Certifications"; that's an honest home with a different label, so tell the user about the rename). What the schema can't express, disclose instead of approximating silently: grouped skills flatten to one tag cloud, education details (GPA, specialization) fold into the `institution` string, a paragraph summary becomes bullets, inline bold is lost.
+
+After the build, prove nothing was lost: extract the new PDF's text in **reading order** (`pdftotext` *without* `-layout` — layout mode interleaves the two columns and breaks phrases that wrap), normalize whitespace, and check that a few dozen distinctive strings from the original — every name, phone number, date, grade, URL — appear. Anything missing is either a wrap artifact (check the normalized text) or genuine loss; find out which before handing over.
 
 ## Rules that are not optional
 

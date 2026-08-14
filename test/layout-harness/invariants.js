@@ -1,7 +1,7 @@
 // ── Packer-decision invariants — pure functions over a LayoutPlan ─────────
 //
-// LayoutPlan shape (research/sprint-layout-engine.md C0 §11 /
-// research/layout-packing-design.md §11):
+// LayoutPlan shape (research/archive/sprint-layout-engine.md C0 §11 /
+// research/archive/layout-packing-design.md §11):
 //
 //   { pages: [{ index, main: string[], sidebar: string[] }], totalPages }
 //

@@ -18,7 +18,7 @@
 // @react-pdf/textkit derives its glyph↔string index maps from
 // `codePoints.length`, so on the NEXT render those glyphs collapse onto their
 // neighbour's index and get sliced out of the line — gone from the page and
-// from the text layer. research/c0-retro.md finding 1 is the same bug class,
+// from the text layer. research/archive/c0-retro.md finding 1 is the same bug class,
 // caught before v1.5.0 in `cvx build --all` and fixed there by rendering each
 // variant in a separate process; the MCP path never got that fix.
 //

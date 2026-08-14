@@ -37,7 +37,7 @@ describe('validateContent', () => {
   // an unplanned page (see contentOracle.js's module docblock for the
   // detection mechanism, and test/layoutRenderOracle.test.js for the
   // corrected self-tests). So the real bug was never text loss — it was the
-  // already-known wasted-near-blank-page bug (research/c0-baseline.md's bug
+  // already-known wasted-near-blank-page bug (research/archive/c0-baseline.md's bug
   // (b)): the 2nd entry's tail spills onto its own near-empty page. Per the
   // scaffold's own AGENTS.md rule ("add pagination keys only if page 1
   // overflows"), this config never needed to force anything — automatic

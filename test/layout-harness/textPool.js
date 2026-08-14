@@ -1,6 +1,6 @@
 // ── Deterministic filler text ───────────────────────────────────────────────
 // No RNG anywhere in the harness (the sprint's byte-reproducibility gate
-// applies to fixtures too — see research/layout-packing-design.md §0 G-b).
+// applies to fixtures too — see research/archive/layout-packing-design.md §0 G-b).
 // Every "random-looking" choice below is an index into a fixed pool, so the
 // same spec always yields byte-identical YAML.
 // ─────────────────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export const NON_LATIN_NAMES = {
 // predicts more than one line, so a rendered/estimated mismatch is visible
 // at all (a bare two-word name is short enough that both sides agree on
 // "1 line" even when the render is otherwise badly wrong — see
-// research/c0-baseline.md).
+// research/archive/c0-baseline.md).
 export const NON_LATIN_PHRASES = {
   sinhala: 'බ්‍රූස් වේන් - ගොතම් නගරයේ ආරක්ෂක විශේෂඥයා',
   tamil: 'புரூஸ் வேயின் - காதம் நகர பாதுகாப்பு நிபுணர்',

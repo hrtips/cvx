@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # C0 retro — layout-engine sprint, chunk 0 (correctness harness)
 
 *2026-07-27. Pipeline run: expert implement → the-fool (adversarial) + architect review → fix pass → test → this retro.*

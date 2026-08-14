@@ -1,7 +1,7 @@
 // ── Main-column LayoutPlan construction from packExperiences()'s output ───
 //
-// LayoutPlan shape under test (research/sprint-layout-engine.md C0 §11 /
-// research/layout-packing-design.md §11):
+// LayoutPlan shape under test (research/archive/sprint-layout-engine.md C0 §11 /
+// research/archive/layout-packing-design.md §11):
 //
 //   { pages: [{ index, main: string[], sidebar: string[] }], totalPages }
 //

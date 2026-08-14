@@ -21,7 +21,7 @@
 //                below).
 //
 // `measured` should track `rendered` far more closely than `estimated` does
-// — that gap closing is C2's acceptance evidence (research/c0-baseline.md
+// — that gap closing is C2's acceptance evidence (research/archive/c0-baseline.md
 // records the before/after numbers).
 //
 // Why "render + rasterize" and not a direct @react-pdf/textkit

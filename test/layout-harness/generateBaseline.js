@@ -134,7 +134,7 @@ function main() {
   }
 
   // The shipped scaffold itself (template/cv-content), unmodified — the
-  // concrete example research/c0-baseline.md walks through.
+  // concrete example research/archive/c0-baseline.md walks through.
   process.stdout.write('  scaffold-default ... ')
   const t0 = Date.now()
   const scaffoldDir = mkFixtureDir('scaffold-default')
@@ -198,7 +198,7 @@ function main() {
   return runDiffCorpus().then((measureDiffCorpus) => {
     const baseline = {
       schemaVersion: 2,
-      note: 'Recorded 2026-07-28, POST-C2 (real fontkit measurement — src/pdf/measure.js) and its round-2 review fixes: per-bullet/per-sidebar-item content-completeness sentinels (contentOracle.js), the shipped scaffold\'s forced page-1 split removed (template/cv-content/config.yaml + the root cv-content/config.yaml demo — automatic pagination fits this content without a wasted page), a broadened measure-vs-render corpus (bold role, italic description, sidebar row, bold name — at real layout.js widths, not an arbitrary 200pt), and quantized page-budget comparisons (layout.js). This note previously (incorrectly) claimed "the CURRENT (pre-C1/C2/C3) engine" — false as of C2; corrected here rather than left stale. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff — that diff IS the evidence the fix worked (or, if unexpected, evidence of a regression to stop and investigate, not launder in). See research/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.',
+      note: 'Recorded 2026-07-28, POST-C2 (real fontkit measurement — src/pdf/measure.js) and its round-2 review fixes: per-bullet/per-sidebar-item content-completeness sentinels (contentOracle.js), the shipped scaffold\'s forced page-1 split removed (template/cv-content/config.yaml + the root cv-content/config.yaml demo — automatic pagination fits this content without a wasted page), a broadened measure-vs-render corpus (bold role, italic description, sidebar row, bold name — at real layout.js widths, not an arbitrary 200pt), and quantized page-budget comparisons (layout.js). This note previously (incorrectly) claimed "the CURRENT (pre-C1/C2/C3) engine" — false as of C2; corrected here rather than left stale. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff — that diff IS the evidence the fix worked (or, if unexpected, evidence of a regression to stop and investigate, not launder in). See research/archive/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.',
       fixturePlan: {
         totalFixtures: meta.totalFixtures,
         pairwiseRows: meta.pairwise.rowsGenerated,
