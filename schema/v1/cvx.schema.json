@@ -528,7 +528,7 @@
           "items": {
             "$ref": "#/$defs/layoutSlot"
           },
-          "description": "Slots in the main column, for this page kind specifically."
+          "description": "Slots in the main column, for this page kind specifically. Note: the planner measures only the summary and the experience entries here. Any other section renders correctly but is NOT measured, so the page count and overflow figures exclude it and the build reports a main-slot-unmeasured fact."
         }
       },
       "additionalProperties": false

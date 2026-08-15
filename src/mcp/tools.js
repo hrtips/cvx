@@ -21,6 +21,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { layoutDiagnostics } from '../pdf/layoutDiagnostics.js'
+import { physicalPageWarnings } from '../pdf/physicalPagesWarning.js'
 import { planCV, renderCV } from '../pdf/render.js'
 import { scaffoldContent } from '../pdf/scaffold.js'
 import { discoverThemes } from '../pdf/themes/index.js'
@@ -177,6 +178,19 @@ export async function buildPdf(
   })
   const path = join(workspace(dir), filename)
   writeFileSync(path, buffer)
+  // I1 (INV-4): sheets produced vs pages numbered. Merged into the envelope
+  // here because the count is a fact about bytes — layoutDiagnostics stays a
+  // pure function of the plan (see physicalPagesWarning.js). `plan_layout`
+  // renders nothing and therefore can never carry this code: a clean dry run
+  // does not clear this defect class, and the tool descriptions say so.
+  const diagnostics = ats ? null : layoutDiagnostics(plan)
+  if (diagnostics && plan) {
+    const physical = physicalPageWarnings(buffer, plan)
+    if (physical.length > 0) {
+      diagnostics.warnings = [...physical, ...diagnostics.warnings]
+      for (const w of physical) notices.push(w.message)
+    }
+  }
   // A build is progress: it clears the "you have asked the same question five
   // times" counter, so a plan → build → plan sequence does not open with an
   // accusation of looping. See trackPlanIteration.
@@ -201,7 +215,7 @@ export async function buildPdf(
     // (C6a) — so an assistant that just built does not need a second call to
     // see how the CV paginated. `null` for the ATS/single-column variant, which
     // react-pdf auto-flows and CVX never packs.
-    diagnostics: layoutDiagnostics(plan)
+    diagnostics
   }
 }
 
@@ -379,7 +393,7 @@ export const TOOLS = [
     name: 'build_pdf',
     title: 'Render cv-content/ to a PDF',
     description:
-      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong. Returns the same layout diagnostics as plan_layout (page count, per-page column fills, which roles and sections landed on which page, overflow warnings) for the PDF it just wrote, so you can report the result without a second call. Two separate lists come back: `diagnostics.warnings` is the structured list of named conditions, each with a `code` and a `kind` — match on those, never the wording. kind: "defect" means wrong, act on it (`overflow`, `page1-no-experience`); kind: "fact" means true and priced, act only if the user wants what it prices (`page1-ends-early`: page 1 has roles but the next could not start there — its `shortByPt` is what an edit would need to free, and it fires on well-packed CVs too). `notices` is plain-text notes about the run. Note that `diagnostics` describes the designed two-column pagination and is null for ats: true.',
+      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong. Returns the same layout diagnostics as plan_layout (page count, per-page column fills, which roles and sections landed on which page, overflow warnings) for the PDF it just wrote, so you can report the result without a second call. Two separate lists come back: `diagnostics.warnings` is the structured list of named conditions, each with a `code` and a `kind` — match on those, never the wording. kind: "defect" means wrong, act on it (`overflow`, `page1-no-experience`); kind: "fact" means true and priced, act only if the user wants what it prices (`page1-ends-early`: page 1 has roles but the next could not start there — its `shortByPt` is what an edit would need to free, and it fires on well-packed CVs too; `main-slot-unmeasured`: the layout puts a section other than the summary/experience in a main slot, where the planner does not measure it, so the page count and overflow figures exclude it). ONE defect exists only here and never in plan_layout, because only a build produces sheets to count: `physical-pages-exceed-plan` — the PDF has MORE sheets than the plan numbered, so content the planner never measured reached the page and react-pdf flowed it onto sheets the page badges do not count. A clean dry run does NOT clear it; if you see it, open the PDF and look at the last pages. `notices` is plain-text notes about the run. Note that `diagnostics` describes the designed two-column pagination and is null for ats: true.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -403,7 +417,7 @@ export const TOOLS = [
     name: 'plan_layout',
     title: 'See how the CV will paginate — without rendering a PDF',
     description:
-      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill as OCCUPANCY — (fixedPt + usedPt) / capacityPt, the same measurement on every page so pages compare honestly (diagnostics.version: 2; ABOVE 1 exactly when the page is over budget — see overflowPt); per-column blockedBy — why the next role/section could NOT start on that page, whose shortByPt is the one number that falls monotonically as the content above it is shortened (fill is a description, never a progress signal: shortening content LOWERS fill until a block moves up, then it jumps); the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items); overflow in points; and which column holds no packed blocks. totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). warnings carry a code and a kind — "defect" (overflow; page1-no-experience, page 1 carrying no roles at all, worth raising) versus "fact" (page1-ends-early: a priced page-break that fires on well-packed CVs too; mention it only when the user wants page 1 fuller). CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide what goes — never drop content on your own initiative to hit a page count. Once they have chosen, making the edit is your job. These numbers price the layout — they do not tell you whether the page looks right. Open the PDF that build_pdf returns and look at it.',
+      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill as OCCUPANCY — (fixedPt + usedPt) / capacityPt, the same measurement on every page so pages compare honestly (diagnostics.version: 2; ABOVE 1 exactly when the page is over budget — see overflowPt); per-column blockedBy — why the next role/section could NOT start on that page, whose shortByPt is the one number that falls monotonically as the content above it is shortened (fill is a description, never a progress signal: shortening content LOWERS fill until a block moves up, then it jumps); the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items); overflow in points; and which column holds no packed blocks. totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). warnings carry a code and a kind — "defect" (overflow; page1-no-experience, page 1 carrying no roles at all, worth raising) versus "fact" (page1-ends-early: a priced page-break that fires on well-packed CVs too, mention it only when the user wants page 1 fuller; main-slot-unmeasured: this layout puts a section other than the summary/experience in a main slot, which renders but is NOT measured, so the numbers below exclude it). A DRY RUN CANNOT SEE PAPER: build_pdf can additionally return `physical-pages-exceed-plan` — more sheets in the PDF than the plan numbered — and this tool never can, because it renders nothing. A clean plan is not proof of a clean PDF; build, then look. CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide what goes — never drop content on your own initiative to hit a page count. Once they have chosen, making the edit is your job. These numbers price the layout — they do not tell you whether the page looks right. Open the PDF that build_pdf returns and look at it.',
     inputSchema: {
       type: 'object',
       properties: {

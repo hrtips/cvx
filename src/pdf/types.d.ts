@@ -384,6 +384,13 @@ export interface LayoutPlanPage {
 /** The two-flow pagination plan (layout.js planTwoColumn). */
 export interface LayoutPlan {
   totalPages: number
+  /**
+   * Sections a `main` slot names that the packer does not measure (I1). Empty
+   * for every shipped layout; non-empty means `totalPages` and `overflowPt`
+   * describe less ink than the pages carry, which `layoutDiagnostics` states
+   * as the `main-slot-unmeasured` fact. Retired by I4/I6.
+   */
+  unmeasuredMainKeys?: string[]
   /** Pages the main flow alone needed. */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
@@ -567,8 +574,19 @@ export interface LayoutDiagnosticWarning {
    * could not start there; a PRICED FACT, not necessarily a defect: it fires
    * on well-packed CVs too, and its numbers say what shortening the summary
    * would buy. Mutually exclusive with `page1-no-experience` by construction.
+   * `main-slot-unmeasured` (I1) — the layout puts a section other than the
+   * summary/experience in a main slot; it renders but is not measured, so the
+   * plan's numbers exclude it. `physical-pages-exceed-plan` (I1) — the
+   * rendered PDF has more sheets than the plan numbered; a build-only defect
+   * (it is merged into the envelope by the CLI/MCP layer from the produced
+   * bytes, so `plan_layout` can never carry it).
    */
-  code: 'overflow' | 'page1-no-experience' | 'page1-ends-early'
+  code:
+    | 'overflow'
+    | 'page1-no-experience'
+    | 'page1-ends-early'
+    | 'main-slot-unmeasured'
+    | 'physical-pages-exceed-plan'
   /**
    * CVX classifying its own message (architecture review 4a): 'defect' =
    * something is wrong, act on it; 'fact' = true and priced, act only if the
@@ -576,16 +594,23 @@ export interface LayoutDiagnosticWarning {
    * too). Lets a consumer filter without hardcoding the code list.
    */
   kind: 'defect' | 'fact'
-  /** 1-based page number. */
-  page: number
-  overflowPt: number
+  /**
+   * 1-based page number — present on every PAGE-SCOPED code. Absent on the two
+   * codes whose subject is not a page (I1): `main-slot-unmeasured` describes
+   * the layout, and `physical-pages-exceed-plan` describes the document. A
+   * consumer that groups by page must therefore skip warnings without one
+   * rather than assume `0`.
+   */
+  page?: number
+  /** Page-scoped codes only (`overflow`). */
+  overflowPt?: number
   /**
    * DEPRECATED, permanently `false`: the page1ExperienceCount /
    * page1SplitBullets levers that could force an overflow were removed
    * (maintainer ruling). The field stays so consumers that match on it keep
-   * working.
+   * working. `overflow` only.
    */
-  forcedByConfig: boolean
+  forcedByConfig?: boolean
   message: string
   /** page1-ends-early only: what would have to be freed on page 1 for the next role's smallest piece to start there. Falls monotonically as the user shortens the summary. */
   shortByPt?: number
@@ -593,6 +618,12 @@ export interface LayoutDiagnosticWarning {
   residualPt?: number
   smallestPiecePt?: number
   gapBeforePt?: number
+  /** main-slot-unmeasured only: the unmeasured section keys, in layout order. */
+  keys?: string[]
+  /** physical-pages-exceed-plan only: pages the plan numbered. */
+  planned?: number
+  /** physical-pages-exceed-plan only: sheets the rendered PDF actually has. */
+  physical?: number
   /** page1-ends-early only: page 1's fixed content (summary + spacer + section title) — the lever. */
   fixedPt?: number
   nextRole?: string | null

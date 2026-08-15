@@ -144,6 +144,44 @@ function bulletsOn(entry) {
 }
 
 /**
+ * The planner measures the summary and the experience flow in the main column
+ * and nothing else, but a layout may legally place any section there and the
+ * renderer will draw it (schema `layoutSlot`). Where that happens, this plan's
+ * numbers describe less ink than the pages carry: `totalPages` can sit under
+ * the sheets produced, and `overflowPt` cannot price the surplus. Naming it is
+ * the whole point — INV-5 says a clean report means a clean artifact, so the
+ * blindness must be stated, not inferred from a plan that looks complete.
+ *
+ * `kind: 'fact'`: nothing is necessarily wrong — a small section in a main
+ * slot renders correctly and this still fires. Per R-F it names the condition
+ * and what the numbers exclude, and stops there; whether to move the section
+ * is the caller's judgement, taught by the skill.
+ *
+ * Retired by §8's I4/I6: once the planner prices main-slot sections,
+ * `unmeasuredMainKeys` is empty by construction and this can never fire.
+ *
+ * @param {import('./types.js').LayoutPlan} plan
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function mainSlotUnmeasured(plan) {
+  const keys = plan.unmeasuredMainKeys ?? []
+  if (keys.length === 0) return []
+  const list = keys.join(', ')
+  return [
+    {
+      code: /** @type {const} */ ('main-slot-unmeasured'),
+      kind: /** @type {const} */ ('fact'),
+      keys: [...keys],
+      message:
+        `The layout places ${list} in a main slot, where the planner measures only the ` +
+        `summary and the experience entries: ${list} ${keys.length === 1 ? 'is' : 'are'} ` +
+        `rendered but not measured, so this plan's page count and overflow figures exclude ` +
+        `${keys.length === 1 ? 'it' : 'them'}.`
+    }
+  ]
+}
+
+/**
  * §3.8's warning: page 1's experience list ended early — at least one role IS
  * on page 1, but the next one could not start there, and page 1 is the only
  * page with a LEVER (fixed content the user can shorten). Mutually exclusive
@@ -342,7 +380,8 @@ export function layoutDiagnostics(plan) {
       message: w.message
     })),
     ...page1WithoutExperience(pages),
-    ...page1EndsEarly(pages)
+    ...page1EndsEarly(pages),
+    ...mainSlotUnmeasured(plan)
   ]
 
   return {

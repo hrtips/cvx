@@ -38,6 +38,9 @@ const LAYOUT_JS = path.join(HERE, 'layout.js')
 const PUBLIC_API = [
   'bodyHeight',
   'contactRows',
+  // I1: the one list the main-slot-unmeasured fact, the schema caveat and the
+  // docs all derive from — public so they cannot drift from the packer.
+  'MEASURED_MAIN_KEYS',
   'isContinuedSlice',
   'isIdentityKey',
   'overflowWarnings',
@@ -170,11 +173,12 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 26 names the module docblock claims', () => {
+  it('exports exactly the 27 names the module docblock claims', () => {
     // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
     // main-column harness the same way deriveMetrics is for the sidebar's.
-    expect(exported).toHaveLength(26)
-    expect(PUBLIC_API).toHaveLength(8)
+    // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
+    expect(exported).toHaveLength(27)
+    expect(PUBLIC_API).toHaveLength(9)
     expect(internal).toHaveLength(18)
   })
 
@@ -213,7 +217,7 @@ describe('layout.js public API', () => {
     )
   })
 
-  it('the one public name with no shipped importer is the plan-shape API, and is callable with public types', () => {
+  it('the public names with no shipped importer are the declared contracts, and are usable with public types', () => {
     // `sidebarFlowKeys` is public because the sidebar flow it defines is what
     // C6's `order`/`buckets` levers are specified over, and it takes a
     // NormalizedLayout and returns strings — no unpromised type in its
@@ -221,10 +225,24 @@ describe('layout.js public API', () => {
     // it cannot be called without `deriveSidebarMetrics`, which is @internal.
     // The plan already carries `page.identity`, so C6 needs the keys, not the
     // height.) Recorded so the next reader does not "clean this up".
+    //
+    // `MEASURED_MAIN_KEYS` (I1) joined it for the same reason and with the
+    // same shape: a DECLARED CONTRACT rather than a helper. It states which
+    // main-flow sections the packer prices, and the schema's caveat, the docs
+    // and the `main-slot-unmeasured` fact are all defined against it. Nothing
+    // ships an import because the fact is computed at its definition site —
+    // that is the point: one list, no copies (ARCHITECTURE §4's mirror rule
+    // applied to a constant). It is frozen and made of plain strings, so a
+    // caller reading it needs no unpromised type either.
     const imported = new Set(shippedImportersOfLayout().flatMap((i) => i.names))
-    expect(PUBLIC_API.filter((n) => !imported.has(n))).toEqual(['sidebarFlowKeys'])
+    expect(PUBLIC_API.filter((n) => !imported.has(n))).toEqual([
+      'MEASURED_MAIN_KEYS',
+      'sidebarFlowKeys'
+    ])
     expect(typeof layout.sidebarFlowKeys).toBe('function')
     expect(layout.sidebarFlowKeys({ first: { sidebar: ['education'] } })).toEqual(['education'])
+    expect(Object.isFrozen(layout.MEASURED_MAIN_KEYS)).toBe(true)
+    expect([...layout.MEASURED_MAIN_KEYS]).toEqual(['summary', 'experience'])
   })
 
   it('no public function needs an @internal type to call it', () => {

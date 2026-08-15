@@ -10,6 +10,30 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**The build now counts the paper.** Every build compares the sheets in the
+finished PDF against the pages the plan numbered, and reports
+`physical-pages-exceed-plan` (kind `defect`, carrying `planned` and
+`physical`) when they disagree. Until now that gap was silent: content the
+planner does not measure — anything other than the summary and experience in
+a `main` slot — renders fine, spills past the column, and react-pdf flows it
+onto extra sheets the page badges never count, so a CV could ship with a blank
+trailing page while the report was clean. The check reads the produced bytes,
+so it costs nothing and cannot perturb the render; where it cannot establish
+the count with two agreeing readings it stays silent rather than guess. It is
+a build-only signal by construction: `plan_layout` renders nothing and can
+never carry it, so a clean dry run is not proof of a clean PDF. `cvx build`
+still exits 0 (the PDF exists and is content-complete) and prints the defect
+to stderr; `cvx build --strict` exits non-zero for pipelines that want a hard
+gate.
+
+**The plan says when it is measuring less than the page.** A layout that puts
+any section other than the summary/experience in a `main` slot now gets the
+`main-slot-unmeasured` fact (kind `fact`, carrying `keys`), and the schema's
+`main` slot documents the limitation. This is the honest half of a known gap —
+those sections render correctly but are not priced, so `totalPages` and
+`overflowPt` describe less than the page holds. Both this fact and the defect
+above are retired by the coming work that measures main-slot sections.
+
 **Removed: `page1ExperienceCount` and `page1SplitBullets`.** Maintainer
 ruling. Measured, they were an anti-lever — the page count never moved, and
 every effective setting pushed content onto an extra physical sheet the page

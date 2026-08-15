@@ -268,9 +268,12 @@ export async function mcpInit(/** @type {{ client?: string, json?: boolean }} */
     )
 }
 
-export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, json }) {
+export async function build(
+  /** @type {{ ats?: boolean, json?: boolean, strict?: boolean }} */ { ats, json, strict }
+) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const { layoutDiagnostics } = await import('../lib/pdf/layoutDiagnostics.js')
+  const { physicalPageWarnings } = await import('../lib/pdf/physicalPagesWarning.js')
   /** @type {string[]} */
   const notices = []
   const { buffer, filename, themeName, layoutName, plan } = await renderCV({
@@ -283,6 +286,28 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
     }
   })
   writeFileSync(join(process.cwd(), filename), buffer)
+
+  // I1 (INV-4): the plan counts pages it numbered; this counts sheets that
+  // exist. `--ats` has no plan (single column, auto-flowed) so there is no
+  // claim to check. Merged into the envelope's warnings here — NOT inside
+  // layoutDiagnostics, which is pinned pure over the plan; see
+  // physicalPagesWarning.js.
+  const diagnostics = ats ? null : layoutDiagnostics(plan)
+  const physical = ats ? [] : physicalPageWarnings(buffer, plan)
+  if (diagnostics && physical.length > 0) {
+    // Defects before facts — the same ordering rule layoutDiagnostics applies.
+    diagnostics.warnings = /** @type {typeof diagnostics.warnings} */ ([
+      ...physical,
+      ...diagnostics.warnings
+    ])
+    for (const w of physical) {
+      // R-D: a defect reaches stderr in every mode. Facts never do — a normal
+      // page break is not shouted at (the existing page1-ends-early rule).
+      notices.push(w.message)
+      console.error(`⚠ ${w.message}`)
+    }
+  }
+
   if (json) {
     emit({
       command: 'build',
@@ -303,12 +328,18 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
       // blind to the PDF as one driving the MCP server — so it gets the same
       // numbers `build_pdf` returns, from the same function. `null` for --ats
       // (single column, auto-flowed, never packed).
-      diagnostics: layoutDiagnostics(plan)
+      diagnostics
     })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
     console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)
   }
+
+  // R-D: the PDF exists and is content-complete, so a defect is exit 0 by
+  // default — calling it a render failure would misstate what happened. Under
+  // --strict it must be impossible to ignore, matching `validate`'s precedent
+  // (warnings become errors) so a scripted caller can opt into hard failure.
+  if (strict && physical.length > 0) process.exit(EXIT.validation)
 }
 
 // build --all: validate first (errors block), then render both variants.

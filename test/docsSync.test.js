@@ -27,6 +27,9 @@ const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
 // original guard iterated only the markdown files, so it was structurally
 // unable to see the one place that was wrong.
 const mcpTools = readFileSync(path.join(ROOT, 'src', 'mcp', 'tools.js'), 'utf8')
+// The type model is the source of truth for the warning-code union — the doc
+// guard below derives the list from it rather than repeating it here (I1).
+const typesDts = readFileSync(path.join(ROOT, 'src', 'pdf', 'types.d.ts'), 'utf8')
 const mcpServer = readFileSync(path.join(ROOT, 'src', 'mcp', 'server.js'), 'utf8')
 
 const CONTENT_DEFS = [
@@ -202,6 +205,34 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
       expect(text).toContain('page1-ends-early')
       expect(text).toMatch(/kind/)
       expect(text).toMatch(/'fact'|"fact"|`fact`/)
+    }
+  })
+
+  it('every warning code the engine can emit is taught on the model-facing surfaces', () => {
+    // Derived from the type model's union, not a list retyped here: a code
+    // added to the engine without a word of documentation is exactly the drift
+    // this file exists to stop, and a hand-copied list would drift with it.
+    const union = /code:\s*((?:\s*\|?\s*'[a-z0-9-]+')+)/i.exec(typesDts)
+    expect(union, 'could not find the warning-code union in types.d.ts').toBeTruthy()
+    const codes = [...union[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1])
+    // Sanity: the union we matched is the warning one, not some other union.
+    expect(codes).toContain('overflow')
+    expect(codes.length).toBeGreaterThanOrEqual(5)
+    for (const code of codes) {
+      expect(skillMd, `SKILL.md never mentions the ${code} warning`).toContain(code)
+      expect(mcpTools, `the MCP tool descriptions never mention ${code}`).toContain(code)
+    }
+  })
+
+  it('the build-only nature of the physical-page defect is stated wherever it is taught', () => {
+    // The asymmetry is the part an agent gets wrong: plan_layout renders
+    // nothing, so a clean dry run does not clear this defect class. A surface
+    // that names the code without that caveat teaches "the plan is enough".
+    for (const [name, text] of MODEL_FACING) {
+      if (!text.includes('physical-pages-exceed-plan')) continue
+      expect(text, `${name} names the defect without saying a dry run cannot see it`).toMatch(
+        /dry run|plan_layout (?:can )?never|only a build|builds only/i
+      )
     }
   })
 

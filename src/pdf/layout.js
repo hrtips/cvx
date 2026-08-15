@@ -87,7 +87,8 @@
 //   diagnostics and C7's docs are built on. Changing one of these is a
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
-//     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel
+//     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
+//     MEASURED_MAIN_KEYS
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -1735,6 +1736,52 @@ export function sidebarItemCount(
 export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
 
 /**
+ * The main-flow section keys this packer actually measures — the whole of what
+ * `packExperiences` prices. Exported because it is the ONE list: the
+ * `main-slot-unmeasured` fact, the schema's caveat and the docs all derive
+ * from it, so the day I4/I6 widen the packer they cannot fall out of step with
+ * what the instrument claims (a hand-copied second list is the drift shape
+ * that let a reordered component pass a 455-test suite — see ARCHITECTURE §4).
+ */
+export const MEASURED_MAIN_KEYS = Object.freeze(['summary', 'experience'])
+
+/**
+ * The section a slot entry names. Resolved layouts normalise every slot to a
+ * `key` or `key:arg` STRING — `{spacer: 27}` in the YAML arrives here as
+ * `'spacer:27'`, and a continuation marker as `'experience:continued'` — so
+ * the section is the part before the colon. (Discovered by measurement while
+ * building I1: comparing whole slot strings reported the shipped default
+ * layout's own spacer as an unmeasured section.)
+ *
+ * @param {unknown} slot
+ * @returns {string}
+ */
+const slotKey = (slot) => String(slot ?? '').split(':')[0]
+
+/**
+ * Which sections a layout puts in a `main` slot that {@link MEASURED_MAIN_KEYS}
+ * does not cover — deduplicated, in first-seen order, across every page kind
+ * (a section unmeasured on continuation pages is just as unpriced as one on
+ * page 1). Spacers are vertical space charged by the budget arithmetic, not
+ * sections, so they are never reported.
+ *
+ * @param {{ first?: { main?: unknown[] }, continuation?: { main?: unknown[] }, last?: { main?: unknown[] } }} layout
+ * @returns {string[]}
+ */
+function unmeasuredMainKeys(layout) {
+  const seen = new Set()
+  for (const page of [layout?.first, layout?.continuation, layout?.last]) {
+    for (const slot of page?.main ?? []) {
+      const key = slotKey(slot)
+      if (!key || key === 'spacer') continue
+      if (MEASURED_MAIN_KEYS.includes(key)) continue
+      seen.add(key)
+    }
+  }
+  return [...seen]
+}
+
+/**
  * Measured height of a contiguous slice of one sidebar section — items
  * `[start, end)` under the section's title, with the "(cont.)" marker whenever
  * `start > 0`. Returns `null` when the section renders nothing at all (its
@@ -2074,6 +2121,18 @@ export function planTwoColumn({
 
   return {
     totalPages,
+    /**
+     * Sections this layout puts in a `main` slot that the packer above did not
+     * measure — it prices the summary and the experience flow, nothing else
+     * (see this module's PACKED vs FIXED note). The renderer still draws them,
+     * so `totalPages` and `overflowPt` are describing less than the page holds
+     * whenever this is non-empty; `layoutDiagnostics` turns it into the
+     * `main-slot-unmeasured` fact so the blindness is stated rather than
+     * inferred. Empty for every layout whose main slots hold only measured
+     * keys, which is every shipped layout. Retired by §8's I4/I6, when the
+     * planner starts measuring these and the array is empty by construction.
+     */
+    unmeasuredMainKeys: unmeasuredMainKeys(layout),
     mainPageCount: main.totalPages,
     sidebarPageCount: sidebar.totalPages,
     pages: Array.from({ length: totalPages }, (_, index) => {

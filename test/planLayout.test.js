@@ -343,7 +343,30 @@ describe('the diagnostics name the defects a build warns about', () => {
     const built = buildViaCli(dir)
     expect(built.warnings).toBeUndefined()
     expect(built.notices.join('\n')).toMatch(/over budget/)
-    expect(built.diagnostics).toEqual(d)
+
+    // The build envelope is the dry run's diagnostics PLUS whatever only a
+    // render can know — I1's sheet count (INV-4). The two are deliberately not
+    // identical, and this fixture is the proof: its summary is taller than the
+    // column, so react-pdf flows a sheet the plan never numbered, and only the
+    // build can see it. Everything else must still match exactly, so the
+    // asymmetry is asserted as "same, apart from the render-derived defect"
+    // rather than dropped.
+    const renderOnly = built.diagnostics.warnings.filter(
+      (/** @type {{code: string}} */ w) => w.code === 'physical-pages-exceed-plan'
+    )
+    expect(renderOnly).toHaveLength(1)
+    expect(renderOnly[0].kind).toBe('defect')
+    expect(renderOnly[0].physical).toBeGreaterThan(renderOnly[0].planned)
+    expect(renderOnly[0].planned).toBe(d?.totalPages)
+    // A dry run renders nothing, so it can never carry this code — the
+    // asymmetry the tool descriptions have to state.
+    expect(d?.warnings.some((w) => w.code === 'physical-pages-exceed-plan')).toBe(false)
+    expect({
+      ...built.diagnostics,
+      warnings: built.diagnostics.warnings.filter(
+        (/** @type {{code: string}} */ w) => w.code !== 'physical-pages-exceed-plan'
+      )
+    }).toEqual(d)
 
     cleanupFixtureDirs()
   }, 60000)
