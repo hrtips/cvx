@@ -587,9 +587,12 @@ export interface LayoutDiagnosticWarning {
    * bytes, so `plan_layout` can never carry it).
    * `experience-empty` (I2) — the CV has no experience entries at all (a
    * student or first-job CV); mutually exclusive with `page1-no-experience`,
-   * which requires roles to exist. `main-column-empty` (I3) — a page that is
-   * not the last renders nothing in its main column; the last page's blank
-   * column is the ordinary residual and never reported.
+   * which requires roles to exist. `main-column-empty` (I3) — a
+   * multi-page CV whose main column renders nothing on ANY page. Not "the
+   * last page's blank column": one flow ending before the other is the
+   * ordinary residual, normal, and never reported. Suppressed where a layout
+   * puts unmeasured sections in a main slot, because the plan cannot then see
+   * that column's ink.
    */
   code:
     | 'overflow'
@@ -630,7 +633,7 @@ export interface LayoutDiagnosticWarning {
   residualPt?: number
   smallestPiecePt?: number
   gapBeforePt?: number
-  /** main-column-empty only: the non-last pages whose main column renders nothing, 1-based. */
+  /** main-column-empty only: the pages carrying no main-column ink, 1-based (all of them, by construction). */
   pages?: number[]
   /** experience-empty only: page 1's fixed content — what the main column does carry. */
   fixedPt?: number

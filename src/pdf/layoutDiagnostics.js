@@ -218,10 +218,22 @@ function mainSlotUnmeasured(plan) {
  *
  * @param {import('./types.js').LayoutDiagnostics['pages']} pages
  * @param {number} totalPages
+ * @param {string[]} unmeasuredMainKeys
  * @returns {import('./types.js').LayoutDiagnosticWarning[]}
  */
-function mainColumnEmpty(pages, totalPages) {
+function mainColumnEmpty(pages, totalPages, unmeasuredMainKeys = []) {
   if (totalPages < 2) return []
+  // The claim below is about INK, and this predicate reads the plan — which
+  // measures only summary and experience in the main column (INV-3, known
+  // violated; `main-slot-unmeasured` is its disclosure). On a layout that puts
+  // sections in a main slot, the column can be full of education and
+  // competencies while every page reports `emptyColumn: 'main'`. Publishing
+  // "the main column renders nothing" there is a FALSE statement about the
+  // render, contradicting the sibling fact in the same array — and it is the
+  // exact layout SKILL.md teaches for student CVs. Where the planner is blind,
+  // it says nothing rather than something untrue. I4/I6 make the main flow
+  // measured, and this guard becomes unnecessary.
+  if (unmeasuredMainKeys.length > 0) return []
   // "Blank" is the plan's own emptyColumn, which since I2 means no ink.
   const blank = pages.filter((p) => p.emptyColumn === 'main' || p.emptyColumn === 'both')
   if (blank.length !== pages.length) return []
@@ -323,7 +335,15 @@ function page1EndsEarly(pages) {
   // `room` is clamped at 0 for prose: a residual smaller than the divider the
   // block would charge means "no room at all", never a negative number.
   const room = Math.max(0, pt(d.residualPt - d.gapBeforePt))
-  const actionable = d.shortByPt <= fixed && d.shortByPt < d.smallestPiecePt
+  // Actionable ⟺ the shortfall is payable out of the fixed content above the
+  // roles. The `shortByPt < smallestPiecePt` clause this used to carry made
+  // the branch fire on ordinary CVs whenever the residual was smaller than the
+  // entry divider — regardless of how large the fixed content was — so the
+  // not-actionable message then asserted "the fixed content is only 348.3pt,
+  // which is less than the 84.76pt this role needs". Freeing shortByPt is
+  // exactly what buys the smallest piece its room in that case too, so the
+  // clause was excluding cases the advice fits (gate-7 review of I3).
+  const actionable = d.shortByPt <= fixed
   // The role is user-authored text quoted inside CVX's own sentence (review
   // R-c): quote a single-line, length-capped form so a hostile or merely long
   // title cannot restructure the message; the untruncated string is in the
@@ -406,8 +426,8 @@ function page1WithoutExperience(pages) {
       overflowPt: page1.overflowPt,
       forcedByConfig: false,
       message:
-        `page 1 carries no experience entries: its fixed content (the summary, and the identity ` +
-        `block) leaves less room than the smallest piece of the first role, so the page ends early ` +
+        `page 1 carries no experience entries: its fixed content (the summary, its spacer and the ` +
+        `section title) leaves less room than the smallest piece of the first role, so the page ends early ` +
         `and the roles start on page 2. The reader's first page therefore shows no work history. ` +
         `The summary is the only content above the roles, so it is the only thing whose length ` +
         `changes this — no pagination can.`
@@ -483,7 +503,7 @@ export function layoutDiagnostics(plan) {
     ...page1WithoutExperience(pages),
     ...page1EndsEarly(pages),
     ...experienceEmpty(pages),
-    ...mainColumnEmpty(pages, plan.totalPages),
+    ...mainColumnEmpty(pages, plan.totalPages, plan.unmeasuredMainKeys ?? []),
     ...mainSlotUnmeasured(plan)
   ]
 

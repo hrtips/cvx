@@ -124,3 +124,50 @@ describe('main-column-empty fires only where a blank wide column is a defect-sha
     expect(Object.keys(d?.totals ?? {})).not.toContain('mainColumnEmptyPages')
   })
 })
+
+describe('main-column-empty never contradicts main-slot-unmeasured', () => {
+  /** The layout SKILL.md teaches for student CVs: sections in a main slot. */
+  const STUDENT_LAYOUT = {
+    first: {
+      sidebar: ['identity-photo', 'contact', 'certifications'],
+      main: ['education', 'competencies']
+    },
+    continuation: {
+      sidebar: ['identity-compact', 'certifications'],
+      main: ['experience:continued']
+    },
+    last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+  }
+
+  it('says nothing about ink the planner cannot see', () => {
+    // Gate-7 blocker: the main column is FULL — education and competencies
+    // render there — but the plan measures neither, so every page reported
+    // `emptyColumn: 'main'` and the fact declared "the main column renders
+    // nothing", in the same response as `main-slot-unmeasured` saying those
+    // sections are rendered. Two facts, one response, flatly contradictory,
+    // on exactly the layout the skill recommends.
+    const plan = planTwoColumn({
+      content: {
+        personal: PERSONAL,
+        summary: [],
+        experience: [],
+        education: Array.from({ length: 5 }, (_, i) => ({
+          degree: `Degree ${i}`,
+          institution: `Institution number ${i}`,
+          period: '2020'
+        })),
+        competencies: Array.from({ length: 40 }, (_, i) => `Competency ${i}`),
+        certifications: Array.from({ length: 20 }, (_, i) => ({
+          name: `Certification number ${i} with a long name`,
+          issuer: 'Body'
+        }))
+      },
+      layout: STUDENT_LAYOUT
+    })
+    const codes = codesOf(layoutDiagnostics(plan))
+    // The disclosure fires…
+    expect(codes).toContain('main-slot-unmeasured')
+    // …and the render claim does not.
+    expect(codes).not.toContain('main-column-empty')
+  })
+})

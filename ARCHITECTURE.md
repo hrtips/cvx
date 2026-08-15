@@ -266,9 +266,15 @@ patches, and build → plan → plan → build in one process is byte-identical.
   the codebase (`overflowWarnings`), shared by build and validate.
 - **Message policy (ruling R-F): facts name conditions only.** Messages carry
   the condition and its prices, never imperative edit advice; the advice lives
-  in the skill. A quoted user string in any message is single-line and
+  in the skill. **Scope, so this is not relitigated per increment:** R-F
+  governs diagnostics warnings about CONTENT SHAPE — `layoutDiagnostics`,
+  `overflowWarnings`, `physicalPageWarnings`, and the validate findings that
+  restate them. It does not govern file-structure or tool-use advice, which
+  stays imperative on purpose: validate's schema suggestions ("delete the
+  key", "rename to X.yaml" — R-B requires one), font notices, CLI stderr, and
+  the teaching surfaces (tool descriptions, handshake, skill). A quoted user string in any message is single-line and
   length-capped (injection surface, INV-12).
-- **Statelessness, restored (I3):** the MCP layer once kept a process-scoped
+- **Statelessness, restored (sprint 1's `planIterations` deletion):** the MCP layer once kept a process-scoped
   map counting consecutive identical dry runs per workspace and changed the
   fifth answer. A verified design-loop finding ruled it a violation — a callee
   does not count its caller's calls — and it is now deleted, along with the
@@ -916,7 +922,7 @@ I6, then I7 ∥ I9, then I8.*
 |---|---|---|
 | I1 | Physical sheet-count defect warning (buffer page count cross-checked against poppler in the harness, null-on-unparseable; envelope-level attach; `main-slot-unmeasured` interim fact; schema caveat) | INV-4, INV-3 disclosure |
 | I2 | Page-1 metrics row when summary renders with empty experience; `experience-empty` fact; `emptyColumn` = "no ink"; diagnostics v3 | INV-5 blind spots |
-| I3 | `main-column-empty` fact (non-last, genuinely blank pages) + R-F message-policy sweep | INV-5, R-F |
+| I3 | `main-column-empty` fact (a multi-page CV whose main column renders nothing on ANY page — *not* per-page: one flow ending before the other is the C4 residual, and flagging it would re-create the metric §7.3 records as anti-correlated with quality; suppressed where a layout's main slots are unmeasured, since the plan cannot see that column's ink) + R-F message-policy sweep | INV-5, R-F |
 | I4 | Main-slot fixed-content pricing (`deriveColumnMetrics`; width-parameterized vocabulary measurement; empty-section-in-slot prices as exactly 0) | INV-3 (first half) |
 | I5 | Column-aware section-title variants (render + mirror in one commit; ATS parity decided explicitly) | INV-2 across columns |
 | I6 | Heterogeneous packed main flow (`packMain` written against anonymous blocks; layout main lists become ORDER; duplicate-section validation; genericity guard on the packer; per-section formulas migrate to the vocabulary) | INV-3 (full), INV-8 (packer), INV-1 duplicate rule |
