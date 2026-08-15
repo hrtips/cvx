@@ -177,7 +177,7 @@ with these properties (each is an invariant in §5, each measured by §6):
 
 1. **Deterministic & stateless** — same inputs, same outputs; byte-identical
    under a pinned `SOURCE_DATE_EPOCH`; no memory between calls; ask twice, get
-   the same answer. (One known, ruled violation stands unexecuted — §2.4.)
+   the same answer.
 2. **Total on content** — 100% of `C` reaches the PDF: nothing dropped,
    clipped, compressed, stretched, or reworded to fit. Pagination absorbs all
    pressure.
@@ -268,18 +268,13 @@ patches, and build → plan → plan → build in one process is byte-identical.
   the condition and its prices, never imperative edit advice; the advice lives
   in the skill. A quoted user string in any message is single-line and
   length-capped (injection surface, INV-12).
-- **Known statelessness violation, ruled for deletion, not yet executed:** the
-  MCP layer keeps a process-scoped `planIterations` map that counts identical
-  consecutive dry runs per workspace — the second identical call already
-  answers differently (`count: 2, unchanged: true`), and the fifth adds a cap
-  notice. A verified design-loop finding ruled it a statelessness violation
-  ("a callee does not count its caller's calls" — it contradicts
-  ask-twice-get-the-same-answer), and the cap notice is conduct advice in
-  instrument output, in tension with R-F. Confined to the MCP layer (never
-  the engine); every `build_pdf` deletes the counter. Slated for deletion
-  together with its pinning tests; loop-bounding is the LLM's job (§1.2);
-  tracked in §8. Until it lands, the map is the one seam where CVX remembers
-  a caller.
+- **Statelessness, restored (I3):** the MCP layer once kept a process-scoped
+  map counting consecutive identical dry runs per workspace and changed the
+  fifth answer. A verified design-loop finding ruled it a violation — a callee
+  does not count its caller's calls — and it is now deleted, along with the
+  tests that pinned it. `plan_layout` is a pure function of the content
+  directory again, asserted directly: repeated calls are deep-equal, and a
+  build in between changes nothing. Bounding a loop is the LLM's job (§1.2).
 
 ### 2.5 What correctness means
 
@@ -730,7 +725,7 @@ written down).
 | `emptyColumn` = "no packed blocks" | diagnostics v2 | I2: means "no ink"; a summary-bearing page is not empty. |
 | Per-page-kind `main` slot semantics ("first.main renders on page 1") | schema description | I6: main lists become ORDER — completing the C3a reinterpretation. |
 | The lever surface as designed (`fill`/`weights`/`order`/`buckets`/`targetPages`) and the C6b levers chunk | packing design §7.1; sprint C6b | C4 measured the central objective as wrong; C6b closed 2026-08-09 as premise-superseded ("the objective was never a page count, it is an assistant that iterates like a designer"); R-H replaces per-column overrides with layout-declared flows. `density` remains the one lever class that could ever remove sheets (it re-measures) — unbuilt, unscheduled. |
-| `planIterations` iteration cap as a designed MCP behavior | C6a | Verified design-loop finding: a statelessness violation, ruled for deletion (tracked §8; see §2.4). |
+| `planIterations` iteration cap as a designed MCP behavior | C6a | Verified design-loop finding: a statelessness violation. Deleted in sprint 1 (see §2.4). |
 | P1/P2/P3 phase roadmap (design-loop / p3-surface drafts) | sprint-design-loop, design-p3-surface | §8's I1–I9 plan; landed P1 outcomes are history; P1a and P2 carried as open backlog (§7.4). |
 | Vertical glue / `applyVerticalGlue` (G4 "fills the page") | packing design §3–§4 | Never shipped; C4 measured only 6.7% of corpus slack reachable (19 of 200 page-columns), and filling it spends the safety backstop. Dropped. |
 
@@ -944,9 +939,6 @@ Also tracked (small, from earlier reviews and this consolidation):
 - **`validate` bypasses `resolveDocument`** — validate and build can describe
   different documents under a custom layout; fix no later than I4, where
   main-slot pricing makes the divergence observable.
-- **`planIterations` deletion** (§2.4's ruled statelessness violation) — the
-  counter, its cap behavior, and its pinning tests go together; loop-bounding
-  moves wholly to the skill.
 - **Meta-row period overflow** (open render defect, unowned): a long company
   wraps at full container width and pushes the period outside the content box
   (measured 24.19pt into the 33pt right padding; a longer pair runs off the
