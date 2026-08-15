@@ -21,7 +21,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { layoutDiagnostics } from '../pdf/layoutDiagnostics.js'
-import { physicalPageWarnings } from '../pdf/physicalPagesWarning.js'
+import { attachPhysicalWarnings } from '../pdf/physicalPagesWarning.js'
 import { planCV, renderCV } from '../pdf/render.js'
 import { scaffoldContent } from '../pdf/scaffold.js'
 import { discoverThemes } from '../pdf/themes/index.js'
@@ -183,14 +183,13 @@ export async function buildPdf(
   // pure function of the plan (see physicalPagesWarning.js). `plan_layout`
   // renders nothing and therefore can never carry this code: a clean dry run
   // does not clear this defect class, and the tool descriptions say so.
-  const diagnostics = ats ? null : layoutDiagnostics(plan)
-  if (diagnostics && plan) {
-    const physical = physicalPageWarnings(buffer, plan)
-    if (physical.length > 0) {
-      diagnostics.warnings = [...physical, ...diagnostics.warnings]
-      for (const w of physical) notices.push(w.message)
-    }
-  }
+  const { diagnostics, added } = attachPhysicalWarnings({
+    diagnostics: ats ? null : layoutDiagnostics(plan),
+    buffer,
+    plan,
+    ats
+  })
+  for (const w of added) notices.push(w.message)
   // A build is progress: it clears the "you have asked the same question five
   // times" counter, so a plan → build → plan sequence does not open with an
   // accusation of looping. See trackPlanIteration.

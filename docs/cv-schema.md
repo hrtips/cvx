@@ -236,6 +236,8 @@ pages:
 
 Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees` (sidebar); `summary`, `experience`, `experience:continued`, `header-ats` (main); `spacer: N` (N points of vertical space, either slot).
 
+The lists above say where each section is *normally* placed, not where it is *allowed*: any section key is legal in either slot. One caveat if you move one into `main` — the planner measures only `summary` and `experience` there, so a section you place in a main slot renders correctly but is not counted in the page count or the overflow figures. The build says so with the `main-slot-unmeasured` fact, and compares the finished PDF's sheet count against the plan (`physical-pages-exceed-plan`) so an unmeasured spill cannot pass silently.
+
 ---
 
 ## Checklist for generating a complete cv-content/

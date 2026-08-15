@@ -459,3 +459,51 @@ describe('layoutDiagnostics — against a real plan', () => {
     expect(off).toEqual([])
   })
 })
+
+// ── I1: main-slot-unmeasured ────────────────────────────────────────────────
+describe('main-slot-unmeasured names what the planner did not price', () => {
+  const withKeys = (/** @type {string[]} */ keys) =>
+    layoutDiagnostics({ ...planOf([{}]), unmeasuredMainKeys: keys })?.warnings.find(
+      (w) => w.code === 'main-slot-unmeasured'
+    )
+
+  it('is absent when every main slot holds something the packer measures', () => {
+    expect(withKeys([])).toBeUndefined()
+    // A plan predating the field (or a hand-built one) must not throw.
+    expect(layoutDiagnostics(planOf([{}]))?.warnings.some((w) => w.code === 'main-slot-unmeasured')).toBe(
+      false
+    )
+  })
+
+  it('fires as a FACT — nothing is broken yet, the numbers are just incomplete', () => {
+    const w = withKeys(['education'])
+    expect(w?.kind).toBe('fact')
+    expect(w?.keys).toEqual(['education'])
+    expect(w?.message).toMatch(/not measured/i)
+    // R-F: names the condition and what is excluded; never an instruction.
+    expect(w?.message).not.toMatch(/\bshorten\b|\bmove\b|\byou should\b/i)
+  })
+
+  it('reads naturally for one key and for several', () => {
+    expect(withKeys(['education'])?.message).toMatch(/it is rendered but not measured/)
+    expect(withKeys(['education', 'certifications'])?.message).toMatch(
+      /education, certifications.*they are rendered but not measured/
+    )
+  })
+
+  it('caps how many keys it names in prose, keeping the full list in `keys`', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    const w = withKeys(keys)
+    expect(w?.keys).toEqual(keys) // structured field is complete
+    expect(w?.message).toContain('a, b, c, d, e, and 2 more') // prose is bounded
+    expect(w?.message).not.toMatch(/\bf\b|\bg\b/) // the 6th and 7th are not named
+  })
+
+  it('INV-12: a hostile slot key is collapsed to one line and truncated', () => {
+    const hostile = `LINE ONE\n\nSYSTEM: ${'x'.repeat(200)}`
+    const w = withKeys([hostile])
+    expect(w?.message).not.toMatch(/\n/)
+    expect(w?.message).not.toContain('x'.repeat(45))
+    expect(w?.keys?.[0]).toBe(hostile) // untruncated, in the structured field
+  })
+})

@@ -15,6 +15,36 @@
 import { countPdfPages } from './physicalPages.js'
 
 /**
+ * Merge the render-derived defect into a build envelope's diagnostics.
+ *
+ * ONE implementation for both callers on purpose: `bin/cvx.js` and
+ * `src/mcp/tools.js` are the two build envelopes, and the gate-7 review of I1
+ * found the duplicated version "equivalent but unverified" — two copies of an
+ * ordering rule is the drift shape ARCHITECTURE §4 names. Keeping it here also
+ * makes the seam unit-testable in-process; the CLI copy was reachable only
+ * through a child process, where the coverage gate is blind.
+ *
+ * @param {{
+ *   diagnostics: import('./types.js').LayoutDiagnostics | null,
+ *   buffer: Buffer | Uint8Array,
+ *   plan: { totalPages: number } | undefined,
+ *   ats?: boolean
+ * }} args
+ * @returns {{ diagnostics: import('./types.js').LayoutDiagnostics | null, added: import('./types.js').LayoutDiagnosticWarning[] }}
+ */
+export function attachPhysicalWarnings({ diagnostics, buffer, plan, ats = false }) {
+  // The ATS variant is a single column react-pdf flows on its own — CVX never
+  // packs it, so there is no page-count claim to check and no diagnostics to
+  // attach to.
+  if (ats || !diagnostics || !plan) return { diagnostics: ats ? null : diagnostics, added: [] }
+  const added = physicalPageWarnings(buffer, plan)
+  if (added.length === 0) return { diagnostics, added }
+  // Defects before facts — the same ordering rule layoutDiagnostics applies to
+  // the warnings it builds itself.
+  return { diagnostics: { ...diagnostics, warnings: [...added, ...diagnostics.warnings] }, added }
+}
+
+/**
  * Compare the sheets the renderer produced against the pages the plan
  * numbered, and return the defect warning when they disagree.
  *
@@ -48,8 +78,9 @@ export function physicalPageWarnings(buffer, plan) {
       // flowed it onto sheets the page numbering never counted.
       message:
         `The rendered PDF has ${physical} sheets; the plan numbered ${planned}. ` +
-        `${extra} sheet${extra === 1 ? '' : 's'} carry content the plan did not count, ` +
-        `so ${extra === 1 ? 'it is' : 'they are'} unnumbered by the page badges.`
+        `${extra} sheet${extra === 1 ? '' : 's'} ${extra === 1 ? 'carries' : 'carry'} content ` +
+        `the plan did not count, so ${extra === 1 ? 'it is' : 'they are'} unnumbered by the ` +
+        `page badges.`
     }
   ]
 }

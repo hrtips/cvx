@@ -106,6 +106,24 @@ async function diagnosticsOf(/** @type {string} */ dir) {
   return { plan, diagnostics: layoutDiagnostics(plan, config) }
 }
 
+/**
+ * A build envelope's PLAN-DERIVED diagnostics: everything `plan_layout` could
+ * also have said. I1 added one warning a dry run structurally cannot produce
+ * (`physical-pages-exceed-plan` — it needs rendered sheets to count), so an
+ * equality between the two surfaces has to name what it is comparing.
+ *
+ * @param {any} diagnostics
+ */
+function planDerived(diagnostics) {
+  if (!diagnostics) return diagnostics
+  return {
+    ...diagnostics,
+    warnings: diagnostics.warnings.filter(
+      (/** @type {{code: string}} */ w) => w.code !== 'physical-pages-exceed-plan'
+    )
+  }
+}
+
 /** Build the designed PDF through the real CLI and return its --json envelope. */
 function buildViaCli(/** @type {string} */ dir) {
   const { code, stdout, stderr } = runCli(dir, ['build', '--json'])
@@ -127,7 +145,7 @@ describe('plan_layout returns the plan build_pdf renders', () => {
     expect(() => readFileSync(path.join(dir, 'bruce-wayne.pdf'))).toThrow(/ENOENT/)
 
     const built = await buildPdf({ dir })
-    expect(built.diagnostics).toEqual(planned.diagnostics)
+    expect(planDerived(built.diagnostics)).toEqual(planned.diagnostics)
     cleanupFixtureDirs()
   }, 60000)
 
@@ -415,7 +433,12 @@ describe('the diagnostics name the defects a build warns about', () => {
     expect(d?.warnings.map((w) => w.code)).toEqual(['page1-no-experience'])
     expect(d?.warnings[0].message).toMatch(/summary/)
     // Both call sites report it identically — the build path computes its own.
-    expect((await buildPdf({ dir })).diagnostics).toEqual(d)
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(d)
     cleanupFixtureDirs()
   }, 60000)
 
@@ -508,7 +531,12 @@ describe('the diagnostics name the defects a build warns about', () => {
     expect(d.totalPages).toBeLessThanOrEqual(3)
 
     // Both call sites report it identically — the build path computes its own.
-    expect((await buildPdf({ dir })).diagnostics).toEqual(d)
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(d)
     cleanupFixtureDirs()
   }, 60000)
 
@@ -542,7 +570,12 @@ describe('the diagnostics name the defects a build warns about', () => {
     expect(planned.diagnostics?.warnings.filter((w) => w.forcedByConfig)).toEqual([])
     expect(planned.diagnostics?.warnings.map((w) => w.code)).not.toContain('overflow')
     // Both build paths agree with the plan — and with each other.
-    expect((await buildPdf({ dir })).diagnostics).toEqual(planned.diagnostics)
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(planned.diagnostics)
     expect(buildViaCli(dir).diagnostics).toEqual(planned.diagnostics)
     cleanupFixtureDirs()
   }, 60000)

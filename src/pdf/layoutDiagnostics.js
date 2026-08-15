@@ -166,7 +166,15 @@ function bulletsOn(entry) {
 function mainSlotUnmeasured(plan) {
   const keys = plan.unmeasuredMainKeys ?? []
   if (keys.length === 0) return []
-  const list = keys.join(', ')
+  // INV-12: slot keys come from the user's own layouts/*.yaml, and the schema
+  // accepts any non-empty string there — so they are UNTRUSTED TEXT in a
+  // message, exactly like the role name page1-ends-early quotes below. Same
+  // treatment: collapse whitespace to one line, cap each key, and cap how many
+  // are named in prose. The untruncated list stays in the structured `keys`
+  // field, which is what a caller should read anyway.
+  const safe = keys.slice(0, 5).map((k) => String(k).replace(/\s+/g, ' ').slice(0, 40))
+  const list = safe.join(', ') + (keys.length > safe.length ? `, and ${keys.length - safe.length} more` : '')
+  const one = keys.length === 1
   return [
     {
       code: /** @type {const} */ ('main-slot-unmeasured'),
@@ -174,9 +182,9 @@ function mainSlotUnmeasured(plan) {
       keys: [...keys],
       message:
         `The layout places ${list} in a main slot, where the planner measures only the ` +
-        `summary and the experience entries: ${list} ${keys.length === 1 ? 'is' : 'are'} ` +
-        `rendered but not measured, so this plan's page count and overflow figures exclude ` +
-        `${keys.length === 1 ? 'it' : 'them'}.`
+        `summary and the experience entries: ${one ? 'it is' : 'they are'} rendered but not ` +
+        `measured, so this plan's page count and overflow figures exclude ` +
+        `${one ? 'it' : 'them'}.`
     }
   ]
 }

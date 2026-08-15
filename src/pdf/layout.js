@@ -1742,6 +1742,12 @@ export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
  * from it, so the day I4/I6 widen the packer they cannot fall out of step with
  * what the instrument claims (a hand-copied second list is the drift shape
  * that let a reordered component pass a 455-test suite — see ARCHITECTURE §4).
+ *
+ * Public, but NOT a permanent surface: §8's I4/I6 make the packer measure
+ * main-slot sections, at which point this constant and the fact derived from
+ * it both disappear. Removing it then is not a breaking change — it is the
+ * scaffolding for a gap coming down, and it is recorded here so a future
+ * reader does not treat the public tag as a promise to keep it forever.
  */
 export const MEASURED_MAIN_KEYS = Object.freeze(['summary', 'experience'])
 
