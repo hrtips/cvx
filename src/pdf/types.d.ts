@@ -587,7 +587,9 @@ export interface LayoutDiagnosticWarning {
    * bytes, so `plan_layout` can never carry it).
    * `experience-empty` (I2) — the CV has no experience entries at all (a
    * student or first-job CV); mutually exclusive with `page1-no-experience`,
-   * which requires roles to exist.
+   * which requires roles to exist. `main-column-empty` (I3) — a page that is
+   * not the last renders nothing in its main column; the last page's blank
+   * column is the ordinary residual and never reported.
    */
   code:
     | 'overflow'
@@ -596,6 +598,7 @@ export interface LayoutDiagnosticWarning {
     | 'main-slot-unmeasured'
     | 'physical-pages-exceed-plan'
     | 'experience-empty'
+    | 'main-column-empty'
   /**
    * CVX classifying its own message (architecture review 4a): 'defect' =
    * something is wrong, act on it; 'fact' = true and priced, act only if the
@@ -627,6 +630,8 @@ export interface LayoutDiagnosticWarning {
   residualPt?: number
   smallestPiecePt?: number
   gapBeforePt?: number
+  /** main-column-empty only: the non-last pages whose main column renders nothing, 1-based. */
+  pages?: number[]
   /** experience-empty only: page 1's fixed content — what the main column does carry. */
   fixedPt?: number
   /** main-slot-unmeasured only: the unmeasured section keys, in layout order. */

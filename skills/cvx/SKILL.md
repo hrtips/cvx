@@ -84,10 +84,27 @@ Apply the answers, re-validate, then build both variants. A truthful thin bullet
   - `page1-ends-early` — page 1 has roles, but the next one could not start there: its smallest legal piece needs more than the room left. **Fires on well-packed CVs too** — it is not by itself a defect. Its payload prices the trade: `shortByPt` is what shortening the summary (or that role's first bullet) would need to free for the next role to start on page 1. Mention it only when the user wants page 1 fuller or the CV shorter; it is the number that turns "make it fit" into an actionable edit.
   - `physical-pages-exceed-plan` (**defect**, builds only) — the rendered PDF has more sheets than the plan numbered: content the planner did not measure reached the page and react-pdf flowed it onto sheets the page badges do not count. Payload: `planned` and `physical`. Open the PDF and look at the last pages.
   - `main-slot-unmeasured` (**fact**) — this layout puts a section other than the summary/experience in a `main` slot. It renders correctly, but the planner does not measure it, so `totalPages` and `overflowPt` exclude it. Payload: `keys`. Expected on the student layout below; it is why the defect above exists.
+  - `main-column-empty` (**fact**) — a multi-page CV whose wide column renders nothing on any page: every page carries only its sidebar. Payload: `pages`. This is *not* the ordinary case of a sidebar outlasting a short experience list (that shape has content on page 1 and runs out later, and is fine). It usually means the layout should carry sections in `main` — see "Student and first-job CVs" below.
   - `experience-empty` (**fact**) — this CV has no experience entries at all: a student or first-job CV. Payload: `fixedPt`, how much of page 1 the summary occupies. It is mutually exclusive with `page1-no-experience`, which needs roles to exist — so on a CV with no work history you get this, never that.
   - `page1-no-experience` — page 1 carries no roles at all, because the summary and identity block leave less room than the smallest piece of the first role. The reader's first page shows no work history; raise it with the user (shortening the summary is the only thing that moves it).
 - `notices` is a separate, plain-text list of notes about the run (a font with no glyph for some text, a layout that fell back to the default). It is not the same field as `diagnostics.warnings`.
 - `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets**. It means **no ink in that column** — as of `version: 3` a page-1 main column carrying a summary is *not* empty (it used to report `'main'`, which is why older docs explain the difference). A *last* page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it. The one case that is *not* fine is page 1 — and that one arrives as the `page1-no-experience` warning, so you never have to judge it from `emptyColumn` alone.
+
+**What the warnings price, and what you do about it.** The engine states
+conditions and their cost; choosing the edit is your job with the user (that
+split is deliberate — a renderer has no business having opinions about someone's
+career). The usual moves, by code:
+
+- `page1-ends-early` / `page1-no-experience` — `shortByPt` is exactly how much
+  must come out of the fixed content above the roles (the summary, usually) for
+  the next role to start on page 1. Offer the user the trade before making it.
+- `overflow` where the summary alone is taller than the column — the summary is
+  fixed page-1 content, so no pagination helps; it has to get shorter.
+- `overflow` where one block is taller than a page — one bullet, description or
+  sidebar item is the culprit; splitting only happens at item boundaries.
+- `main-column-empty` / `experience-empty` — the wide column is unused or has no
+  roles to hold. Moving sections into `main` in the layout is the lever.
+- `physical-pages-exceed-plan` — open the PDF and look at the last pages.
 
 **There are no layout levers.** The layout is a function of the content, so `plan_layout` returns the same answer every time until the YAML changes — calling it in a loop achieves nothing. Use it once before the build, and once after a content edit if the user asked about length.
 

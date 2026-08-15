@@ -191,6 +191,55 @@ function mainSlotUnmeasured(plan) {
 }
 
 /**
+ * The main column renders nothing ANYWHERE in a multi-page document.
+ *
+ * The dogfood shape (F4): a two-page CV whose wide column was blank on both
+ * pages, reported by nothing. `emptyColumn` held the data all along, but as a
+ * per-page field the docs label "a diagnostic, not a target" — which is what a
+ * reader learns to skim past, and rightly so for the shape it usually names.
+ *
+ * THE BOUNDARY IS NOT "the last page", and getting that wrong would re-create
+ * the metric C4 measured as anti-correlated with quality. A first cut of this
+ * fact fired on every non-last blank page, which flags pages 2..n-1 of any CV
+ * whose sidebar simply outlasts a short experience list — the textbook
+ * residual, normal, and made measurably worse by packing it away. What
+ * separates the dogfood shape from that residual is not WHERE the blank
+ * column sits but whether the main flow ever produced anything: a residual is
+ * one flow ENDING before the other, and this is one flow never starting. So
+ * the condition is "no main content on any page", which a residual can never
+ * satisfy (it has content on page 1 by construction).
+ *
+ * A single-page CV cannot reach it: one blank wide column on a one-page
+ * document is visible at a glance, not a surprise buried on a later sheet.
+ *
+ * `kind: 'fact'` — a CV can legitimately look like this — and per R-F the
+ * message names the condition and the pages, while the layout move it implies
+ * is the skill's to teach.
+ *
+ * @param {import('./types.js').LayoutDiagnostics['pages']} pages
+ * @param {number} totalPages
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function mainColumnEmpty(pages, totalPages) {
+  if (totalPages < 2) return []
+  // "Blank" is the plan's own emptyColumn, which since I2 means no ink.
+  const blank = pages.filter((p) => p.emptyColumn === 'main' || p.emptyColumn === 'both')
+  if (blank.length !== pages.length) return []
+  return [
+    {
+      code: /** @type {const} */ ('main-column-empty'),
+      kind: /** @type {const} */ ('fact'),
+      pages: blank.map((p) => p.page),
+      message:
+        `The main column renders nothing on any of this CV's ${totalPages} pages: every page ` +
+        `carries only its sidebar. This is not the ordinary residual of one column being ` +
+        `longer than the other — that shape has content on page 1 and runs out later — but a ` +
+        `document whose wide column holds no content at all.`
+    }
+  ]
+}
+
+/**
  * The main flow carries no experience entries anywhere in the document.
  *
  * The defining shape of a student or first-job CV, and until I2 the
@@ -303,15 +352,13 @@ function page1EndsEarly(pages) {
       nextRole: d.role,
       message: actionable
         ? opening +
-          `The only lever on page 1 is the fixed content above the roles (${fixed}pt: the ` +
-          `summary, its spacer, and the section title); shortening the summary by ` +
-          `${d.shortByPt}pt, or shortening that role's first bullet by the same, starts it on ` +
-          `page 1. This is a content decision — raise it with the user.`
+          `Page 1's fixed content above the roles is ${fixed}pt (the summary, its spacer and ` +
+          `the section title), and ${d.shortByPt}pt freed anywhere above this role is what ` +
+          `separates it from starting on page 1.`
         : opening +
-          `No edit above the roles can free that much: the fixed content is ${fixed}pt in ` +
-          `total, so page 1 is as full as this content allows and the page break is the ` +
-          `correct outcome. Nothing to fix; report it only if the user asks why the role ` +
-          `starts overleaf.`
+          `The fixed content above the roles is only ${fixed}pt in total, which is less than ` +
+          `the ${d.shortByPt}pt this role needs — so page 1 is as full as this content allows, ` +
+          `and the page break is where the content puts it.`
     }
   ]
 }
@@ -361,9 +408,9 @@ function page1WithoutExperience(pages) {
       message:
         `page 1 carries no experience entries: its fixed content (the summary, and the identity ` +
         `block) leaves less room than the smallest piece of the first role, so the page ends early ` +
-        `and the roles start on page 2. This is not the harmless empty column of a last page — the ` +
-        `reader's first page shows no work history. Shortening the summary is the only content ` +
-        `change that moves it — raise it with the user, and make the edit they choose.`
+        `and the roles start on page 2. The reader's first page therefore shows no work history. ` +
+        `The summary is the only content above the roles, so it is the only thing whose length ` +
+        `changes this — no pagination can.`
     }
   ]
 }
@@ -436,6 +483,7 @@ export function layoutDiagnostics(plan) {
     ...page1WithoutExperience(pages),
     ...page1EndsEarly(pages),
     ...experienceEmpty(pages),
+    ...mainColumnEmpty(pages, plan.totalPages),
     ...mainSlotUnmeasured(plan)
   ]
 

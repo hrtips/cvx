@@ -398,7 +398,7 @@ export function validateContent(
       for (const w of overflowWarnings(plan)) {
         add('warning', 'summary.yaml', 'page-overflow', {
           message: w.message,
-          suggestion: `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
+          suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
         })
       }
     } catch {

@@ -1004,12 +1004,12 @@ export function overflowWarnings(plan) {
       message: fixedTooTall
         ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
           `is placed: the summary alone is taller than the main column, so it flows onto an ` +
-          `extra physical sheet the page numbering does not count. Shorten the summary — the ` +
-          `packer cannot paginate it (it is fixed page-1 content, not a packed block).`
+          `extra physical sheet the page numbering does not count. The summary is fixed page-1 ` +
+          `content rather than a packed block, so no pagination can move it.`
         : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
           `than a whole page and cannot be split any further, so it flows onto an extra ` +
-          `physical sheet the page numbering does not count. Shorten the longest single item ` +
-          `on that page (one bullet, one description, or one sidebar entry).`
+          `physical sheet the page numbering does not count. The block is one item (a bullet, ` +
+          `a description or a sidebar entry), and item boundaries are the only legal cuts.`
     })
   }
   return out

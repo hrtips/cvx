@@ -10,6 +10,23 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**Warnings state conditions and prices; they no longer tell you what to edit.**
+Maintainer ruling R-F, applied across every message the engine owns. Six of
+them prescribed content changes — "Shorten the summary", "raise it with the
+user", "the fix is to shorten the offending item" — which is a renderer having
+an opinion about someone's career. The numbers are untouched and remain the
+point: `shortByPt` still says exactly how much must come out for the next role
+to reach page 1; the message now says that rather than what to cut. The moves
+those messages used to prescribe are in the skill, where the assistant can
+weigh them with the user.
+
+**New fact: `main-column-empty`.** A multi-page CV whose wide column renders
+nothing on any page — every page carries only its sidebar. Deliberately NOT
+the ordinary case of a sidebar outlasting a short experience list: that shape
+has content on page 1 and runs out later, it is normal, and packing it away
+measurably produces worse CVs. The distinction is whether the main flow ever
+started, not where the blank column sits.
+
 **Diagnostics `version: 3` — a CV with no work history is finally visible.**
 The packer produced no page-1 metrics row when `experience.yaml` was empty,
 because a flow with no blocks packs to zero pages. That single absence was the

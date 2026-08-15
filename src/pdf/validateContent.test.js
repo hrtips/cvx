@@ -594,7 +594,10 @@ describe('validateContent — overflow that no config forced', () => {
     expect(f?.path).toBe('(root)')
     expect(f?.message).toMatch(/the summary alone is taller than the main column/)
     expect(f?.message).not.toMatch(/page1ExperienceCount/)
-    expect(f?.suggestion).toMatch(/shorten the offending item/)
+    // R-F (I3): the suggestion states the condition; what to cut is a content
+    // judgement the skill teaches, not something validate decides.
+    expect(f?.suggestion).toMatch(/taller than a whole page/)
+    expect(f?.suggestion).not.toMatch(/shorten|the fix is/i)
   })
 })
 
