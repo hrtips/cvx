@@ -10,6 +10,15 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**`plan_layout` is stateless again.** The MCP layer kept a process-scoped
+counter of consecutive identical dry runs per workspace and changed the fifth
+answer to say "you are looping". It was ruled a statelessness violation — a
+callee does not count its caller's calls — and it quietly falsified the promise
+the docs have always made, that the same question gets the same answer. The
+counter, its cap notice and the tests pinning it are gone; bounding a loop is
+the assistant's job, which the skill teaches. Nothing else changes: the tool
+returned no field a caller could act on beyond the notice.
+
 **Warnings state conditions and prices; they no longer tell you what to edit.**
 Maintainer ruling R-F, applied across every message the engine owns. Six of
 them prescribed content changes — "Shorten the summary", "raise it with the

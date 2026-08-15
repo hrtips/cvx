@@ -190,10 +190,6 @@ export async function buildPdf(
     ats
   })
   for (const w of added) notices.push(w.message)
-  // A build is progress: it clears the "you have asked the same question five
-  // times" counter, so a plan → build → plan sequence does not open with an
-  // accusation of looping. See trackPlanIteration.
-  planIterations.delete(workspace(dir))
   return {
     ok: true,
     filename,
@@ -218,57 +214,6 @@ export async function buildPdf(
   }
 }
 
-/**
- * How many times in a row `plan_layout` will answer for one workspace before it
- * starts saying "nothing has changed, stop".
- *
- * The sprint requires an iteration cap (design doc §7.4 / G-c: "cap the agent's
- * plan_layout iterations"), and it is worth being precise about what it guards
- * against HERE, where there are no levers yet: `plan_layout` is a pure function
- * of the content directory, so calling it twice without editing anything cannot
- * produce a different answer. A loop is therefore never progress — it is an
- * agent burning tokens against a number it cannot move, which is exactly the
- * §12-question-5 failure ("could it burn many plan_layout calls?"). The cap
- * does not refuse to answer: refusing would break a legitimate re-read (e.g.
- * showing the user the plan again), and an agent that cannot get an answer
- * tends to retry harder. It reports, in the response, that the layout is
- * identical to last time and what the only faithful next move is.
- */
-const PLAN_ITERATION_CAP = 5
-
-/**
- * Consecutive `plan_layout` calls per workspace that returned the same layout.
- * Process-scoped (one MCP server per client session), and reset in the two cases
- * that mean the agent is not looping: the answer changed (an edit actually moved
- * the layout), or `build_pdf` ran (it acted on the answer). Without the second
- * reset, five plans followed by a build left the NEXT plan still saying
- * "capReached — stop planning and act" at an agent that had just done exactly
- * that.
- *
- * @type {Map<string, { fingerprint: string, count: number }>}
- */
-const planIterations = new Map()
-
-/** Bound the map so a long-lived server that sees many workspaces cannot grow without limit. */
-const MAX_TRACKED_WORKSPACES = 32
-
-/** @param {string} dir @param {string} fingerprint */
-function trackPlanIteration(dir, fingerprint) {
-  const prev = planIterations.get(dir)
-  const count = prev?.fingerprint === fingerprint ? prev.count + 1 : 1
-  if (!planIterations.has(dir) && planIterations.size >= MAX_TRACKED_WORKSPACES) {
-    planIterations.clear()
-  }
-  planIterations.set(dir, { fingerprint, count })
-  return {
-    count,
-    cap: PLAN_ITERATION_CAP,
-    /** Did this call return the same layout as the previous one for this workspace? */
-    unchanged: count > 1,
-    capReached: count >= PLAN_ITERATION_CAP
-  }
-}
-
 export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
   /** @type {string[]} */
   const notices = []
@@ -278,17 +223,6 @@ export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
     warn: (msg) => notices.push(msg)
   })
   const diagnostics = layoutDiagnostics(plan)
-  const iteration = trackPlanIteration(workspace(dir), JSON.stringify(diagnostics))
-
-  if (iteration.capReached) {
-    notices.push(
-      `plan_layout has returned the identical layout ${iteration.count} times for this workspace — ` +
-        `nothing you have done since the first call changed it. Stop planning and act: build the ` +
-        `PDF and look at it, or put the trade-off to the user (shorter bullets, one fewer role, a ` +
-        `section they choose to cut) so they can pick what goes. CVX has no layout levers: the ` +
-        `layout follows the content, so only a content edit moves it. Never drop content to fit — the user chooses what goes.`
-    )
-  }
 
   return {
     ok: true,
@@ -311,7 +245,6 @@ export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
         `writes without ats: true. The ATS variant is a single column react-pdf flows on its ` +
         `own; CVX never packs it, so it has no plan and its page count can differ from ` +
         `totalPages. Build it to find out; there is no dry run for it.`,
-    iteration,
     // See buildPdf for why this is not called `warnings`.
     notices
   }

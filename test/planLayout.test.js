@@ -36,7 +36,7 @@
 // The slack bound here tightens accordingly: predicted symmetric-equal to
 // observed within the same 0.01pt everywhere.
 
-import { cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
@@ -749,98 +749,38 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
   }, 60000)
 })
 
-describe('plan_layout is capped against an agent looping on it', () => {
-  it('reports the loop after the cap and tells the agent what to do instead', async () => {
-    const dir = scaffoldWorkspace('plan-iteration-cap')
+describe('plan_layout is a pure function of the content directory', () => {
+  it('answers identically however many times it is asked — CVX remembers no caller', async () => {
+    // This replaces an iteration COUNTER that lived in the MCP layer: it
+    // counted consecutive identical dry runs per workspace and changed the
+    // fifth answer to say "you are looping". A verified design-loop finding
+    // ruled it a statelessness violation — a callee does not count its
+    // caller's calls — and it contradicted the promise asserted here, which
+    // ARCHITECTURE §2.2 states as "ask twice, get the same answer".
+    //
+    // Bounding a loop is the LLM's job (§1.2); SKILL.md teaches it. What CVX
+    // owes is an answer that does not depend on how often it was asked.
+    const dir = scaffoldWorkspace('plan-purity')
     const first = await planLayout({ dir })
-    expect(first.iteration).toMatchObject({ count: 1, unchanged: false, capReached: false })
-
-    let last = first
-    for (let i = 2; i <= first.iteration.cap; i++) {
-      last = await planLayout({ dir })
-      expect(last.iteration.count).toBe(i)
-      expect(last.iteration.unchanged).toBe(true)
-      // The answer itself never changes — that IS the point of the cap.
-      expect(last.diagnostics).toEqual(first.diagnostics)
+    const answers = [first]
+    for (let i = 0; i < 5; i++) answers.push(await planLayout({ dir }))
+    for (const a of answers) {
+      expect(a).toEqual(first)
     }
-    expect(last.iteration.capReached).toBe(true)
-    expect(last.notices.join('\n')).toMatch(/identical layout/)
-    expect(last.notices.join('\n')).toMatch(/Never drop content to fit/)
-    // Under the cap, no such notice.
-    expect(first.notices.join('\n')).not.toMatch(/identical layout/)
+    // In particular: nothing accumulates in the response.
+    expect(first.notices.join('\n')).not.toMatch(/identical layout|looping|stop planning/i)
+    expect(Object.keys(first)).not.toContain('iteration')
     cleanupFixtureDirs()
-  }, 60000)
+  }, 120000)
 
-  it('a build resets the counter — acting on the plan is not looping on it', async () => {
-    // Before this, five plans followed by a build left the NEXT plan still
-    // saying "capReached — stop planning and act" at an agent that had just
-    // done exactly that. The counter is about an agent going round in circles;
-    // a build is the way out of the circle.
-    const dir = scaffoldWorkspace('plan-iteration-build-resets')
-    let last = await planLayout({ dir })
-    for (let i = 2; i <= last.iteration.cap; i++) last = await planLayout({ dir })
-    expect(last.iteration.capReached).toBe(true)
-
+  it('a build in between changes nothing about the next answer', async () => {
+    const dir = scaffoldWorkspace('plan-purity-build')
+    const before = await planLayout({ dir })
     await buildPdf({ dir })
-
     const after = await planLayout({ dir })
-    expect(after.iteration.count).toBe(1)
-    expect(after.iteration.capReached).toBe(false)
-    expect(after.notices.join('\n')).not.toMatch(/identical layout/)
+    expect(after).toEqual(before)
     cleanupFixtureDirs()
-  }, 60000)
-
-  it('resets the moment an edit actually moves the layout', async () => {
-    const dir = scaffoldWorkspace('plan-iteration-reset')
-    await planLayout({ dir })
-    const second = await planLayout({ dir })
-    expect(second.iteration.count).toBe(2)
-
-    const contentDir = contentDirOf(dir)
-    const experience = load(readFileSync(path.join(contentDir, 'experience.yaml'), 'utf8'))
-    experience.splice(1) // one role left: a genuinely different layout
-    writeFileSync(path.join(contentDir, 'experience.yaml'), JSON.stringify(experience, null, 1))
-
-    const after = await planLayout({ dir })
-    expect(after.iteration.count).toBe(1)
-    expect(after.iteration.unchanged).toBe(false)
-    expect(after.diagnostics).not.toEqual(second.diagnostics)
-    cleanupFixtureDirs()
-  }, 60000)
-
-  it('counts per workspace, not globally', async () => {
-    const a = scaffoldWorkspace('plan-count-a')
-    const b = scaffoldWorkspace('plan-count-b')
-    await planLayout({ dir: a })
-    await planLayout({ dir: a })
-    const other = await planLayout({ dir: b })
-    expect(other.iteration.count).toBe(1)
-    cleanupFixtureDirs()
-  }, 60000)
-
-  it('forgets old workspaces rather than tracking them forever', async () => {
-    // The counter map is bounded (MAX_TRACKED_WORKSPACES in tools.js) so a
-    // long-lived server that is handed many workspaces cannot grow without
-    // limit. The bound is not observable directly; its consequence is — the
-    // evicted workspace starts counting from 1 again. Without the eviction this
-    // reads 3. The 32 filler workspaces are symlinks to one real scaffold: the
-    // Map is keyed by the resolved path, which `resolve()` does not follow, so
-    // they are 32 distinct keys over one copy of the content.
-    const dir = scaffoldWorkspace('plan-evict')
-    await planLayout({ dir })
-    expect((await planLayout({ dir })).iteration.count).toBe(2)
-
-    const fillerRoot = mkFixtureDir('plan-evict-filler')
-    for (let i = 0; i < 32; i++) {
-      const filler = path.join(fillerRoot, `w${i}`)
-      mkdirSync(filler)
-      symlinkSync(contentDirOf(dir), path.join(filler, 'cv-content'))
-      await planLayout({ dir: filler })
-    }
-
-    expect((await planLayout({ dir })).iteration.count).toBe(1)
-    cleanupFixtureDirs()
-  }, 60000)
+  }, 120000)
 })
 
 describe('a dry run cannot perturb the build that follows it', () => {
