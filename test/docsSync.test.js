@@ -9,6 +9,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { TOOLS } from '../src/mcp/tools.js'
+import { planTwoColumn } from '../src/pdf/layout.js'
+import { layoutDiagnostics } from '../src/pdf/layoutDiagnostics.js'
 import { packageVersion, scaffoldContent, schemaRefFor } from '../src/pdf/scaffold.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -222,6 +224,33 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
       expect(skillMd, `SKILL.md never mentions the ${code} warning`).toContain(code)
       expect(mcpTools, `the MCP tool descriptions never mention ${code}`).toContain(code)
     }
+  })
+
+  it('every doc naming the diagnostics version names the CURRENT one', () => {
+    // R-E exists so two meanings never share a version — which only works if
+    // the docs move with the bump. I2 shipped v3 with three surfaces still
+    // printing "version: 2", one of them in the same sentence as the new
+    // number, because nothing checked. Derived from the engine, never retyped.
+    //
+    // Both forms the docs actually use: `diagnostics.version: N` and a bare
+    // `` `version: N` `` inside a sentence about the diagnostics. `schemaVersion`
+    // is a different, unrelated number and must not match — the lowercase
+    // word boundary is what excludes it.
+    const current = layoutDiagnostics(
+      planTwoColumn({ content: { personal: { name: 'A' }, summary: ['s'], experience: [] } })
+    )?.version
+    expect(current).toBeTypeOf('number')
+    let seen = 0
+    for (const [name, text] of MODEL_FACING) {
+      for (const [, printed] of text.matchAll(/(?:diagnostics\.version|`version)\W{0,3}(\d+)/g)) {
+        seen++
+        expect(Number(printed), `${name} still teaches diagnostics version ${printed}`).toBe(
+          current
+        )
+      }
+    }
+    // The guard is only worth having if it is looking at something.
+    expect(seen).toBeGreaterThanOrEqual(4)
   })
 
   it('the build-only nature of the physical-page defect is stated wherever it is taught', () => {

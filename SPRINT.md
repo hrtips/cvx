@@ -16,13 +16,12 @@ release.
 Goal: no schema-legal input reachable through the skill's own workflow can
 produce a defective PDF silently; the stateless claim becomes true again.
 
-- **I1** — physical sheet-count defect warning (+ `main-slot-unmeasured`
-  interim fact, schema caveat)
-- **I2** — page-1 metrics row at `experience: []`; `experience-empty` fact;
-  `emptyColumn` = "no ink"; diagnostics v3
 - **I3** — `main-column-empty` fact + R-F message-policy sweep
 - **§8 small item** — `planIterations` deletion (restores §2.2's
   ask-twice-get-the-same-answer; its pinning tests go with it)
+
+Landed (details in CHANGELOG's Unreleased section, which is the record —
+this file never restates them): **I1**, **I2**.
 
 Definition of done: ARCHITECTURE.md §8's acceptance criteria for I1–I3; the
 standing release gates (§9: CI matrix, packaged E2E, repro gate, tarball

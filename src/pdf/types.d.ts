@@ -524,16 +524,21 @@ export interface LayoutPageDiagnostics {
    */
   overflowPt: number
   /**
-   * Which column the packer placed no FLOW BLOCKS in on this page — experience
-   * entries for `main`, section slices for `sidebar`.
+   * Which column has NO INK on this page (v3).
    *
-   * NOT "which column is blank". Page 1 also carries fixed content that is not
-   * a packed block (the summary in the main column; the identity/photo block in
-   * the sidebar), and that content still renders on a page this field calls
-   * empty. `edge-summary-crosses-cliff` is the shape that makes the difference
-   * visible: page 1 reports `emptyColumn: 'main'` while its v2 fill counts the
-   * summary the page genuinely holds (under v1 it read `fill: 0`, which is the
-   * kind of misreading the occupancy redefinition exists to end).
+   * Content is content, whether or not the packer placed it: a page 1 carrying
+   * a summary is not empty, even though the summary is fixed content rather
+   * than a flow block. Before v3 this field meant "no flow blocks", so that
+   * page reported `emptyColumn: 'main'` and every doc had to explain why an
+   * "empty" column was full — `edge-summary-crosses-cliff` was the shape that
+   * made the discrepancy visible, and it now reports `null`.
+   *
+   * Two things deliberately do NOT count as ink. Chrome — the identity block
+   * and the page badge — appears on every page by construction, so counting it
+   * would make this field unreachable and delete the G1 residual signal below.
+   * And unrendered fixed content: the layout spacer is blank space, and the
+   * section title is drawn only when entries accompany it, so a page whose
+   * budget charges both while drawing neither is still empty.
    *
    * A DIAGNOSTIC, NOT A TARGET — with one exception, and it is a different
    * animal. On a LATER page this is the deliberate residual of one flow being

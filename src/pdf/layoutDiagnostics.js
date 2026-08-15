@@ -229,8 +229,8 @@ function experienceEmpty(pages) {
       fixedPt: fixed,
       message:
         `This CV has no experience entries: the main column carries only its fixed content ` +
-        `(${fixed}pt of summary on page 1). Page-1 diagnostics describe that content; the ` +
-        `experience-related codes cannot fire, because there are no roles to place.`
+        `(${fixed}pt on page 1 — the summary and its spacer). Page-1 diagnostics describe that ` +
+        `content; the experience-related codes cannot fire, because there are no roles to place.`
     }
   ]
 }
@@ -329,7 +329,7 @@ function page1EndsEarly(pages) {
  * page early rather than force-placing and overflowing. Nothing else reported
  * this: `overflowPt` is 0 (the packer did the right thing), `fill` reports only
  * the fixed content that DID land, and
- * `emptyColumn` is the same value a harmless last page carries — so the shape
+ * `emptyColumn` no longer fires on this shape at all (v3: the page carries a summary), so a named code is the only signal — so the shape
  * arrived looking exactly like the one the docs tell an agent to ignore.
  *
  * The fix is a content edit the USER decides on (shorten the summary), which is

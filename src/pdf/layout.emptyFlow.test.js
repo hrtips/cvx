@@ -34,6 +34,7 @@ import {
   summaryH
 } from './layout.js'
 import { layoutDiagnostics } from './layoutDiagnostics.js'
+import { tealTheme } from './themes/teal.js'
 
 const SUMMARY_4 = [
   'Led the platform team through a two-year replatforming effort with zero downtime.',
@@ -94,9 +95,9 @@ describe('I2(a) — packExperiences gives the empty flow an honest page-1 row', 
     const sumH = summaryH(SUMMARY_4, deriveMetrics(undefined))
     // fixed = capacity − budget must equal summary + spacer exactly.
     const fixed = row.capacity - row.budget
-    const spacer = fixed - sumH
-    expect(spacer).toBeGreaterThan(0) // the layout's spacer is real, rendered space
-    expect(spacer).toBeLessThan(30) // and it is a spacer, not a title + spacer
+    // Exactly the summary and the spacer — a charged section title would show
+    // up here as ~25pt more, which is the defect this pins.
+    expect(fixed).toBeCloseTo(sumH + tealTheme.spacing.spacer, 2)
   })
 
   it('a summary taller than the column drives the budget negative', () => {
@@ -172,6 +173,9 @@ describe('I2(c) — the experience-empty fact, mutually exclusive with page1-no-
       ...SIDEBAR
     })
     const codes = blocked?.warnings.map((w) => w.code) ?? []
+    // Pinned live first: without this the AND-false below goes vacuous the day
+    // the fixture stops reaching the shape (doctrine 9).
+    expect(codes).toContain('page1-no-experience')
     // Stated as the invariant itself rather than a conditional check: whatever
     // this fixture happens to produce, the two codes may never co-occur.
     expect(codes.includes('page1-no-experience') && codes.includes('experience-empty')).toBe(false)
@@ -181,8 +185,58 @@ describe('I2(c) — the experience-empty fact, mutually exclusive with page1-no-
 describe('I2(d) — emptyColumn means "no content beyond the chrome"', () => {
   it('a page-1 main column carrying a summary is not empty', () => {
     const plan = planTwoColumn({ content: { experience: [], summary: SUMMARY_4, ...SIDEBAR } })
-    expect(plan.pages[0].emptyColumn).not.toBe('main')
-    expect(plan.pages[0].emptyColumn).not.toBe('both')
+    expect(plan.pages[0].emptyColumn).toBeNull()
+  })
+
+  it('a page carrying NO summary and no entries is empty, however the budget reads', () => {
+    // The gate-7 counterexample. A first cut of I2 tested "fixed content" as
+    // `capacity - budget <= 0`, which is never true (page 1 charges the spacer
+    // and, when entries are present, the section title), so the predicate was
+    // dead and reported a page that draws nothing as non-empty. Here the main
+    // column renders literally nothing: no summary, no entries, and the
+    // section title is not drawn for an empty list.
+    const plan = planTwoColumn({ content: { experience: [], summary: [], ...SIDEBAR } })
+    expect(plan.pages[0].mainBlocks).toEqual([])
+    expect(plan.pages[0].emptyColumn).toBe('main')
+    // And the honest ratio is unavailable, not a fabricated 0: there is no
+    // main flow on this page at all.
+    expect(plan.pages[0].mainFill).toBeNull()
+  })
+
+  it('a page-1 that HAS a metrics row but draws nothing is empty (the dead-predicate case)', () => {
+    // The precise shape the gate-7 review named, found by searching the rule-1b
+    // window: no summary, and a first entry whose smallest legal piece is just
+    // too tall for page 1 but fits a fresh page — so packBlocks ENDS PAGE 1
+    // EARLY and page 1 has a metrics row with zero blocks.
+    //
+    // Nothing is drawn there: no summary, no entries, and no section title
+    // (ExperienceSection renders null for an empty list). Its row still charges
+    // spacer + title, so the discarded `capacity - budget <= 0` test called
+    // this page NON-empty. This is the assertion that separates the two
+    // predicates; the summary-less/entry-less case above cannot, because there
+    // the flow has no row at all.
+    const filler = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet '
+      .repeat(39)
+      .trim()
+    const plan = planTwoColumn({
+      content: {
+        summary: [],
+        experience: [
+          {
+            role: 'Alpha',
+            company: 'Bravo',
+            period: '2020',
+            bullets: [filler, 'short tail bullet']
+          }
+        ],
+        ...SIDEBAR
+      }
+    })
+    expect(plan.totalPages).toBeGreaterThan(1)
+    expect(plan.pages[0].mainBlocks).toEqual([])
+    expect(plan.pages[0].mainFill).not.toBeNull() // the row exists…
+    expect(plan.pages[0].emptyColumn).toBe('main') // …and the column is still blank
+    expect(plan.pages[1].mainBlocks).toHaveLength(1)
   })
 
   it('a later page whose main flow has ended is still honestly empty', () => {

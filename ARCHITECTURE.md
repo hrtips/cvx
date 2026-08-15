@@ -255,9 +255,12 @@ patches, and build → plan → plan → build in one process is byte-identical.
   physical-pages-exceed-plan). `kind: 'fact'` = a priced property of the
   content's shape (page1-ends-early; experience-empty; main-column-empty).
   Trigger predicates are exact: `page1-ends-early` fires iff page 1's main
-  column has `blockedBy ≠ null` AND at least one placed entry; the zero-entry
-  case is the empty-experience fact — the degenerate case of the same
-  phenomenon, mutually exclusive by construction. Facts never reach stderr;
+  column has `blockedBy ≠ null` AND at least one placed entry. Its zero-entry
+  counterpart is `page1-no-experience` (a **defect**: roles exist but none fit
+  on page 1) — the degenerate case of the same phenomenon, mutually exclusive
+  by construction. A CV with no roles at all is neither: that is the
+  `experience-empty` **fact**, which requires zero entries on every page.
+  Facts never reach stderr;
   defects do (R-D) — a normal page break is not shouted at. Never aggregated;
   no whole-document score exists. Exactly one overflow predicate exists in
   the codebase (`overflowWarnings`), shared by build and validate.

@@ -2163,6 +2163,11 @@ export function planTwoColumn({
   measure = undefined
 }) {
   const main = packExperiences(content.experience ?? [], content.summary ?? [], theme, measure)
+  // Does the summary put ink on page 1? `SummarySection` renders null for an
+  // empty list, so an empty summary is not "fixed content that is there" —
+  // this is the one fixed main-column block that can make a page non-empty
+  // without a packed block (see `mainEmpty` below).
+  const summaryRenders = (content.summary ?? []).length > 0
   const sidebar = packSidebar(sidebarFlowKeys(layout), content, layout, theme, measure)
 
   // At least one page always exists, even for a CV with no experience at all.
@@ -2216,13 +2221,23 @@ export function planTwoColumn({
       // that, not an edge case. Fixed content is content: the summary occupies
       // the column exactly as much as an experience entry does.
       //
+      // The test is what RENDERS, never the budget's fixed term. A first cut
+      // of I2 used `capacity - budget <= 0` for "no fixed content" and it was
+      // dead code: that term is strictly positive on every page that has a row
+      // (page 1 charges the summary and the spacer; a continuation charges its
+      // title), so the predicate silently collapsed to `mainRow === null` and
+      // reported a page that draws nothing as non-empty. Two of the things it
+      // charges are not ink: the spacer is blank space, and the section title
+      // is drawn only when entries accompany it (ExperienceSection returns
+      // null for an empty list). So the summary is the only fixed content that
+      // can make a main column non-empty, and it renders on page 1 alone.
+      //
       // Chrome is NOT content, deliberately: the identity block and the page
       // badge appear on every page by construction, so counting them would
       // make `emptyColumn` unreachable and delete the G1 residual signal that
       // C4 measured as the honest description of a last page whose sidebar
       // outlasted the experience list.
-      const mainEmpty =
-        mainBlocks.length === 0 && (mainRow ? mainRow.capacity - mainRow.budget <= 0 : true)
+      const mainEmpty = mainBlocks.length === 0 && !(index === 0 && summaryRenders)
       const sidebarEmpty = sidebarSlices.length === 0
       return {
         index,
