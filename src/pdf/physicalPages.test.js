@@ -113,7 +113,8 @@ describe('countPdfPages — content is not structure (INV-12)', () => {
 
   it('does not mistake /Pages or an escaped /Page#73 for a page leaf', () => {
     const tricky = pdf(2, {
-      extra: '30 0 obj\n<<\n/Type /Pages\n/Kids []\n>>\nendobj\n31 0 obj\n<<\n/Type /Page#73\n>>\nendobj\n'
+      extra:
+        '30 0 obj\n<<\n/Type /Pages\n/Kids []\n>>\nendobj\n31 0 obj\n<<\n/Type /Page#73\n>>\nendobj\n'
     })
     expect(countPdfPages(Buffer.from(tricky))).toBe(2)
   })
@@ -121,5 +122,31 @@ describe('countPdfPages — content is not structure (INV-12)', () => {
   it('tolerates a stream with no endstream rather than throwing', () => {
     const truncated = `${pdf(1)}\n40 0 obj\n<<\n>>\nstream\nabc`
     expect(() => countPdfPages(Buffer.from(truncated))).not.toThrow()
+  })
+})
+
+describe('countPdfPages — ordinary words never switch the counter off', () => {
+  // Regression, gate-7 re-review: `stripStreams` matched the bare substring
+  // "stream", so a link like example.com/stream/processing (or a keyword
+  // "real-time stream processing") began a bogus skip that unbalanced the
+  // literal stripper and swallowed the trailer. The counter returned null —
+  // no count, no warning, a silently disabled check on a real CV.
+  for (const word of [
+    'https://example.com/stream/processing',
+    'real-time stream processing',
+    'endstream and endobj tokens',
+    'upstream/downstream livestream'
+  ]) {
+    it(`counts correctly with ${JSON.stringify(word)} in a string literal`, () => {
+      const doc = pdf(2, { extra: `20 0 obj\n<<\n/URI (${word})\n>>\nendobj\n` })
+      expect(countPdfPages(Buffer.from(doc))).toBe(2)
+    })
+  }
+
+  it('still skips a genuine stream body (the token is newline-terminated)', () => {
+    const doc = pdf(2, {
+      extra: `20 0 obj\n<<\n/Length 30\n>>\nstream\n/Type /Page /Count 99 (((\nendstream\nendobj\n`
+    })
+    expect(countPdfPages(Buffer.from(doc))).toBe(2)
   })
 })

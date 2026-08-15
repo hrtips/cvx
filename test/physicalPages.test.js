@@ -500,7 +500,9 @@ describe('I1 — the MCP build path carries the same defect as the CLI', () => {
       const { buildPdf } = await import('../src/mcp/tools.js')
       const dir = tallSummaryWorkspace()
       const res = await buildPdf({ dir })
-      const codes = (res.diagnostics?.warnings ?? []).map((/** @type {{code: string}} */ w) => w.code)
+      const codes = (res.diagnostics?.warnings ?? []).map(
+        (/** @type {{code: string}} */ w) => w.code
+      )
       const w = res.diagnostics.warnings.find(
         (/** @type {{code: string}} */ x) => x.code === 'physical-pages-exceed-plan'
       )
@@ -535,9 +537,9 @@ describe('I1(c2) — --all honours --strict, and the ATS variant has no plan to 
     expect(res.code).toBe(0)
     const json = JSON.parse(res.stdout)
     const designed = json.outputs.find((/** @type {{ats: boolean}} */ o) => !o.ats)
-    expect(designed.diagnostics.warnings.map((/** @type {{code: string}} */ w) => w.code)).toContain(
-      'physical-pages-exceed-plan'
-    )
+    expect(
+      designed.diagnostics.warnings.map((/** @type {{code: string}} */ w) => w.code)
+    ).toContain('physical-pages-exceed-plan')
   }, 120000)
 
   it('build --all --strict exits non-zero — R-D has no carve-out for the batched command', () => {

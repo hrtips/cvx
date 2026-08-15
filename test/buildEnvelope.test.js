@@ -71,9 +71,7 @@ describe('build envelope — the designed variant', () => {
     const { json, stderr, exited } = await run(workspace('clean'), { json: true })
     expect(exited).toBeNull()
     expect(json.ok).toBe(true)
-    expect(json.diagnostics.warnings.map((w) => w.code)).not.toContain(
-      'physical-pages-exceed-plan'
-    )
+    expect(json.diagnostics.warnings.map((w) => w.code)).not.toContain('physical-pages-exceed-plan')
     expect(stderr).not.toContain('sheets')
   }, 60000)
 

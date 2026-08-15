@@ -173,7 +173,8 @@ function mainSlotUnmeasured(plan) {
   // are named in prose. The untruncated list stays in the structured `keys`
   // field, which is what a caller should read anyway.
   const safe = keys.slice(0, 5).map((k) => String(k).replace(/\s+/g, ' ').slice(0, 40))
-  const list = safe.join(', ') + (keys.length > safe.length ? `, and ${keys.length - safe.length} more` : '')
+  const list =
+    safe.join(', ') + (keys.length > safe.length ? `, and ${keys.length - safe.length} more` : '')
   const one = keys.length === 1
   return [
     {

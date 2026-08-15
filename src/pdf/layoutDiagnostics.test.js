@@ -470,9 +470,9 @@ describe('main-slot-unmeasured names what the planner did not price', () => {
   it('is absent when every main slot holds something the packer measures', () => {
     expect(withKeys([])).toBeUndefined()
     // A plan predating the field (or a hand-built one) must not throw.
-    expect(layoutDiagnostics(planOf([{}]))?.warnings.some((w) => w.code === 'main-slot-unmeasured')).toBe(
-      false
-    )
+    expect(
+      layoutDiagnostics(planOf([{}]))?.warnings.some((w) => w.code === 'main-slot-unmeasured')
+    ).toBe(false)
   })
 
   it('fires as a FACT — nothing is broken yet, the numbers are just incomplete', () => {

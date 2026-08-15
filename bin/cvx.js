@@ -34,6 +34,18 @@ const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8'))
 
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
 
+/**
+ * Which build-time defects `--strict` turns into a non-zero exit.
+ *
+ * ONE set, used by `build` and by `build --all`, because they drifted apart
+ * the moment they were written separately: `--all` gated every `kind:'defect'`
+ * while `build` gated this code alone, so the same CV exited 0 from one
+ * command and 2 from the other (gate-7 re-review). Scoped narrowly on purpose
+ * — R-D rules on this defect, and `HELP` documents exactly this — so widening
+ * it to every defect stays a maintainer ruling that changes this one line.
+ */
+const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan'])
+
 const HELP = `cvx ${version} — config-driven CV generator
 
 Usage:
@@ -49,7 +61,8 @@ Usage:
 
 Options:
   --strict             validate: treat warnings (e.g. unknown keys) as errors
-                       build: exit non-zero if the PDF has more sheets than planned
+                       build: exit non-zero if the PDF has more sheets than
+                       planned (also applies to build --all)
   --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
@@ -337,7 +350,9 @@ export async function build(
   // default — calling it a render failure would misstate what happened. Under
   // --strict it must be impossible to ignore, matching `validate`'s precedent
   // (warnings become errors) so a scripted caller can opt into hard failure.
-  if (strict && physical.length > 0) process.exit(EXIT.validation)
+  if (strict && physical.some((w) => STRICT_GATED_CODES.has(w.code))) {
+    process.exit(EXIT.validation)
+  }
 }
 
 // build --all: validate first (errors block), then render both variants.
@@ -350,7 +365,9 @@ export async function build(
 // missing glyphs on the page). That leak is now fixed at the source, in
 // src/pdf/fonts.js, so every caller is safe; the child processes stay as
 // defence in depth for the one command that renders twice by construction.
-export async function buildAll(/** @type {{ json?: boolean, strict?: boolean }} */ { json, strict }) {
+export async function buildAll(
+  /** @type {{ json?: boolean, strict?: boolean }} */ { json, strict }
+) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
   const vr = validateContent(
@@ -431,7 +448,7 @@ export async function buildAll(/** @type {{ json?: boolean, strict?: boolean }} 
     // defects from the child's own envelope and decide once, after both
     // variants are written.
     for (const w of res.diagnostics?.warnings ?? []) {
-      if (w.kind === 'defect') strictFailures.push(`${label}: ${w.message}`)
+      if (STRICT_GATED_CODES.has(w.code)) strictFailures.push(`${label}: ${w.message}`)
     }
     outputs.push({
       filename: res.filename,

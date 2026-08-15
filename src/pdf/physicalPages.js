@@ -52,16 +52,29 @@
  * @returns {string}
  */
 function stripStreams(text) {
+  // Anchored on the PDF TOKEN, not the substring. At this point user text is
+  // still present (literals are stripped after this, and must be — see the
+  // ordering note in countPdfPages), so a bare indexOf('stream') also fires on
+  // ordinary words: a link to `example.com/stream/processing`, or the keyword
+  // "real-time stream processing", started a bogus skip that ate the closing
+  // `)`, unbalanced the literal stripper, and swallowed the trailer. The
+  // counter then returned null — silently switching the whole check off for
+  // that CV, which is the clean-report-on-a-defective-PDF silence I1 exists to
+  // remove. A real stream keyword follows the dictionary's `>>` and is
+  // terminated by a newline; a URL or a keyword never is.
+  const OPEN = /(^|[^\w])stream\r?\n/g
   let out = ''
   let i = 0
-  for (;;) {
-    const start = text.indexOf('stream', i)
-    if (start === -1) return out + text.slice(i)
+  OPEN.lastIndex = 0
+  for (let m = OPEN.exec(text); m !== null; m = OPEN.exec(text)) {
+    const start = m.index + m[1].length
     const end = text.indexOf('endstream', start)
     if (end === -1) return out + text.slice(i, start)
     out += text.slice(i, start)
     i = end + 'endstream'.length
+    OPEN.lastIndex = i
   }
+  return out + text.slice(i)
 }
 
 /**
