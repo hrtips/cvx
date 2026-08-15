@@ -80,7 +80,7 @@ describe('layoutDiagnostics — fills', () => {
         }
       ])
     )
-    expect(d?.version).toBe(2)
+    expect(d?.version).toBe(3)
     expect(d?.pages[0].main.fill).toBe(0.5) // (0 + 300) / 600
     expect(d?.pages[0].main.usedPt).toBe(300)
     expect(d?.pages[0].main.budgetPt).toBe(600)
@@ -364,7 +364,7 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // levers are gone, so diagnostics are a pure function of the plan alone.
     // version: 2 is the shape flag consumers key on.
     const d = layoutDiagnostics(planOf([{}]))
-    expect(d?.version).toBe(2)
+    expect(d?.version).toBe(3)
     expect(d).not.toHaveProperty('leversUsed')
     expect(layoutDiagnostics.length).toBe(1)
   })

@@ -580,6 +580,9 @@ export interface LayoutDiagnosticWarning {
    * rendered PDF has more sheets than the plan numbered; a build-only defect
    * (it is merged into the envelope by the CLI/MCP layer from the produced
    * bytes, so `plan_layout` can never carry it).
+   * `experience-empty` (I2) — the CV has no experience entries at all (a
+   * student or first-job CV); mutually exclusive with `page1-no-experience`,
+   * which requires roles to exist.
    */
   code:
     | 'overflow'
@@ -587,6 +590,7 @@ export interface LayoutDiagnosticWarning {
     | 'page1-ends-early'
     | 'main-slot-unmeasured'
     | 'physical-pages-exceed-plan'
+    | 'experience-empty'
   /**
    * CVX classifying its own message (architecture review 4a): 'defect' =
    * something is wrong, act on it; 'fact' = true and priced, act only if the
@@ -618,6 +622,8 @@ export interface LayoutDiagnosticWarning {
   residualPt?: number
   smallestPiecePt?: number
   gapBeforePt?: number
+  /** experience-empty only: page 1's fixed content — what the main column does carry. */
+  fixedPt?: number
   /** main-slot-unmeasured only: the unmeasured section keys, in layout order. */
   keys?: string[]
   /** physical-pages-exceed-plan only: pages the plan numbered. */
@@ -641,12 +647,22 @@ export interface LayoutDiagnosticWarning {
  */
 export interface LayoutDiagnostics {
   /**
-   * Diagnostics-shape version. 2 = §3.9's comparable fill (occupancy over
-   * capacity) + §3.8's blockedBy + this field itself. Key on it before
-   * interpreting `fill`: v1's denominator was the residual budget. The
-   * envelope's `schemaVersion: 1` is unchanged — its fields are only added to.
+   * Diagnostics-shape version. Key on it before interpreting `fill`.
+   *
+   * 2 = §3.9's comparable fill (occupancy over capacity) + §3.8's blockedBy +
+   * this field itself; v1's denominator was the residual budget.
+   *
+   * 3 (I2) = three fields changed MEANING on a CV with no experience entries:
+   * `mainPageCount` counts the page a summary renders on (was 0), page-1
+   * `main.*` are numbers there (were nulls), and `emptyColumn` means "no ink
+   * in the column" rather than "no packed blocks", so a summary-bearing page 1
+   * is no longer reported empty. Warning `page`/`overflowPt`/`forcedByConfig`
+   * also became optional, for the two codes that are not page-scoped.
+   *
+   * The envelope's `schemaVersion: 1` is unchanged — its fields are only
+   * added to.
    */
-  version: 2
+  version: 3
   /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything

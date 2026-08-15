@@ -191,6 +191,51 @@ function mainSlotUnmeasured(plan) {
 }
 
 /**
+ * The main flow carries no experience entries anywhere in the document.
+ *
+ * The defining shape of a student or first-job CV, and until I2 the
+ * diagnostics had no word for it: `page1-no-experience` requires roles to
+ * exist and be pushed to page 2 (that is its whole point), so on a CV with
+ * zero roles the caller got silence plus a page-1 row whose numbers it had to
+ * interpret. Naming the condition is what lets an assistant say "this CV has
+ * no work history section" without inferring it from a null.
+ *
+ * `kind: 'fact'`: nothing is wrong. A CV with no experience is a legitimate
+ * document, and per R-F this prices it — how much of page 1 the fixed content
+ * already occupies — without suggesting what to do about it.
+ *
+ * Mutually exclusive with `page1-no-experience` BY CONSTRUCTION, in both
+ * directions: that code requires at least one entry somewhere, this one
+ * requires none.
+ *
+ * @param {import('./types.js').LayoutDiagnostics['pages']} pages
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function experienceEmpty(pages) {
+  if (pages.length === 0) return []
+  if (pages.some((p) => p.main.entries.length > 0)) return []
+  const page1 = pages[0]
+  const fixed = page1.main.fixedPt ?? 0
+  // Nothing in the main column at all (no summary either) is a different
+  // shape — the column is genuinely blank, which I3's main-column-empty
+  // names. This fact is about the ABSENCE OF ROLES, so it needs the column to
+  // be carrying something.
+  if (fixed <= 0) return []
+  return [
+    {
+      code: /** @type {const} */ ('experience-empty'),
+      kind: /** @type {const} */ ('fact'),
+      page: 1,
+      fixedPt: fixed,
+      message:
+        `This CV has no experience entries: the main column carries only its fixed content ` +
+        `(${fixed}pt of summary on page 1). Page-1 diagnostics describe that content; the ` +
+        `experience-related codes cannot fire, because there are no roles to place.`
+    }
+  ]
+}
+
+/**
  * §3.8's warning: page 1's experience list ended early — at least one role IS
  * on page 1, but the next one could not start there, and page 1 is the only
  * page with a LEVER (fixed content the user can shorten). Mutually exclusive
@@ -390,6 +435,7 @@ export function layoutDiagnostics(plan) {
     })),
     ...page1WithoutExperience(pages),
     ...page1EndsEarly(pages),
+    ...experienceEmpty(pages),
     ...mainSlotUnmeasured(plan)
   ]
 
@@ -398,7 +444,19 @@ export function layoutDiagnostics(plan) {
     // capacity, not used-over-residual-budget) plus blockedBy and this field
     // itself. Consumers key on it to know fill's denominator changed; the
     // envelope's schemaVersion stays 1 (its fields are only added to).
-    version: 2,
+    //
+    // 3 (I2) = three published fields changed MEANING on the empty-experience
+    // shape, which is why this is a bump and not an addition (R-E: two
+    // meanings never share a version):
+    //   · `mainPageCount` reads 1, not 0, for a CV whose page 1 renders a
+    //     summary and no roles — the 0 was a lie about a page that exists.
+    //   · page-1 `main.*` are numbers there, not nulls; `fill` now has the
+    //     one meaning null always had elsewhere ("this flow ended earlier").
+    //   · `emptyColumn` means "no ink in the column" rather than "no packed
+    //     blocks", so a summary-bearing page 1 is no longer reported empty.
+    // Riding the same bump (I1): `page`, `overflowPt` and `forcedByConfig` are
+    // optional on a warning, because two codes are not page-scoped.
+    version: 3,
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,

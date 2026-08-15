@@ -412,21 +412,24 @@ describe('the diagnostics name the defects a build warns about', () => {
   it('edge-summary-crosses-cliff: a page 1 with no roles on it is named, not left as an empty column', async () => {
     // C6a review blocker 2, on the fixture that produces the shape. This CV
     // paginates CORRECTLY — the packer ends page 1 early rather than force-place
-    // and overflow (C3b rule 1b) — so there is no overflow warning, `overflowPt`
-    // is 0, and the only signal used to be `emptyColumn: 'main'`: the same value
-    // a harmless last page carries, and the one SKILL.md tells an agent not to
-    // chase. Meanwhile page 1 shows the reader no work history at all.
+    // and overflow (C3b rule 1b) — so there is no overflow warning and
+    // `overflowPt` is 0. The named warning is the whole signal; page 1 shows the
+    // reader no work history at all.
     const dir = fixtureWorkspace('edge-summary-crosses-cliff')
     const planned = await planLayout({ dir })
     const d = planned.diagnostics
     const page1 = d?.pages[0]
     expect(page1?.main.entries).toEqual([])
-    expect(page1?.emptyColumn).toBe('main')
+    // I2 flipped this, and this test's own reasoning is why: the page is NOT
+    // blank — it carries the summary, fixed page-1 content rather than a packed
+    // block. `emptyColumn` used to report 'main' here, which is what made it
+    // mean "no packed blocks" instead of "no ink" and forced every doc to
+    // explain the difference. It now means what it says, and the shape stays
+    // named by `page1-no-experience` below — a code, not a column value an
+    // agent was told not to chase.
+    expect(page1?.emptyColumn).toBeNull()
     expect(page1?.overflowPt).toBe(0)
     expect(d?.totals.overflowPages).toBe(0)
-    // The page is NOT blank — it carries the summary, which is fixed page-1
-    // content rather than a packed block. That is why `emptyColumn` cannot mean
-    // "nothing is here", and why the docs now say so.
     expect(page1?.main.budgetPt).toBeGreaterThan(0)
     expect(d?.pages.slice(1).some((p) => p.main.entries.length > 0)).toBe(true)
 

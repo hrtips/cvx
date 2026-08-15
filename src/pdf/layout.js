@@ -403,6 +403,13 @@ export function summaryH(
   /** @type {Metrics} */ m,
   /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
+  // Nothing renders for an empty summary — `SummarySection` returns null on
+  // `!summary?.length` — so nothing is charged. Mirroring that (§4: the model
+  // mirrors the render) is what makes an experience-less, summary-less CV
+  // report an honestly blank main column instead of one holding a phantom
+  // title. Every fixture and the shipped scaffold have a summary, so this
+  // changes no existing packing decision; the baseline is unmoved.
+  if (summary.length === 0) return 0
   let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
     const txt = typeof b === 'string' ? b : b.text
@@ -1108,8 +1115,45 @@ export function packExperiences(
   const m = deriveMetrics(theme)
   const BC = mainContBudget(m)
   // ── Automatic front-load bin-packing ─────────────────────────────────────
-  const B1 = mainFirstBudget(m, summaryH(summary, m, measure))
+  const sumH = summaryH(summary, m, measure)
+  const B1 = mainFirstBudget(m, sumH)
   const packed = packBlocks(experienceBlocks(experience, m, measure), (i) => (i === 0 ? B1 : BC))
+
+  // I2 — THE DEGENERATE INPUT MUST STILL HAVE A ROW.
+  //
+  // `packBlocks([])` returns zero pages, which is right for a flow with no
+  // blocks — but page 1 is not empty when there is a summary on it, and the
+  // caller has no other way to learn that. Publishing zero pages here deleted
+  // the page-1 metrics row, and with it: every `main.*` diagnostic (they read
+  // null), the `overflowPt` sum (nothing to add), and the reachability of
+  // `overflowWarnings`' own fixedTooTall branch — which is keyed on
+  // `mainFill.budget < 0` and so could never fire on the one shape where the
+  // summary alone overflows the column. A 30-bullet summary with no experience
+  // rendered three sheets with `warnings: []`. The row IS the fix; the
+  // warnings that follow are the machinery that already existed.
+  //
+  // The budget deliberately differs from `mainFirstBudget`: that charges the
+  // "EXPERIENCE" section title, and `ExperienceSection` returns null for an
+  // empty list, so no such title is drawn. Charging it would over-state the
+  // fixed content by a title's height — the model mirrors the render (§4).
+  if (packed.length === 0 && sumH > 0) {
+    const capacity = quantize(mainColumnCapacity(m, m.mainPad))
+    return {
+      page1Experiences: [],
+      continuationChunks: [],
+      totalPages: 1,
+      pageMetrics: [
+        {
+          used: 0,
+          budget: quantize(capacity - sumH - m.spacer),
+          capacity,
+          // Nothing was blocked: there is no next entry to name.
+          blockedBy: null
+        }
+      ]
+    }
+  }
+
   const pages = packed.map((p) => p.blocks.map((b) => b.entry))
 
   return {
@@ -2164,7 +2208,21 @@ export function planTwoColumn({
       const sidebarFill = fillOf(sidebarRow)
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>
         f ? Math.max(0, quantize(f.used - f.budget)) : 0
-      const mainEmpty = mainBlocks.length === 0
+      // I2 — "empty" means NO INK IN THE COLUMN, not "no packed blocks".
+      //
+      // The old test was `mainBlocks.length === 0`, which reported page 1 of
+      // every experience-less CV as an empty main column while the reader was
+      // looking at a full summary on it. A student CV is the ordinary case of
+      // that, not an edge case. Fixed content is content: the summary occupies
+      // the column exactly as much as an experience entry does.
+      //
+      // Chrome is NOT content, deliberately: the identity block and the page
+      // badge appear on every page by construction, so counting them would
+      // make `emptyColumn` unreachable and delete the G1 residual signal that
+      // C4 measured as the honest description of a last page whose sidebar
+      // outlasted the experience list.
+      const mainEmpty =
+        mainBlocks.length === 0 && (mainRow ? mainRow.capacity - mainRow.budget <= 0 : true)
       const sidebarEmpty = sidebarSlices.length === 0
       return {
         index,

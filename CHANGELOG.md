@@ -10,6 +10,30 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**Diagnostics `version: 3` — a CV with no work history is finally visible.**
+The packer produced no page-1 metrics row when `experience.yaml` was empty,
+because a flow with no blocks packs to zero pages. That single absence was the
+root cause of the incident this work started from: every `main.*` number read
+`null`, `overflowPt` had nothing to sum, and the existing "your summary alone
+is taller than the column" warning was keyed on a budget that no longer
+existed — so a 30-bullet summary with no roles rendered three sheets and
+reported nothing at all. Page 1 now gets an honest row (the summary is
+charged; the "EXPERIENCE" title is not, because an empty list renders no
+title), which makes the existing overflow machinery fire on that shape with no
+new code. Three published fields changed meaning as a result, hence the
+version bump: `mainPageCount` counts the page a summary renders on, page-1
+`main.*` are numbers rather than nulls, and **`emptyColumn` now means "no ink
+in the column"** instead of "no packed blocks" — a page 1 carrying a summary is
+no longer reported as an empty column, which is what forced every doc to
+explain the difference. Warning `page`/`overflowPt`/`forcedByConfig` are now
+optional, for the two codes that describe a document or a layout rather than a
+page.
+
+**New fact: `experience-empty`.** Names the defining shape of a student or
+first-job CV — no experience entries anywhere — and prices what page 1 does
+carry (`fixedPt`). It is mutually exclusive with `page1-no-experience` by
+construction, since that code requires roles to exist and be pushed off page 1.
+
 **The build now counts the paper.** Every build compares the sheets in the
 finished PDF against the pages the plan numbered, and reports
 `physical-pages-exceed-plan` (kind `defect`, carrying `planned` and
