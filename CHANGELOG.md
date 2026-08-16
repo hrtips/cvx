@@ -10,6 +10,79 @@ keys may appear, existing ones keep working.
 
 ## Unreleased
 
+**Two ways a CV could lose a whole section, silently, are gone.** Both were
+found by driving two real CVs end to end through the skill, and both were
+reachable through layout edits the skill itself teaches. `summary` placed in a
+sidebar slot vanished from the PDF while `validate --strict` reported ok and
+page 1 still reserved ~300pt for it — it is now a `slot-not-renderable` error
+with a field path, and the budget stops charging a summary the layout does not
+place. Separately, `continuation.main` was dead on every two-page CV for any
+key, because the final page took `last.main` and on a two-page document the
+final page is the only continuation page; a page that is both now renders both
+slot lists. Neither bug was reachable by varying content, which is why the
+existing content oracle never saw them — it now runs over layout permutations
+too.
+
+**`referees: []` prints the line three shipped texts promise it prints.** The
+designed variant always honoured it; the ATS variant gated the whole block on a
+non-empty list, so the value `cvx init` scaffolds produced no References
+section at all.
+
+**Warnings name both levers, not just the summary.** `page1-ends-early` and
+`page1-no-experience` told the reader that content above the roles was the only
+thing that could move the break. It is not: shrinking the blocked role's own
+description or promotion table moves it too, measured twice — once taking a
+three-page CV to two. The messages also described the blocking piece as "the
+role heading plus one bullet" when it carried the description and every
+promotion row as well, which is 52-60% of the figure on real roles. Both
+corrected in the engine and the skill together.
+
+**Diagnostics `version: 4` — every experience entry now says what it costs.**
+The sidebar has published `heightPt` per section since v2 while the main
+column, the flow that decides the page count, published no height at all — so
+pricing a candidate edit meant editing the YAML and rebuilding. Entries now
+carry `heightPt`, the indivisible `headPt` broken into its role / meta /
+location / description / progression terms, and per-bullet `bulletsPt`. This is
+the first purely ADDITIVE version bump: no existing field changed meaning, and
+it is a bump rather than a silent addition because "can I price an edit by
+subtraction, or must I rebuild to find out?" is exactly what a version answers.
+
+**Spacers are charged at the value the layout declares.** The planner subtracted
+a constant 27pt from the theme whether or not a spacer slot existed and whatever
+value it carried, so `spacer: 0`, `spacer: 200` and no spacer at all produced
+byte-identical plans while the renderer honoured what was written. Continuation
+pages charged nothing at all. Both fixed, and `main-slot-unmeasured` is now
+slot-aware — `summary` is measured in `first.main` only, and putting it in
+`continuation.main` used to be the one case the warning stayed silent on.
+
+**A promotion table can break across a page.** An entry's page-leading piece
+used to carry the heading plus the WHOLE table plus a bullet, indivisibly — a
+floor with no upper bound, so a role with a long promotion history was far
+harder to start on a part-full page than its bullet count suggested. The cut
+axis is now the entry's atoms in document order, promotion rows then bullets,
+and the existing anti-orphan range is what keeps it safe: both sides keep at
+least one atom, so a piece that cuts inside the table still carries the heading
+plus a row. Priced over 500 generated CVs, this is the only variant that saves a
+page on ~11% of them without introducing a new class of orphaned heading. When
+even one row will not fit, the role moves to the next page whole rather than
+stranding a bare heading.
+
+**Templates can adjust spacing.** `cv-content/layouts/*.yaml` takes a `spacing:`
+block — `entryGap`, `bulletGap`, `sectionGap` — each a multiplier on the theme's
+vertical whitespace, bounds 0.6-1.5, with out-of-range values and unknown keys
+as validation errors rather than silent clamps. Before this, an author who would
+not alter their text had no working control at all: the three themes are
+geometrically identical, the old `geometry:` block was deleted because its keys
+were ignored, and user-space themes do not exist. Multipliers rather than points
+because the named styles' ratios are the design; groups rather than one density
+because scaling the between-entries gap alone reaches the same page count while
+leaving the reading rhythm inside a job untouched; vertical only because
+horizontal offsets change wrap widths and therefore every measurement. The scale
+is applied to the theme in `resolveDocument`, the single chain the planner and
+the renderer both already go through, so the model and the page cannot disagree
+about it. Measured on a real CV: `entryGap: 0.7` turns three pages into two with
+no word changed.
+
 **`plan_layout` is stateless again.** The MCP layer kept a process-scoped
 counter of consecutive identical dry runs per workspace and changed the fifth
 answer to say "you are looping". It was ruled a statelessness violation — a
