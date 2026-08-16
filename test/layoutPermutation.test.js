@@ -18,6 +18,7 @@
 // authors to write (§"Student and first-job CVs" moves sections into `main`),
 // so this is the reachable surface, not a synthetic one.
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { dump } from 'js-yaml'
@@ -222,6 +223,55 @@ describe.skipIf(!hasPdftoppm())('layout permutations — no section may vanish (
     })
     // ...and in document order across the page seam.
     expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  }, 60000)
+
+  it('D11: template spacing changes the page count, and the render agrees with the plan', () => {
+    // The end-to-end proof: the planner and the renderer read ONE scaled theme
+    // (resolveDocument), so planned pages must equal physical sheets. If the
+    // scale were applied in only one of them, this is where it shows up.
+    const dir = mkFixtureDir('perm-spacing')
+    writeFixtureContent(dir, content(6))
+    const layoutWith = (/** @type {object | undefined} */ spacing) => ({
+      template: 'two-column',
+      ...(spacing ? { spacing } : {}),
+      pages: {
+        first: { sidebar: ['identity-photo', 'contact'], main: ['summary', 'experience'] },
+        continuation: {
+          sidebar: ['identity-compact', 'education', 'competencies'],
+          main: ['experience:continued']
+        },
+        last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+      }
+    })
+    const sheetsOf = (/** @type {string} */ pdf) =>
+      Number(
+        execFileSync('pdfinfo', [pdf], { encoding: 'utf8' })
+          .split('\n')
+          .find((l) => l.startsWith('Pages:'))
+          ?.replace(/\D/g, '')
+      )
+
+    writeLayout(dir, layoutWith(undefined))
+    const loose = buildAndExtract(dir)
+    const looseSheets = sheetsOf(path.join(dir, 'perm-test.pdf'))
+
+    writeLayout(dir, layoutWith({ entryGap: 0.6 }))
+    const tight = buildAndExtract(dir)
+    const tightSheets = sheetsOf(path.join(dir, 'perm-test.pdf'))
+
+    // The surface must actually do something — the `geometry:` block it
+    // replaces was inert, which is the failure mode worth guarding.
+    expect(tight.plan.pages[0].main.fill).not.toBe(loose.plan.pages[0].main.fill)
+    // Tightening the between-entries gap cannot make a CV longer.
+    expect(tight.plan.totalPages).toBeLessThanOrEqual(loose.plan.totalPages)
+    // MODEL == RENDER, both ways round. This is the guarantee that matters:
+    // one scaled theme, read by the planner and the renderer alike.
+    expect(looseSheets, 'loose: planned != physical').toBe(loose.plan.totalPages)
+    expect(tightSheets, 'tight: planned != physical').toBe(tight.plan.totalPages)
+    // ...and nothing was lost to the tighter layout, in either column.
+    expect(tight.text).toContain(MARK.summary)
+    expect(tight.text).toContain(MARK.education)
+    expect(tight.text).toContain(MARK.competencies)
   }, 60000)
 
   it('D2: a key the sidebar cannot render is a validation ERROR, never a silent drop', () => {

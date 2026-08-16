@@ -578,6 +578,34 @@
         "last": {
           "$ref": "#/$defs/layoutPage",
           "description": "Flat form: equivalent to pages.last when the pages: wrapper is omitted."
+        },
+        "spacing": {
+          "type": "object",
+          "description": "Template-declared vertical spacing, as MULTIPLIERS of the theme's own values (1 = unchanged). Vertical whitespace only: horizontal offsets change wrap widths, hence line counts, hence every measurement, and stay unexposed. Out-of-range values are validation errors, not clamped.",
+          "properties": {
+            "entryGap": {
+              "type": "number",
+              "minimum": 0.6,
+              "maximum": 1.5,
+              "default": 1,
+              "description": "Space between experience entries (the entry's bottom margin and the rule's margins). The strongest single lever on page count."
+            },
+            "bulletGap": {
+              "type": "number",
+              "minimum": 0.6,
+              "maximum": 1.5,
+              "default": 1,
+              "description": "Space between bullet items, in the summary and within an entry."
+            },
+            "sectionGap": {
+              "type": "number",
+              "minimum": 0.6,
+              "maximum": 1.5,
+              "default": 1,
+              "description": "Space around section boundaries and under section titles."
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

@@ -116,10 +116,21 @@ career). The usual moves, by code:
 
 That is *not* the same as "layout changes never help", and the two cases are worth keeping straight:
 
-- **A full experience list** — the main column's pagination is fixed by the content. Swapping sidebar sections around does not move it (the two columns are independent flows), `summary` only renders from `first.main`, themes are colour-only with identical geometry, and a `spacer` is not a page-count control. Here the only levers are content edits and the two `shortByPt` targets above.
+- **A full experience list** — the main column's pagination is fixed by the content *and the template's spacing*. Swapping sidebar sections around does not move it (the two columns are independent flows), `summary` only renders from `first.main`, and themes are colour-only with identical geometry. The levers here are content edits, the two `shortByPt` targets above, and the `spacing:` block below.
 - **An empty or very short experience list** — moving sections between columns is the strongest lever there is, and costs no content edits. See "Student and first-job CVs" below.
 
 **Rank levers by cost before you recommend one.** Compare `blockedBy.shortByPt` across pages and take the cheapest, not the most comfortable. Greedy top-down packing makes prefix repair monotone: **an edit below a break cannot move content already placed above it** — so a cut in the last role cannot fill page 1. The carve-out that matters: *the blocked role's own head is an input to its break*, so shrinking that role's `description` or `progression` does move the break even though the role sits below it.
+
+**Tighten the template before you cut the text.** `cv-content/layouts/*.yaml` takes a `spacing:` block of multipliers on the theme's own vertical whitespace — `1` is unchanged, and the legible range is `0.6`–`1.5` (outside it is a validation error, not a silent clamp):
+
+```yaml
+spacing:
+  entryGap: 0.8      # space BETWEEN experience entries — the strongest lever on page count
+  bulletGap: 1.0     # space between bullets, in the summary and within an entry
+  sectionGap: 1.0    # space around section boundaries and under section titles
+```
+
+Prefer `entryGap` alone: it compresses the gaps between jobs and leaves the reading rhythm *inside* a job untouched, which is the typographically right instinct. Measured on a real CV, `entryGap: 0.8` turned 3 pages into 2 with no word changed — so this is the first thing to try for an author who does not want their text altered, and it costs nothing to undo. Two cautions: it is a real design change, so look at the render rather than only the page count; and packing to 0.99 fill leaves nothing for the next sentence they add. Horizontal spacing is deliberately not exposed — changing it would change wrap widths, hence every measurement.
 
 **Check for text that is already on the page.** Before proposing any cut, look for duplication across sections — a summary bullet listing awards that the `achievements` sidebar prints beside it, or skills restated in both the summary and `competencies`. On a real CV a single duplicated summary bullet was 48pt of the 53.64pt needed, and removing it lost no fact at all. This is the cheapest edit that exists and it is invisible to a grammar pass.
 

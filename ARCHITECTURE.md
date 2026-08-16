@@ -1106,8 +1106,34 @@ version-pinned scaffolds. Rejected: container image, standalone executables
   deliverable) plus a naming/location rule so a preview cannot be mistaken
   for the finished CV; needs its own design doc before any build. Does not
   close the blind-client hole.
-- **The per-CV design surface** (unbuilt, unscheduled; key lists and
-  per-token bounds drafted in archived design-p3-surface.md).
+- **The per-CV design surface — FIRST SLICE LANDED 2026-08-16 (D11).** The
+  template now carries a `spacing:` block: `entryGap`, `bulletGap`, `sectionGap`,
+  each a multiplier on the theme's vertical whitespace, bounds 0.6-1.5, closed
+  key list, out-of-range and unknown keys are validation errors with field paths
+  (ruling R-M — never clamped). Maintainer direction 2026-08-16: authors and
+  LLMs should be able to adjust spacing as they see fit, with the objective of
+  tastefully packaging the text, and it belongs in the template because that is
+  what they already edit.
+
+  Design decisions, each with its reason recorded in
+  `src/pdf/themes/layoutSpacing.js`: **multipliers, not points** (the named
+  styles' ratios ARE the design — the `typeScale` argument); **groups, not one
+  density** (measured: a density needs 0.90 to reach 2 pages and tightens
+  spacing *inside* a job that did not need it, while `entryGap` alone reaches
+  the same page count and leaves the reading rhythm untouched); **vertical
+  only** (horizontal offsets change wrap widths, hence line counts, hence every
+  measurement — standing design law, not a scope call).
+
+  The load-bearing structural choice: the scale is applied to the THEME inside
+  `resolveDocument`, which is already the single chain the planner and the
+  renderer both go through. There is one scaled theme object and both read it,
+  so model and render cannot disagree about spacing — the failure mode D2-D6
+  were all instances of. Identity returns the SAME object reference, so a
+  template declaring no spacing is byte-identical to the pre-feature build.
+
+  Remaining, still unbuilt: `typeScale`, `sidebarFraction` (R-J bounds), and
+  everything else in the archived p3-surface draft. The rest of this entry is
+  the evidence that justified the first slice.
 
   **MEASURED JUSTIFICATION, 2026-08-16 dogfood.** The narrowest useful first
   slice is the INTER-ENTRY vertical gap — `spacing.entryMb` (11) plus

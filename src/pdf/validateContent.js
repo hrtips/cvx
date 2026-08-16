@@ -19,6 +19,7 @@ import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
 import { overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
 import { normalizeLayout } from './loadLayout.js'
+import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -472,6 +473,39 @@ export function validateContent(
       for (const f of mapAjvErrors(validate.errors, doc)) {
         const severity = f.unknownKey && !strict ? 'warning' : 'error'
         add(severity, file, f.unknownKey ? 'unknown-key' : 'schema', f)
+      }
+    }
+
+    // D11: template spacing is a multiplier with a legibility floor and a
+    // waste ceiling. Out-of-range is an ERROR with a field path, never a clamp
+    // (ruling R-M): a clamped value silently renders something the author did
+    // not ask for. The schema carries the same bounds, so this is belt and
+    // braces for a hand-written layout that skipped schema validation.
+    const declaredSpacing = /** @type {Record<string, unknown>} */ (
+      /** @type {any} */ (doc)?.spacing ?? {}
+    )
+    for (const [key, value] of Object.entries(declaredSpacing)) {
+      if (!SPACING_KEYS.includes(key)) {
+        add('error', file, 'unknown-spacing-key', {
+          path: `/spacing/${key}`,
+          message: `"${key}" is not a spacing group`,
+          suggestion: `use one of: ${SPACING_KEYS.join(', ')}`
+        })
+        continue
+      }
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        add('error', file, 'spacing-not-a-number', {
+          path: `/spacing/${key}`,
+          message: `spacing.${key} must be a number (a multiplier of the theme's value, 1 = unchanged)`
+        })
+        continue
+      }
+      if (value < SPACING_BOUNDS.min || value > SPACING_BOUNDS.max) {
+        add('error', file, 'spacing-out-of-range', {
+          path: `/spacing/${key}`,
+          message: `spacing.${key} is ${value} — outside the legible range ${SPACING_BOUNDS.min}–${SPACING_BOUNDS.max}`,
+          suggestion: `${value < SPACING_BOUNDS.min ? 'below' : 'above'} the bound; try ${value < SPACING_BOUNDS.min ? SPACING_BOUNDS.min : SPACING_BOUNDS.max}`
+        })
       }
     }
 

@@ -113,6 +113,20 @@ export interface EntryMeasurement {
   bulletGapPt: number
 }
 
+/**
+ * Template-declared vertical spacing, as multipliers of the theme's values
+ * (D11). Applied to the theme by `resolveDocument`, so the planner and the
+ * renderer cannot disagree about it.
+ */
+export interface LayoutSpacing {
+  /** Space between experience entries. The strongest single lever on page count. */
+  entryGap?: number
+  /** Space between bullet items. */
+  bulletGap?: number
+  /** Space around section boundaries. */
+  sectionGap?: number
+}
+
 /** One education entry (schema: educationEntry). */
 export interface EducationEntry {
   degree: string
@@ -240,6 +254,8 @@ export interface RawLayout {
   first?: RawLayoutPage
   continuation?: RawLayoutPage
   last?: RawLayoutPage
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   geometry?: unknown
 }
 
@@ -252,6 +268,8 @@ export interface LayoutPage {
 /** A layout after normalizeLayout(): string slot keys, flat page kinds. */
 export interface NormalizedLayout {
   template?: string
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   first?: LayoutPage
   continuation?: LayoutPage
   last?: LayoutPage
@@ -269,6 +287,8 @@ export interface ResolvedLayoutPage {
 }
 export interface ResolvedLayout {
   template?: string
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   first: ResolvedLayoutPage
   continuation: ResolvedLayoutPage
   last: ResolvedLayoutPage

@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { LAYOUTS, TWO_COLUMN_LAYOUT } from './defaultLayouts.js'
+import { applyLayoutSpacing } from './themes/layoutSpacing.js'
 import { monoTheme } from './themes/mono.js'
 import { tealTheme } from './themes/teal.js'
 
@@ -38,8 +39,14 @@ export function resolveDocument({ config, theme, layout } = {}) {
   const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (
     layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
   )
-  const activeTheme =
-    theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  const baseTheme = theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  // D11: the template's `spacing:` groups are applied HERE, to the theme, and
+  // nowhere else. This function is already the single chain the planner and the
+  // renderer both go through (that is why it exists), so scaling the theme at
+  // this point makes it impossible for the model to measure one spacing and the
+  // page to draw another. Identity in, same object out — a layout declaring no
+  // spacing is byte-for-byte the build it was before the feature existed.
+  const activeTheme = applyLayoutSpacing(baseTheme, activeLayout)
 
   return {
     layoutName,
