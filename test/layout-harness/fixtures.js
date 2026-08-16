@@ -391,7 +391,7 @@ function namedEdgeCaseFixtures() {
     {
       id: 'edge-page1-blocked',
       description:
-        'page 1 ends EARLY with one entry on it: the second entry carries a 4-step progression whose smallest legal piece (head + 1 bullet, 191.18pt) is taller than the 150.07pt left after the entry divider. The F3 shape from the post-mortem, and the only fixture that reaches the `page1-ends-early` warning — `edge-summary-crosses-cliff` reaches its degenerate twin (`page1-no-experience`, zero entries on page 1) instead.',
+        'page 1 ends EARLY with one entry on it: the second entry carries a 4-step progression, and its smallest legal piece (head + 1 ATOM — one progression row — 109.87pt) is taller than the 74.32pt left, of which the 33.75pt entry divider eats half. Short by 69.30pt. The F3 shape from the post-mortem, and the only fixture that reaches the `page1-ends-early` warning — `edge-summary-crosses-cliff` reaches its degenerate twin (`page1-no-experience`, zero entries on page 1) instead. RE-CALIBRATED at D7 `prog-split`: the smallest piece used to be head + the WHOLE 4-row table + 1 bullet (191.18pt against 150.07pt), and once the table became splittable the entry fit on page 1 and this fixture stopped demonstrating anything. The summary carries two more bullets to restore the block — the fixture tests the packer declining, not any particular arithmetic, and the arithmetic had to move when the cut axis did.',
       sections: {
         certifications: 'one',
         publications: 'one',
@@ -402,7 +402,7 @@ function namedEdgeCaseFixtures() {
       textLength: 'long',
       volume: 'multi-page',
       experienceCount: 4,
-      summaryBullets: 5,
+      summaryBullets: 7,
       entryShapes: [{ bullets: 2 }, { progression: 4 }]
     },
     {

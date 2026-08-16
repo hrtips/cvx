@@ -46,19 +46,32 @@ export function summaryBlockIds(summary) {
 export function experienceBlockIds(entries) {
   return (entries ?? []).flatMap((e, i) => {
     const id = expBlockId(i, e)
+    // Progression rows are ATOMS since D7 `prog-split` — the packer may cut
+    // between them, so each needs an id of its own or the invariants cannot see
+    // where one went. They precede the bullets, which is the packer's own
+    // document order (`layout.js` `pieceAt`).
+    const progIds = (e.progression ?? []).map((_, j) => `${id}::prog:${j}`)
     const bulletIds = (e.bullets ?? []).map((_, j) => `${id}::bullet:${j}`)
-    return [`${id}::head`, ...bulletIds]
+    return [`${id}::head`, ...progIds, ...bulletIds]
   })
 }
 
 /** Block ids one packed entry *fragment* (whole, head-split, or continuation) contributes, at a given canonical index. */
 function fragmentBlockIds(e, canonicalIndex) {
   const id = expBlockId(canonicalIndex, e)
+  // The rows THIS fragment renders. A continuation carries rows too since D7
+  // (it used to drop them), so this range is read the same way on both kinds.
+  const pStart = e.startProg ?? 0
+  const pEnd = e.endProg ?? e.progression?.length ?? 0
+  const progIds = []
+  for (let i = pStart; i < pEnd; i++) progIds.push(`${id}::prog:${i}`)
+
   const start = e.startBullet ?? 0
   const end = e.endBullet ?? e.bullets?.length ?? 0
   const bulletIds = []
   for (let i = start; i < end; i++) bulletIds.push(`${id}::bullet:${i}`)
-  return e.isContinuation ? bulletIds : [`${id}::head`, ...bulletIds]
+
+  return e.isContinuation ? [...progIds, ...bulletIds] : [`${id}::head`, ...progIds, ...bulletIds]
 }
 
 /**

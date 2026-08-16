@@ -42,11 +42,20 @@
 //      lands on is what a reader sees, and nothing anywhere else asserts it.
 //
 // EXHAUSTIVE, AND WHY A DP IS STILL EXHAUSTIVE. The number of legal packings is
-// exponential in the number of bullets (the sweep reports the running total, and
+// exponential in the number of atoms (the sweep reports the running total, and
 // it is in the billions), so they are not materialised one by one. They do not need
 // to be: a packing is a path through the DAG whose nodes are "the flow resumes
-// at entry e, bullet b, on page kind k" and whose edges are "one legal way to
-// fill that page". Objective (1) decomposes over that DAG (fewest pages from a
+// at entry e, ATOM a, on page kind k" and whose edges are "one legal way to
+// fill that page".
+//
+// AN ATOM, since D7 `prog-split`, is a progression row or a bullet, in document
+// order: rows first, then bullets. Before D7 the cut axis was bullets alone and
+// this oracle modelled it exactly; after it, an oracle that still enumerated
+// bullet cuts searched a STRICTLY SMALLER space than the packer and duly
+// reported the packer as beating its own "optimum" (edge-page1-blocked: page-1
+// fill 35369 cents against a best-of-oracle 17227). A narrower model does not
+// make the packer wrong; it makes the oracle wrong, and an oracle that can be
+// beaten is not an oracle. Objective (1) decomposes over that DAG (fewest pages from a
 // node is independent of how the node was reached), and objective (2) depends
 // only on the FIRST edge — so the optimum over every path is found by evaluating
 // every node once and every first-page filling once. `statesExplored` below
@@ -58,12 +67,15 @@
 //   * entries keep designer order, and a page holds a contiguous run of them;
 //   * the first block on a page charges no gap, every later one charges the
 //     entry divider (`dividerHeight + 2*dividerMargin`);
-//   * a cut must leave at least one bullet on BOTH sides (the anti-orphan rule
-//     `largestFittingPrefix` enforces as `[1, n-1]`);
+//   * a cut must leave at least one ATOM on BOTH sides (the anti-orphan rule
+//     `largestFittingPrefix` enforces as `[1, n-1]`) — which is exactly why
+//     cutting inside the promotion table never orphans a bare heading: the head
+//     keeps the heading plus at least one row;
 //   * a split head is always its page's LAST block — its tail leads the next;
 //   * a tail costs the CONTINUATION form (`isContinuation: true`), which is not
 //     a suffix of the whole entry: it repeats the role with a "(cont'd)" tag and
-//     drops the company/period/location/description/progression rows. The two
+//     drops the company/period/location/description, and carries only the
+//     progression rows its own slice holds. The two
 //     halves of a cut therefore do not sum to the uncut height, which is why
 //     every slice is measured rather than read off a prefix table;
 //   * an EMPTY page is legal only where `packBlocks` rule 1b emits one — nothing
@@ -97,14 +109,52 @@ const MAX_STATES = 200_000
  * An UPPER BOUND on the nodes + edges `optimalPacking` would visit for this
  * flow, computed without visiting any of them — which is what makes MAX_STATES a
  * guard rather than a post-mortem. A node is "the flow resumes at entry e,
- * bullet b" (one per bullet boundary, plus the end), and a page can be filled at
+ * atom a" (one per atom boundary, plus the end), and a page can be filled at
  * most one way per boundary it could stop at, so the product bounds the edges.
+ * Atoms are progression rows then bullets (D7), so the bound grew with the cut
+ * axis — which is the point: it must bound the space the PACKER can reach.
  *
  * @param {import('../src/pdf/types.js').ExperienceEntry[]} entries
  */
 function stateSpaceBound(entries) {
-  const boundaries = entries.reduce((n, e) => n + (e.bullets ?? []).length, 0) + entries.length + 1
+  const boundaries = entries.reduce((n, e) => n + atomsOf(e), 0) + entries.length + 1
   return boundaries + boundaries * boundaries
+}
+
+/**
+ * How many ATOMS an entry offers the cut axis: its progression rows, then its
+ * bullets (D7 `prog-split`). Mirrors `layout.js`'s own `n = nProg + nBullets`.
+ *
+ * @param {import('../src/pdf/types.js').ExperienceEntry} e
+ */
+function atomsOf(e) {
+  return (e.progression ?? []).length + (e.bullets ?? []).length
+}
+
+/**
+ * The piece of `e` holding atoms `[from, to)` — rows first, then bullets, and a
+ * CONTINUATION whenever it does not start at atom 0.
+ *
+ * Deliberately a transcription of `layout.js`'s `pieceAt()` plus its tail
+ * construction, not a re-derivation: an oracle that computed the slice its own
+ * way would be checking the packer against a second opinion about what a piece
+ * IS, when the only question it is meant to answer is which sequence of pieces
+ * the packer chose.
+ *
+ * @param {import('../src/pdf/types.js').ExperienceEntry} e
+ * @param {number} from
+ * @param {number} to
+ */
+function atomSlice(e, from, to) {
+  const nProg = (e.progression ?? []).length
+  return {
+    ...e,
+    ...(from > 0 ? { isContinuation: true } : {}),
+    startProg: Math.min(from, nProg),
+    endProg: Math.min(to, nProg),
+    startBullet: Math.max(0, from - nProg),
+    endBullet: Math.max(0, to - nProg)
+  }
 }
 
 /** Hundredths of a point — layout.js's `quantize()`, re-stated because it is module-private there. */
@@ -138,11 +188,11 @@ const DIVIDER_H = m.dividerHeight + m.dividerMargin * 2
  *   is not a meaningful question there, so callers skip.
  */
 function optimalPacking(entries, firstBudget, contBudget) {
-  const bulletCount = entries.map((e) => (e.bullets ?? []).length)
+  const atomCount = entries.map(atomsOf)
   let statesExplored = 0
   let edgesExplored = 0
 
-  /** Measured height of entry `i`'s bullets `[from, to)`, memoized — every filling below asks for the same slices. @type {Map<string, number>} */
+  /** Measured height of entry `i`'s ATOMS `[from, to)`, memoized — every filling below asks for the same slices. @type {Map<string, number>} */
   const heights = new Map()
   const sliceH = (
     /** @type {number} */ i,
@@ -153,14 +203,10 @@ function optimalPacking(entries, firstBudget, contBudget) {
     const hit = heights.get(key)
     if (hit !== undefined) return hit
     // `from > 0` is a CONTINUATION, and its head is a different shape — see the
-    // module docblock. This mirrors experienceBlock()'s own two constructions.
-    const h = entryH(
-      from === 0
-        ? { ...entries[i], startBullet: 0, endBullet: to }
-        : { ...entries[i], isContinuation: true, startBullet: from, endBullet: to },
-      m,
-      measure
-    )
+    // module docblock. This mirrors `experienceBlock()`'s own two constructions
+    // and, for the atom ranges, `layout.js`'s `pieceAt()` exactly: rows first,
+    // then bullets.
+    const h = entryH(atomSlice(entries[i], from, to), m, measure)
     heights.set(key, h)
     return h
   }
@@ -194,11 +240,11 @@ function optimalPacking(entries, firstBudget, contBudget) {
       // safe. Offered even when the whole entry would fit: a packing is free to
       // cut early, and an oracle that assumed otherwise would be asserting the
       // greedy rule it is supposed to be checking.
-      for (let k = b + 1; k < bulletCount[e]; k++) {
+      for (let k = b + 1; k < atomCount[e]; k++) {
         if (q(used + gap + sliceH(e, b, k)) > q(budget)) break
         out.push({ nextE: e, nextB: k, used: used + gap + sliceH(e, b, k), empty: false })
       }
-      const whole = sliceH(e, b, bulletCount[e])
+      const whole = sliceH(e, b, atomCount[e])
       if (q(used + gap + whole) > q(budget)) break
       used += gap + whole
       placed++
@@ -403,7 +449,7 @@ describe('the greedy main-column packer is optimal on the real corpus', () => {
     console.log(
       `  optimality oracle: ${stats.measured}/${CORPUS.length} fixtures proved optimal, ${skipped.length} skipped; ` +
         `${stats.states} states + ${stats.edges} edges explored, covering ${stats.packings.toLocaleString('en-US')} legal packings; ` +
-        `${stats.splitFixtures} fixture(s) needed a bullet-level split, ${stats.tiebreakFixtures} had a page-1 tiebreak to decide.`
+        `${stats.splitFixtures} fixture(s) needed an atom-level split, ${stats.tiebreakFixtures} had a page-1 tiebreak to decide.`
     )
     expect(skipped.length, `skip list grew: ${JSON.stringify(skipped)}`).toBeLessThanOrEqual(2)
     // Nothing fell out of the sweep silently: every fixture was either proved or

@@ -10,6 +10,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dump } from 'js-yaml'
 import { afterEach, describe, expect, it } from 'vitest'
+import { SIDEBAR_SECTION_KEYS } from './layout.js'
+import { SPACING_BOUNDS } from './themes/layoutSpacing.js'
 import { validateContent } from './validateContent.js'
 
 const FONTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'fonts')
@@ -657,5 +659,95 @@ describe('validateContent — malformed content reaches the user, not the packer
     })
     expect(res.ok).toBe(true)
     expect(res.warnings.some((w) => w.code === 'page-overflow')).toBe(true)
+  })
+})
+
+// ── D2 / D11 validation surfaces ─────────────────────────────────────────────
+//
+// Both landed in the dogfood sprint with their happy paths tested and their
+// rejection paths not. These are the branches that make the two features
+// honest: D2 is the difference between a section silently deleted from the PDF
+// and a named error, and D11 is ruling R-M — an out-of-range value on a per-CV
+// surface is rejected with a field path, never clamped.
+
+describe('validateContent — a sidebar slot that cannot render is an error, not a silent drop', () => {
+  const withLayout = (/** @type {string} */ yaml) =>
+    validateContent({
+      contentDir: makeDir(BASE, { layouts: { 'custom.yaml': yaml } }),
+      fontsDir: FONTS
+    })
+
+  it('names the key, its path, and a near-miss when there is one', () => {
+    const res = withLayout('template: two-column\nfirst:\n  sidebar:\n    - certifcations\n')
+    const f = res.errors.find((e) => e.code === 'slot-not-renderable')
+    expect(f).toBeDefined()
+    expect(f?.path).toBe('/first/sidebar/0')
+    expect(f?.message).toMatch(/dropped from the PDF without warning/)
+    expect(f?.suggestion).toMatch(/did you mean "certifications"\?/)
+  })
+
+  it('lists the renderable keys when the typo is too far from any of them', () => {
+    const res = withLayout('template: two-column\nfirst:\n  sidebar:\n    - summary\n')
+    const f = res.errors.find((e) => e.code === 'slot-not-renderable')
+    expect(f).toBeDefined()
+    // `summary` is a real section — just not one the sidebar can draw, which is
+    // the exact shape D2 was reported for.
+    expect(f?.suggestion).toMatch(/move it to a main slot, or use one of:/)
+  })
+
+  it('accepts identity, spacer and every renderable section key', () => {
+    const keys = ['identity-photo', 'identity-compact', 'spacer:12', ...SIDEBAR_SECTION_KEYS]
+    const res = withLayout(
+      `template: two-column\nfirst:\n  sidebar:\n${keys.map((k) => `    - ${k}\n`).join('')}`
+    )
+    expect(res.errors.filter((e) => e.code === 'slot-not-renderable')).toEqual([])
+  })
+
+  it('leaves a non-string slot to the shape check rather than claiming it cannot render', () => {
+    const res = withLayout('template: two-column\nfirst:\n  sidebar:\n    - ~\n')
+    expect(res.errors.some((e) => e.code === 'slot-not-renderable')).toBe(false)
+    expect(res.errors.length).toBeGreaterThan(0) // the shape check still speaks
+  })
+})
+
+describe('validateContent — template spacing is bounded, and out of range is an error (R-M)', () => {
+  const withSpacing = (/** @type {string} */ body) =>
+    validateContent({
+      contentDir: makeDir(BASE, {
+        layouts: {
+          'custom.yaml': `template: two-column\nspacing:\n${body}first:\n  main:\n    - summary\n`
+        }
+      }),
+      fontsDir: FONTS
+    })
+
+  it('accepts a value inside the bounds', () => {
+    const res = withSpacing('  entryGap: 0.7\n')
+    expect(res.errors.filter((e) => e.file === 'layouts/custom.yaml')).toEqual([])
+  })
+
+  it('rejects an unknown group by name, with the real ones listed', () => {
+    const res = withSpacing('  entryGaps: 0.7\n')
+    const f = res.errors.find((e) => e.file === 'layouts/custom.yaml')
+    expect(f).toBeDefined()
+    expect(f?.message).toMatch(/entryGaps/)
+  })
+
+  it('rejects a non-numeric value', () => {
+    const res = withSpacing('  entryGap: tight\n')
+    expect(res.errors.some((e) => e.file === 'layouts/custom.yaml')).toBe(true)
+  })
+
+  it('rejects both ends of the range, and says which end', () => {
+    // By CODE: the schema also carries the bounds, so each of these produces a
+    // schema finding too. Both are correct; this asserts the one that explains
+    // which end was crossed and what to use instead.
+    const below = withSpacing(`  entryGap: ${SPACING_BOUNDS.min / 2}\n`)
+    const fb = below.errors.find((e) => e.code === 'spacing-out-of-range')
+    expect(fb?.suggestion).toMatch(/below the bound/)
+
+    const above = withSpacing(`  entryGap: ${SPACING_BOUNDS.max * 2}\n`)
+    const fa = above.errors.find((e) => e.code === 'spacing-out-of-range')
+    expect(fa?.suggestion).toMatch(/above the bound/)
   })
 })

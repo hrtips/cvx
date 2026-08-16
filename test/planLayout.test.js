@@ -447,12 +447,18 @@ describe('the diagnostics name the defects a build warns about', () => {
 
   it('edge-page1-blocked: page 1 ends EARLY, and the diagnostics say by how much and why', async () => {
     // The F3 regression fixture (design-layout-fidelity.md §5.5). Page 1 carries
-    // ONE role and then stops with 183.82pt of column left, because the next
-    // role's smallest legal piece — its head, with a 4-step progression block,
-    // plus one bullet — needs 191.18pt and only 150.07pt survive the 33.75pt
-    // entry divider. That is the stall the post-mortem's T7 recorded as
-    // *silent*: `overflowPt` is 0 (the packer did the right thing), the page is
-    // not empty, and before §3.8 nothing in the plan said a word about it.
+    // ONE role and then stops, because the next role's smallest legal piece —
+    // its head plus one ATOM — needs 109.87pt and only 74.32pt remain, of which
+    // the 33.75pt entry divider takes half. Short by 69.30pt. That is the stall
+    // the post-mortem's T7 recorded as *silent*: `overflowPt` is 0 (the packer
+    // did the right thing), the page is not empty, and before §3.8 nothing in
+    // the plan said a word about it.
+    //
+    // RE-CALIBRATED at D7 `prog-split`. The atom used to be a bullet, so the
+    // smallest piece was head + the whole 4-row table + 1 bullet (191.18pt);
+    // now the table splits and the atom is its first ROW. The fixture's summary
+    // grew by two bullets to keep page 1 genuinely blocked — see fixtures.js.
+    // What is asserted is unchanged: the packer declines, and says why.
     //
     // ASSERT THE DIAGNOSTIC, NOT THE PAGE COUNT, and the reason is the
     // post-mortem's own: 3 pages IS the correct output for this content, so a
@@ -480,17 +486,27 @@ describe('the diagnostics name the defects a build warns about', () => {
     // would hold just as well over a wrong number — the identity alone is not a
     // measurement. So `smallestPiecePt` is RE-MEASURED here from the plan's own
     // entry (never copied out of the payload it is meant to check): the head of
-    // the blocked entry sliced to one bullet, which is what
+    // the blocked entry sliced to ONE ATOM, which is what
     // `experienceBlock().split(0, forceMinimum)` hands `declineOf`.
+    //
+    // An atom is a progression row before it is a bullet (D7 `prog-split`), and
+    // this derivation has to mirror that or it re-measures a piece the packer
+    // would never form. This entry HAS a progression, so its first atom is row
+    // 0 and no bullet — which is exactly the change that made the old fixture
+    // stop blocking.
     const blocked = d.pages[0].main.blockedBy
     expect(blocked).not.toBeNull()
     const blockedEntry = plan.pages[0].mainBlockedBy?.entry
     expect(blockedEntry?.role).toBe(blocked?.role)
+    const progRows = blockedEntry?.progression?.length ?? 0
+    expect(progRows).toBeGreaterThan(0) // the fixture's whole point
     const smallestPiecePt = entryH(
       {
         .../** @type {import('../src/pdf/types.js').ExperienceEntry} */ (blockedEntry),
+        startProg: 0,
+        endProg: 1,
         startBullet: 0,
-        endBullet: 1
+        endBullet: 0
       },
       deriveMetrics(tealTheme),
       createMeasurer(FONTS)
@@ -512,13 +528,18 @@ describe('the diagnostics name the defects a build warns about', () => {
       nextRole: blocked?.role
     })
 
-    // (3) Page 1's fill, pinned to the 3dp the diagnostics publish. This is v2
+    // (3) Page 1's fill, pinned to the 3dp the diagnostics publish. This is
     // OCCUPANCY — (fixedPt + usedPt) / capacityPt — so it describes how full the
     // PAGE is, not how full the leftover experience budget is; the same page
     // read 0.484 under v1's denominator, which is the misleading number §3.9
     // replaced. Recomputed from the page's own published terms as well as
     // pinned, so a redefinition of `fill` cannot pass by moving both.
-    expect(d.pages[0].main.fill).toBe(0.73)
+    //
+    // 0.891, not the 0.73 recorded before D7: the fixture's summary carries two
+    // more bullets to keep page 1 blocked, so page 1 is fuller — and a page
+    // that ends early while 89% full is a better demonstration of the warning's
+    // point than one that does so at 73%.
+    expect(d.pages[0].main.fill).toBe(0.891)
     expect(d.pages[0].main.fill).toBe(
       Math.round(
         ((Number(d.pages[0].main.fixedPt) + Number(d.pages[0].main.usedPt)) /

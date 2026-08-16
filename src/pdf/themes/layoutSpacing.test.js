@@ -2,7 +2,6 @@
 // says, scales only what it is allowed to, and is inert when unused.
 import { describe, expect, it } from 'vitest'
 import { resolveDocument } from '../resolveDocument.js'
-import { tealTheme } from './teal.js'
 import {
   applyLayoutSpacing,
   isIdentitySpacing,
@@ -11,6 +10,7 @@ import {
   SPACING_KEYS,
   spacingScales
 } from './layoutSpacing.js'
+import { tealTheme } from './teal.js'
 
 /** Every horizontal token — scaling any of these changes wrap widths, hence
  *  line counts, hence every measurement in the engine. Standing design law. */
@@ -81,6 +81,41 @@ describe('applyLayoutSpacing — template spacing groups', () => {
       if (scaled.has(token) || typeof base !== 'number') continue
       expect(/** @type {Record<string, number>} */ (t.spacing)[token], `${token} moved`).toBe(base)
     }
+  })
+
+  it('leaves a token alone when the theme does not define it', () => {
+    // A theme is allowed to omit a token a group names — themes are a shipped
+    // extension point, and `sidebarTitleMb` or `dividerMargin` need not exist
+    // in one. The guard is what stops that becoming `undefined * 0.7 = NaN`,
+    // which would propagate silently into every measurement downstream and
+    // surface as a blank page rather than an error.
+    const sparse = {
+      ...tealTheme,
+      spacing: { ...tealTheme.spacing },
+      chrome: { ...tealTheme.chrome }
+    }
+    // One token from each kind the resolver walks.
+    delete (/** @type {Record<string, unknown>} */ (sparse.spacing).sidebarTitleMb)
+    delete (/** @type {Record<string, unknown>} */ (sparse.chrome).dividerMargin)
+
+    const out = applyLayoutSpacing(sparse, { spacing: { sectionGap: 0.7, entryGap: 0.7 } })
+    expect(out.spacing.sidebarTitleMb).toBeUndefined()
+    expect(out.chrome.dividerMargin).toBeUndefined()
+    // …and the tokens that DO exist in those same groups still scaled.
+    expect(out.spacing.sectionGap).toBeCloseTo(tealTheme.spacing.sectionGap * 0.7, 2)
+    expect(out.spacing.entryMb).toBeCloseTo(tealTheme.spacing.entryMb * 0.7, 2)
+    // Nothing became NaN anywhere.
+    for (const v of Object.values(out.spacing)) expect(Number.isNaN(v)).toBe(false)
+    for (const v of Object.values(out.chrome)) expect(Number.isNaN(v)).toBe(false)
+  })
+
+  it('scales a group that declares no chrome tokens without touching chrome', () => {
+    // `bulletGap` has `spacing` and no `chrome`; the empty-list fallback is what
+    // keeps that a no-op rather than a crash.
+    expect(SPACING_GROUPS.bulletGap.chrome).toBeUndefined()
+    const out = applyLayoutSpacing(tealTheme, { spacing: { bulletGap: 0.5 } })
+    expect(out.chrome).toEqual(tealTheme.chrome)
+    expect(out.spacing.bulletGap).toBeCloseTo(tealTheme.spacing.bulletGap * 0.5, 2)
   })
 
   it('quantizes to 0.01pt so model and render cannot straddle a rounding step', () => {

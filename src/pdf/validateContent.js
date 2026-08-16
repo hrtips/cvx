@@ -19,7 +19,6 @@ import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
 import { overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
 import { normalizeLayout } from './loadLayout.js'
-import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -27,6 +26,7 @@ import {
 } from './measure.js'
 import { PHOTO_EXTENSIONS } from './profilePhoto.js'
 import { THEMES } from './themes/index.js'
+import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 
 const Ajv2020 = /** @type {any} */ (Ajv2020Module).default ?? Ajv2020Module
 
@@ -520,8 +520,27 @@ export function validateContent(
     for (const [pageKind, page] of Object.entries(normalizeLayout(doc) ?? {})) {
       const sidebar = /** @type {{ sidebar?: string[] }} */ (page)?.sidebar
       if (!Array.isArray(sidebar)) continue
+      // Only slots the author actually WROTE as a key. `normalizeLayout`
+      // stringifies whatever it is given, so a malformed slot (`- ~`, a number,
+      // a nested list) arrives here as the string "null" — and reporting
+      // `"null" cannot render in a sidebar slot` quotes a key nobody typed, on
+      // top of the shape error the schema already raised for the same path. A
+      // second, invented diagnostic is worse than none.
+      const pages = /** @type {Record<string, { sidebar?: unknown[] }>} */ (
+        /** @type {{ pages?: unknown }} */ (doc)?.pages ?? doc
+      )
+      const rawSlots = pages?.[pageKind]?.sidebar ?? []
       sidebar.forEach((key, i) => {
         if (typeof key !== 'string') return
+        // A slot the author wrote as a KEY is a string, or the object form
+        // (`{ spacer: n }`, `{ education: { continued: true } }`). Anything else
+        // — null, a number, a nested list — is a shape the schema has already
+        // rejected at this exact path, and `null` in particular reaches this
+        // loop as the STRING "null" once normalized. (`typeof null === 'object'`
+        // is why the first cut of this guard let it through.)
+        const raw = rawSlots[i]
+        const authored = typeof raw === 'string' || (raw !== null && typeof raw === 'object')
+        if (raw !== undefined && !authored) return
         if (key.startsWith('identity-') || key.startsWith('spacer:')) return
         if (SIDEBAR_SECTION_KEYS.includes(key.split(':')[0])) return
         add('error', file, 'slot-not-renderable', {
