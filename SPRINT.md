@@ -31,7 +31,13 @@ them if that ever changes.
   scaffold now renders the two clean pages the README promises)
 - **L6** — co-maintainer conversation; good-first-issue labeling
 - **L7** — upstream react-pdf deterministic-rendering issue/PR (so INV-11
-  stops depending on monkey-patches)
+  stops depending on monkey-patches). **Now evidenced, 2026-08-17:** the
+  alert-only `upstream-canary` job fails on `@react-pdf/renderer@next` —
+  `verifyPatchPoints` reports the pdfkit seams `setupReproducibility` patches
+  are no longer there. Byte-reproducibility is fine on the pinned dependency
+  (the `repro-arch` matrix is green), so this is not a release blocker; it is
+  the deadline. When that version ships, INV-11 breaks unless the patches are
+  re-found or the determinism lands upstream.
 - **L8** — SchemaStore PR follow-up (submitted; external latency)
 - **L9** — SVG logo master (branding 0.1.6; raster-only kit today)
 - **L10** — packaged ai-guide sibling links point at `main`; pin-at-pack-time

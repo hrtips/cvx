@@ -32,7 +32,7 @@
 // totalPages-equality regression pins.
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -560,17 +560,21 @@ describe('build --all surfaces a child failure instead of claiming success', () 
     // An unwritable workspace fails the child INSIDE the render step, which is
     // the shape that exercises buildAll's child-failure path. Nothing covered
     // it before I1, and `--all` is the command the docs recommend.
+    // Block the OUTPUT PATH, not the directory's permissions. The first cut of
+    // this test used `chmod 0o500` on the workspace, which is POSIX-only: on
+    // Windows it does not stop a write into the directory, the build succeeded,
+    // and the suite failed there and only there (CI, 2026-08-17). A directory
+    // sitting where the PDF must be written fails `writeFileSync` with EISDIR
+    // on every platform, which is the same child-render failure with none of
+    // the portability.
     const dir = workspace('all-render-fail')
-    chmodSync(dir, 0o500) // r-x: the CLI can read cv-content/, not write the PDF
-    try {
-      const res = runCapturing(dir, ['build', '--all', '--json'])
-      expect(res.code).not.toBe(0)
-      const json = JSON.parse(res.stdout)
-      expect(json.ok).toBe(false)
-      expect(json.error.code).toBe('render-failed')
-      expect(json.error.message).toMatch(/designed|ATS/)
-    } finally {
-      chmodSync(dir, 0o700)
-    }
+    mkdirSync(path.join(dir, 'bruce-wayne.pdf'))
+    const res = runCapturing(dir, ['build', '--all', '--json'])
+    expect(res.code).not.toBe(0)
+    const json = JSON.parse(res.stdout)
+    expect(json.ok).toBe(false)
+    expect(json.error.code).toBe('render-failed')
+    // The designed variant is built first, so it is the one that fails.
+    expect(json.error.message).toMatch(/designed/)
   }, 120000)
 })
