@@ -317,7 +317,16 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
       ['docs/ai-guide.md', aiGuide]
     ]) {
       expect(text, `${name} has no "reading the layout" section`).toMatch(/Reading the layout/i)
-      expect(text, `${name} does not say there are no layout levers`).toMatch(/no layout levers/i)
+      // D8(d): this used to require the phrase "no layout levers", which is the
+      // flat claim that contradicted the student-layout section's "swapping
+      // which column carries which section is the strongest one-page lever you
+      // have". What both docs must actually carry is the true, useful claim —
+      // `plan_layout` is idempotent, so re-calling it achieves nothing — plus
+      // the carve-out naming when column swaps DO bite.
+      expect(text, `${name} does not say plan_layout is idempotent`).toMatch(/idempotent/i)
+      expect(text, `${name} does not name the empty/short-experience carve-out`).toMatch(
+        /empty (or )?(and )?(very )?short experience list/i
+      )
     }
   })
 })

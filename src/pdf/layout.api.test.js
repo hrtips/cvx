@@ -41,6 +41,10 @@ const PUBLIC_API = [
   // I1: the one list the main-slot-unmeasured fact, the schema caveat and the
   // docs all derive from — public so they cannot drift from the packer.
   'MEASURED_MAIN_KEYS',
+  // D2: the one list the packer's sidebar drop and validateContent's
+  // `slot-not-renderable` error both derive from — public so a silent
+  // content-loss gap cannot open between them.
+  'SIDEBAR_SECTION_KEYS',
   'isContinuedSlice',
   'isIdentityKey',
   'overflowWarnings',
@@ -173,12 +177,17 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 27 names the module docblock claims', () => {
+  it('exports exactly the 28 names the module docblock claims', () => {
     // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
     // main-column harness the same way deriveMetrics is for the sidebar's.
     // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
-    expect(exported).toHaveLength(27)
-    expect(PUBLIC_API).toHaveLength(9)
+    // D2 promoted SIDEBAR_SECTION_KEYS from harness-only to public (that one
+    // moved across the partition rather than being added). P2 then added
+    // `entryParts` as the 28th export, @internal: it is the reporting
+    // breakdown of `entryH`, callable only with a harness-only Metrics object,
+    // and its numbers reach consumers through the plan, not through an import.
+    expect(exported).toHaveLength(28)
+    expect(PUBLIC_API).toHaveLength(10)
     expect(internal).toHaveLength(18)
   })
 
@@ -212,7 +221,10 @@ describe('layout.js public API', () => {
         'isIdentityKey',
         'overflowWarnings',
         'planTwoColumn',
-        'sectionTitleLabel'
+        'sectionTitleLabel',
+        // D2: validateContent.js refuses a sidebar slot key the packer would
+        // silently drop, and reads the packer's own registry to do it.
+        'SIDEBAR_SECTION_KEYS'
       ].sort()
     )
   })

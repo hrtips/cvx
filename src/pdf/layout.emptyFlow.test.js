@@ -21,7 +21,7 @@
 //   (d) `emptyColumn` means "no content beyond the per-page chrome": a page-1
 //       main column carrying a summary is NOT empty; identity blocks and the
 //       page badge are chrome and never count as content.
-//   (e) diagnostics.version: 3 (mainPageCount 0→1 and fill null→number are
+//   (e) diagnostics.version: 4 (mainPageCount 0→1 and fill null→number are
 //       semantic changes to published fields; I1's non-page-scoped warning
 //       fields ride the same bump).
 
@@ -262,10 +262,10 @@ describe('I2(d) — emptyColumn means "no content beyond the chrome"', () => {
 })
 
 describe('I2(e) — the shape version says its meaning moved', () => {
-  it('diagnostics carry version 3', () => {
+  it('diagnostics carry version 4', () => {
     const d = layoutDiagnostics(
       planTwoColumn({ content: { experience: [ROLE], summary: SUMMARY_4, ...SIDEBAR } })
     )
-    expect(d?.version).toBe(3)
+    expect(d?.version).toBe(4)
   })
 })

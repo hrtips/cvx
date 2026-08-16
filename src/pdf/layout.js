@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 26 names. Only eight of them are API. The rest are
+// This module exports 28 names. Only ten of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -88,7 +88,7 @@
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
 //     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
-//     MEASURED_MAIN_KEYS
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -104,9 +104,10 @@
 //   the two lists agree AND that no shipped module imports one of them:
 //     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
 //     bulletWidth,
-//     summaryH, entryH, packBlocks, packExperiences, packSidebar, identityH,
+//     summaryH, entryH, entryParts, packBlocks, packExperiences, packSidebar,
+//     identityH,
 //     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
-//     SIDEBAR_SECTION_KEYS, CONTINUED_SUFFIX, assertShrinks
+//     CONTINUED_SUFFIX, assertShrinks
 //
 // `packBlocks`/`packExperiences`/`packSidebar` are internal on purpose despite
 // being the engine's heart: they are reachable through `planTwoColumn`, and
@@ -419,6 +420,114 @@ export function summaryH(
   }
   h += (summary.length - 1) * m.summaryBulletGap
   return quantize(h)
+}
+
+/**
+ * The COMPONENTS of one entry's measured height, in render order — the same
+ * arithmetic `entryH` sums, exposed as its terms.
+ *
+ * P2/D4: `entryH` computes these and immediately collapses them to one number,
+ * so `smallestPiecePt` arrived as an opaque total and nothing anywhere said
+ * which term dominated it. On real CVs `description` + `progression` are
+ * 52-60% of an entry's head, which is why the one sentence explaining the
+ * blockage pointed readers at the summary instead.
+ *
+ * REPORTING ONLY — `entryH` remains the authoritative height and its body is
+ * deliberately NOT refactored to sum this. Summing the same terms in a
+ * different association order moved 240 of 4320 swept entry shapes by 0.01pt
+ * (float addition is not associative; every case was the progression +
+ * description combination). At a knife edge that is a different packing
+ * decision and a dead baseline, for a feature that only publishes numbers. So
+ * the two are kept separate and pinned together by a test asserting they agree
+ * within one quantum — see `layout.entryParts.test.js`.
+ *
+ * `headPt` is the indivisible part: everything a page-leading piece must carry
+ * before its first bullet. `bulletsPt` is per-bullet, in slice order.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ * @returns {{ rolePt: number, metaPt: number, locationPt: number, descriptionPt: number,
+ *   progressionPt: number, bulletsPt: number[], bulletGapPt: number, entryMbPt: number,
+ *   headPt: number, totalPt: number }}
+ */
+export function entryParts(
+  /** @type {import('./types.js').ExperienceEntry} */ e,
+  /** @type {Metrics} */ m,
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
+) {
+  const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
+  const bulletsPt = visible.map(
+    (b) =>
+      countLines(
+        measure,
+        typeof b === 'string' ? b : b.text,
+        m.bodySize,
+        bulletWidth(m, measure),
+        m.cw,
+        BODY_STYLE
+      ) * lh(m.bodySize, m.bodyLeading)
+  )
+  // A continuation piece drops company/period/location/description/progression
+  // entirely and re-renders the role line with its "(cont'd)" suffix.
+  const rolePt = e.isContinuation
+    ? rowH(measure, `${e.role} ${CONTINUED_ROLE_SUFFIX}`, m.roleSize, m.innerW, m.cw, {
+        weight: m.roleWeight,
+        leading: m.roleLeading
+      })
+    : rowH(measure, e.role, m.roleSize, m.innerW, m.cw, {
+        weight: m.roleWeight,
+        leading: m.roleLeading
+      })
+  let metaPt = 0
+  let locationPt = 0
+  let descriptionPt = 0
+  let progressionPt = 0
+  if (!e.isContinuation) {
+    metaPt =
+      m.entryMetaMt +
+      Math.max(
+        rowH(measure, e.company ?? '', m.bodySize, m.innerW, m.cw, {}),
+        rowH(measure, e.period ?? '', m.metaSize, m.innerW, m.cw, {})
+      )
+    if (e.location)
+      locationPt = m.locationMb + rowH(measure, e.location, m.metaSize, m.innerW, m.cw, {})
+    if (e.description) {
+      const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
+      descriptionPt = m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
+    }
+    if (e.progression?.length) {
+      const pw = m.innerW - m.progPl - m.sectionBorderWidth
+      progressionPt =
+        m.progMt +
+        m.progMb +
+        e.progression.reduce(
+          (acc, p) =>
+            acc +
+            m.progPy * 2 +
+            Math.max(
+              rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+              rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+            ),
+          0
+        )
+    }
+  }
+  // `descMt` is the bullet list's own margin-top, charged once when any bullet
+  // is visible — it belongs to the bullets, not the head.
+  const listMt = bulletsPt.length > 0 ? m.descMt : 0
+  const bulletGapPt = bulletsPt.length > 0 ? (bulletsPt.length - 1) * m.bulletGap : 0
+  const headPt = rolePt + metaPt + locationPt + descriptionPt + progressionPt
+  return {
+    rolePt,
+    metaPt,
+    locationPt,
+    descriptionPt,
+    progressionPt,
+    bulletsPt,
+    bulletGapPt,
+    entryMbPt: m.entryMb,
+    headPt,
+    totalPt: headPt + listMt + bulletsPt.reduce((a, b) => a + b, 0) + bulletGapPt + m.entryMb
+  }
 }
 
 /**
@@ -914,22 +1023,54 @@ function largestFittingPrefix(n, heightAt, room, forceMinimum) {
 // near-blank extra physical page.
 
 /** Usable height for experience entries on page 1 (summary + spacer + section title sit above them). */
-function mainFirstBudget(/** @type {Metrics} */ m, /** @type {number} */ sumH) {
+function mainFirstBudget(
+  /** @type {Metrics} */ m,
+  /** @type {number} */ sumH,
+  /** @type {number} */ spacerPt
+) {
   return (
     m.bodyH -
     m.cornerH -
     m.mainPad.top -
     m.mainPad.bottom -
     sumH -
-    m.spacer -
+    spacerPt -
     calcTitleH(m) -
     m.safety
   )
 }
 
 /** Usable height for experience entries on a continuation page (only the "Experience (continued)" title sits above them). */
-function mainContBudget(/** @type {Metrics} */ m) {
-  return m.bodyH - m.cornerH - m.contPad.top - m.contPad.bottom - calcTitleH(m) - m.safety
+function mainContBudget(/** @type {Metrics} */ m, /** @type {number} */ spacerPt = 0) {
+  return (
+    m.bodyH - m.cornerH - m.contPad.top - m.contPad.bottom - calcTitleH(m) - m.safety - spacerPt
+  )
+}
+
+/**
+ * The spacer height a page-kind's `main` slot actually DECLARES, in points (D5).
+ *
+ * The budgets used to subtract `theme.spacing.spacer` — a constant 27 — whether
+ * or not the layout had a spacer slot and whatever value it carried, so
+ * `spacer: 0`, `spacer: 200`, two spacers and no spacer at all produced
+ * byte-identical plans while the renderer honoured the declared value. Two
+ * consequences, both measured: 27pt of page 1 was unusable even with no spacer
+ * present (deleting one did not return it — demonstrated on a CV whose
+ * `shortByPt` was 23.36, below the phantom), and a continuation-page spacer was
+ * charged nothing at all, so `spacer: 200` there spilled a fourth sheet against
+ * a three-page plan.
+ *
+ * @param {import('./types.js').NormalizedLayout | undefined} layout
+ * @param {'first' | 'continuation' | 'last'} kind
+ */
+function declaredMainSpacerPt(layout, kind) {
+  let total = 0
+  for (const slot of layout?.[kind]?.main ?? []) {
+    if (typeof slot !== 'string' || !slot.startsWith('spacer:')) continue
+    const v = Number.parseFloat(slot.slice('spacer:'.length))
+    if (Number.isFinite(v)) total += v
+  }
+  return total
 }
 
 /**
@@ -1078,6 +1219,38 @@ function experienceBlock(entry, m, measure, gapBefore) {
 }
 
 /**
+ * The measurement a placed piece carries out of the packer (P2).
+ *
+ * `heightPt` is the packer's own authoritative figure for this piece; the
+ * remaining terms are `entryParts`' reporting breakdown of it, so a consumer
+ * can price an edit ("this bullet costs 43pt", "this progression table costs
+ * 63.9pt of an indivisible head") by subtraction instead of by rebuilding.
+ *
+ * @param {ExperienceBlock} b
+ * @param {Metrics} m
+ * @param {import('./types.js').Measurer | undefined} measure
+ */
+function measuredOf(b, m, measure) {
+  const p = entryParts(b.entry, m, measure)
+  return {
+    heightPt: quantize(b.height),
+    gapBeforePt: quantize(b.gapBefore),
+    // The indivisible page-leading part: a piece cannot start a page without
+    // all of this PLUS its first bullet (see `experienceBlock().split`).
+    headPt: quantize(p.headPt),
+    head: {
+      rolePt: quantize(p.rolePt),
+      metaPt: quantize(p.metaPt),
+      locationPt: quantize(p.locationPt),
+      descriptionPt: quantize(p.descriptionPt),
+      progressionPt: quantize(p.progressionPt)
+    },
+    bulletsPt: p.bulletsPt.map(quantize),
+    bulletGapPt: quantize(p.bulletGapPt)
+  }
+}
+
+/**
  * Wrap experience entries as `packBlocks` flow blocks.
  *
  * @param {import('./types.js').ExperienceEntry[]} entries
@@ -1110,13 +1283,24 @@ export function packExperiences(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
   /** @type {import('./types.js').Summary} */ summary,
   /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
-  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined,
+  /**
+   * What the LAYOUT declares for page 1's main column (D2/D5). Omitted, the
+   * pre-fix constants apply, which is what the harness callers want; the
+   * planner passes the real figures.
+   * @type {{ firstSpacerPt?: number, contSpacerPt?: number, summaryInFirstMain?: boolean }}
+   */ slots = {}
 ) {
   const m = deriveMetrics(theme)
-  const BC = mainContBudget(m)
+  const spacer1 = slots.firstSpacerPt ?? m.spacer
+  const BC = mainContBudget(m, slots.contSpacerPt ?? 0)
   // ── Automatic front-load bin-packing ─────────────────────────────────────
-  const sumH = summaryH(summary, m, measure)
-  const B1 = mainFirstBudget(m, sumH)
+  // D2: only charge the summary to page 1 when the layout actually puts it
+  // there. It used to be charged unconditionally, so a `first.main` without
+  // `summary` reserved its whole height (298.8pt on the scaffold) for content
+  // that is never drawn.
+  const sumH = slots.summaryInFirstMain === false ? 0 : summaryH(summary, m, measure)
+  const B1 = mainFirstBudget(m, sumH, spacer1)
   const packed = packBlocks(experienceBlocks(experience, m, measure), (i) => (i === 0 ? B1 : BC))
 
   // I2 — THE DEGENERATE INPUT MUST STILL HAVE A ROW.
@@ -1145,7 +1329,7 @@ export function packExperiences(
       pageMetrics: [
         {
           used: 0,
-          budget: quantize(capacity - sumH - m.spacer),
+          budget: quantize(capacity - sumH - spacer1),
           capacity,
           // Nothing was blocked: there is no next entry to name.
           blockedBy: null
@@ -1154,7 +1338,15 @@ export function packExperiences(
     }
   }
 
-  const pages = packed.map((p) => p.blocks.map((b) => b.entry))
+  // P2: carry each placed piece's measured geometry out with it. `packBlocks`
+  // computed `b.height` and this line used to drop it on the floor, which is
+  // why an assistant could see `shortByPt` (how much to free) but nothing at
+  // all about what any candidate edit was WORTH — so pricing one meant editing
+  // the YAML and rebuilding. `measured` is additive: the renderer reads
+  // role/company/bullets off these objects and ignores it.
+  const pages = packed.map((p) =>
+    p.blocks.map((b) => ({ ...b.entry, measured: measuredOf(b, m, measure) }))
+  )
 
   return {
     page1Experiences: pages[0] ?? [],
@@ -1773,9 +1965,16 @@ export function sidebarItemCount(
 }
 
 /**
- * Every sidebar slot key the packer knows how to measure and slice, in registry order.
+ * Every sidebar slot key the packer knows how to measure and slice, in registry
+ * order.
  *
- * @internal exported for the C0 harness only — not API (see the module docblock).
+ * Public for the same reason `MEASURED_MAIN_KEYS` is: it is the ONE list. The
+ * packer drops any sidebar slot key absent from it, and `validateContent.js`
+ * turns exactly that condition into the `slot-not-renderable` error — so a
+ * hand-copied second list in the validator is the drift shape that would let
+ * the two disagree, and the disagreement is silent content loss (D2: `summary`
+ * in a sidebar slot deleted the section from the PDF while `validate --strict`
+ * reported ok). Whatever the packer cannot render, the validator must refuse.
  */
 export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
 
@@ -1820,11 +2019,23 @@ const slotKey = (slot) => String(slot ?? '').split(':')[0]
  */
 function unmeasuredMainKeys(layout) {
   const seen = new Set()
-  for (const page of [layout?.first, layout?.continuation, layout?.last]) {
-    for (const slot of page?.main ?? []) {
+  for (const kind of /** @type {const} */ (['first', 'continuation', 'last'])) {
+    for (const slot of layout?.[kind]?.main ?? []) {
       const key = slotKey(slot)
-      if (!key || key === 'spacer') continue
-      if (MEASURED_MAIN_KEYS.includes(key)) continue
+      if (!key) continue
+      // D5: spacers ARE measured now — `declaredMainSpacerPt` charges what the
+      // layout declares, on page 1 and on continuation pages. Before that they
+      // were skipped here with the comment "charged by the budget arithmetic",
+      // which was false: the arithmetic charged a theme constant, not the slot.
+      if (key === 'spacer') continue
+      // D6: which keys are measured is a fact about the SLOT, not the key.
+      // `summary` is priced by `mainFirstBudget` and therefore measured in
+      // `first.main` only — put it in `continuation.main` and nothing measures
+      // it, yet the flat key list said it was measured everywhere, so the one
+      // case this warning exists for was the one case it stayed silent on
+      // (verified: it produced a 4th sheet against a 3-page plan in silence,
+      // while `achievements` in the same slot fired the warning correctly).
+      if (key === 'summary' ? kind === 'first' : MEASURED_MAIN_KEYS.includes(key)) continue
       seen.add(key)
     }
   }
@@ -2162,12 +2373,21 @@ export function planTwoColumn({
   theme = undefined,
   measure = undefined
 }) {
-  const main = packExperiences(content.experience ?? [], content.summary ?? [], theme, measure)
+  const main = packExperiences(content.experience ?? [], content.summary ?? [], theme, measure, {
+    firstSpacerPt: declaredMainSpacerPt(layout, 'first'),
+    contSpacerPt: declaredMainSpacerPt(layout, 'continuation'),
+    summaryInFirstMain: (layout?.first?.main ?? []).some((k) => slotKey(k) === 'summary')
+  })
   // Does the summary put ink on page 1? `SummarySection` renders null for an
   // empty list, so an empty summary is not "fixed content that is there" —
   // this is the one fixed main-column block that can make a page non-empty
   // without a packed block (see `mainEmpty` below).
-  const summaryRenders = (content.summary ?? []).length > 0
+  // D2: ...and only if the layout actually puts it on page 1. A `first.main`
+  // without `summary` renders no summary there, so it cannot be what makes
+  // page 1 non-empty.
+  const summaryRenders =
+    (content.summary ?? []).length > 0 &&
+    (layout?.first?.main ?? []).some((k) => slotKey(k) === 'summary')
   const sidebar = packSidebar(sidebarFlowKeys(layout), content, layout, theme, measure)
 
   // At least one page always exists, even for a CV with no experience at all.

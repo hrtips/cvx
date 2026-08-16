@@ -18,8 +18,16 @@ produce a defective PDF silently; the stateless claim becomes true again.
 
 Landed (details in CHANGELOG's Unreleased section, which is the record —
 this file never restates them): **I1**, **I2**, **I3**, and the
-`planIterations` deletion. Sprint 1's work is complete; it closes when the
-release is cut.
+`planIterations` deletion.
+
+**Sprint 1 is NOT complete — reopened 2026-08-16.** The 2026-08-16
+skill-driven dogfood found two silent-content-loss defects that are verbatim
+instances of this sprint's own goal: **D2** (`summary` in a sidebar slot
+deleted, `validate --strict ok: true`, page 1 still reserving its height) and
+**D3** (`continuation.main` dead on every 2-page CV, any key). Both are
+schema-legal, both are reachable through the layout edit SKILL.md §"Student
+and first-job CVs" teaches, both produce a defective PDF silently. Scope and
+acceptance criteria in ARCHITECTURE.md §7.4. **These block the release.**
 
 Definition of done: ARCHITECTURE.md §8's acceptance criteria for I1–I3; the
 standing release gates (§9: CI matrix, packaged E2E, repro gate, tarball
@@ -44,6 +52,16 @@ them if that ever changes.
 - **L9** — SVG logo master (branding 0.1.6; raster-only kit today)
 - **L10** — packaged ai-guide sibling links point at `main`; pin-at-pack-time
   decision still unmade
+
+## Found, unscheduled
+
+- **D1, D4–D9** (§7.4) — the remainder of the 2026-08-16 dogfood, all
+  reproduced on the stock scaffold. D2 and D3 are not here: they are release
+  blockers in Sprint 1 above. Ordering that matters: **D4** (the engine's false
+  exclusivity claim, fixed in engine and skill together) and **P2** (per-entry
+  publication) come before **D7** (`prog-split`), because P2 is how a packing
+  change gets verified. §7.4 also records **NOT DOING — replacing the greedy
+  packer**: proven optimal in-repo and over 900 generated CVs, 0 counterexamples.
 
 ## Decisions needed (pointers, not content)
 

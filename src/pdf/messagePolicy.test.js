@@ -228,7 +228,12 @@ describe('page1-ends-early states an inequality that is actually true', () => {
     const x = endsEarly({ roles: 3, summary: 4, bullets: 5, width: 14 })
     expect(x).toBeDefined()
     expect(x?.shortByPt).toBeLessThanOrEqual(/** @type {number} */ (x?.fixedPt))
-    expect(x?.message).toMatch(/freed anywhere above this role/)
+    // D4: the message used to claim content above the role was the ONLY lever
+    // ("freed anywhere above this role"). It must now name both — freeing space
+    // above, and shrinking the blocked role's own head — because editing the
+    // head was measured to move the break twice.
+    expect(x?.message).toMatch(/free .*pt above this role/)
+    expect(x?.message).toMatch(/out of the role's own head/)
     expect(x?.message).toContain(String(x?.shortByPt))
   })
 
@@ -239,9 +244,13 @@ describe('page1-ends-early states an inequality that is actually true', () => {
     expect(x).toBeDefined()
     // The branch's precondition, re-derived rather than trusted.
     expect(x?.shortByPt).toBeGreaterThan(/** @type {number} */ (x?.fixedPt))
-    expect(x?.message).toMatch(/is only .*pt in total, which is less than/)
+    expect(x?.message).toMatch(/is only .*pt in total, less than/)
+    // D4: and it must NOT go on to claim the break is therefore immovable —
+    // the role's own head is still a lever.
+    expect(x?.message).not.toMatch(/page 1 is as full as this content allows/)
+    expect(x?.message).toMatch(/role's own head/)
     // …and the claim inside the sentence is arithmetically true.
-    const claimed = /is only ([\d.]+)pt in total, which is less than the ([\d.]+)pt/.exec(
+    const claimed = /is only ([\d.]+)pt in total, less than the ([\d.]+)pt/.exec(
       /** @type {string} */ (x?.message)
     )
     expect(claimed).toBeTruthy()
@@ -262,7 +271,7 @@ describe('page1-ends-early states an inequality that is actually true', () => {
     // The condition the old clause tripped on is present…
     expect(x?.shortByPt).toBeGreaterThanOrEqual(/** @type {number} */ (x?.smallestPiecePt))
     // …and the message is the actionable one, stating a true claim.
-    expect(x?.message).not.toMatch(/is only .*pt in total, which is less than/)
-    expect(x?.message).toMatch(/freed anywhere above this role/)
+    expect(x?.message).not.toMatch(/is only .*pt in total, less than/)
+    expect(x?.message).toMatch(/free .*pt above this role/)
   })
 })

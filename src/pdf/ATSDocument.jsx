@@ -277,10 +277,20 @@ function ATSContent({
         </View>
       )}
 
-      {/* Referees */}
-      {referees?.length > 0 && (
+      {/* Referees. D1: an EMPTY list is not "no section" — it is the documented
+          request for the fallback line, and three shipped texts promise it
+          (SKILL.md's content-files list, the scaffolded referees.yaml comment,
+          and layouts/two-column.yaml's note that "the ATS layout still includes
+          it"). Gating the whole block on `length > 0` made `referees: []` — the
+          value `cvx init` scaffolds — print nothing at all here, while the
+          designed variant printed it correctly via SIDEBAR_SECTIONS' `always`
+          flag. Only a genuinely absent `referees` key renders nothing. */}
+      {referees && (
         <View>
           <Text style={s.section}>References</Text>
+          {referees.length === 0 && (
+            <Text style={s.refDetail}>References available upon request.</Text>
+          )}
           {referees.map((ref, i) => (
             <View key={ref.name}>
               {i > 0 && <View style={s.refGap} />}

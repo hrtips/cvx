@@ -349,10 +349,19 @@ function page1EndsEarly(pages) {
   // title cannot restructure the message; the untruncated string is in the
   // structured `nextRole` field.
   const roleQuote = d.role ? ` ("${String(d.role).replace(/\s+/g, ' ').slice(0, 80)}")` : ''
+  // D4: this used to read "the role heading plus one bullet", which named the
+  // two CHEAPEST components and omitted the two expensive ones. The piece is
+  // indivisible and carries the whole head: role, company/period, location,
+  // description, and EVERY progression row, before the first bullet. Measured
+  // on the shipped scaffold, description is 35.15pt and a 4-row progression
+  // 51.30-63.90pt against a 66.30pt bare heading+meta+bullet — i.e. 52-60% of
+  // the figure came from the two terms the sentence did not mention, which is
+  // what sent a reader at the summary when a structural term was the blocker.
   const opening =
     `page 1's experience list ends ${d.residualPt}pt before the foot of the column: the next ` +
     `role${roleQuote} cannot start here because its smallest legal piece — the role heading ` +
-    `plus one bullet — needs ${d.smallestPiecePt}pt and ` +
+    `with its company/period line, any description and every progression row, plus the first ` +
+    `bullet — needs ${d.smallestPiecePt}pt and ` +
     (room > 0
       ? `only ${room}pt remain after the ${d.gapBeforePt}pt entry divider. `
       : `the ${d.gapBeforePt}pt entry divider alone exceeds the ${d.residualPt}pt left. `) +
@@ -370,15 +379,25 @@ function page1EndsEarly(pages) {
       gapBeforePt: d.gapBeforePt,
       fixedPt: fixed,
       nextRole: d.role,
+      // D4: both branches used to claim the content ABOVE the roles was the
+      // only lever ("freed anywhere above this role" / "page 1 is as full as
+      // this content allows"). That is false, and it was refuted twice by
+      // measurement: deleting only the blocked role's OWN description, and
+      // separately its own progression table — content strictly below the
+      // break — moved the break both times, once taking a 3-page CV to 2.
+      // Greedy top-down packing does make prefix repair monotone, but the
+      // blocked entry's own head is an input to the decision at that boundary.
       message: actionable
         ? opening +
           `Page 1's fixed content above the roles is ${fixed}pt (the summary, its spacer and ` +
-          `the section title), and ${d.shortByPt}pt freed anywhere above this role is what ` +
-          `separates it from starting on page 1.`
+          `the section title). Two edits close the gap: free ${d.shortByPt}pt above this role ` +
+          `(the summary is the usual place), or take ${d.shortByPt}pt out of the role's own ` +
+          `head — its description or its progression rows — which shrinks the piece itself.`
         : opening +
-          `The fixed content above the roles is only ${fixed}pt in total, which is less than ` +
-          `the ${d.shortByPt}pt this role needs — so page 1 is as full as this content allows, ` +
-          `and the page break is where the content puts it.`
+          `The fixed content above the roles is only ${fixed}pt in total, less than the ` +
+          `${d.shortByPt}pt this role needs, so no edit above the roles can move it. ` +
+          `Shrinking the role's own head — its description or its progression rows — is the ` +
+          `lever that remains.`
     }
   ]
 }
@@ -425,12 +444,20 @@ function page1WithoutExperience(pages) {
       page: 1,
       overflowPt: page1.overflowPt,
       forcedByConfig: false,
+      // D4: the closing sentence used to read "The summary is the only content
+      // above the roles, so it is the only thing whose length changes this —
+      // no pagination can." The first clause is true and the conclusion does
+      // not follow: the smallest piece is the first role's whole head, so
+      // shortening THAT changes this too. Measured — deleting only the first
+      // role's own progression table took page 1 from zero roles (fill 0.788)
+      // to a full role, and the CV from 3 pages to 2.
       message:
         `page 1 carries no experience entries: its fixed content (the summary, its spacer and the ` +
         `section title) leaves less room than the smallest piece of the first role, so the page ends early ` +
         `and the roles start on page 2. The reader's first page therefore shows no work history. ` +
-        `The summary is the only content above the roles, so it is the only thing whose length ` +
-        `changes this — no pagination can.`
+        `Two lengths change this and no pagination can: the summary (the only content above the ` +
+        `roles), and the first role's own head — its description and progression rows, which are ` +
+        `part of the smallest piece that has to fit.`
     }
   ]
 }
@@ -463,7 +490,16 @@ export function layoutDiagnostics(plan) {
         company: entry.company ?? null,
         period: entry.period ?? null,
         ...bulletsOn(entry),
-        continued: entry.isContinuation === true
+        continued: entry.isContinuation === true,
+        // P2/D4 (diagnostics v4): what this piece COSTS. `heightPt` is the
+        // packer's own figure; `headPt` is the indivisible part a page-leading
+        // piece must carry before its first bullet, broken into its terms; and
+        // `bulletsPt` prices each bullet of the slice. Before this the main
+        // column published no height at all while the sidebar published
+        // `heightPt` per section, so the column that decides the page count was
+        // the one you could not price — and `smallestPiecePt` arrived as an
+        // opaque total whose two largest terms were unnamed.
+        ...(entry.measured ?? {})
       }))
     },
     sidebar: {
@@ -524,7 +560,18 @@ export function layoutDiagnostics(plan) {
     //     blocks", so a summary-bearing page 1 is no longer reported empty.
     // Riding the same bump (I1): `page`, `overflowPt` and `forcedByConfig` are
     // optional on a warning, because two codes are not page-scoped.
-    version: 3,
+    //
+    // 4 (P2/D4) = the first ADDITIVE bump — no existing field changed meaning,
+    // so a v3 consumer keeps everything it had. Main-column entries gained
+    // `heightPt`, `gapBeforePt`, `headPt`, `head.{role,meta,location,
+    // description,progression}Pt` and `bulletsPt`: what each placed piece
+    // COSTS. The sidebar had published `heightPt` per section since v2 while
+    // the main column — the flow that decides the page count — published no
+    // height at all, so pricing a candidate edit meant editing the YAML and
+    // rebuilding. Bumped rather than slipped in silently because "can I price
+    // an edit by subtraction, or must I rebuild to find out?" is exactly the
+    // question a version is for.
+    version: 4,
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,

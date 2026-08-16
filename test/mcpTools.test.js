@@ -144,7 +144,7 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     // No leversUsed field any more: the page-1 levers were REMOVED (maintainer
     // ruling) and pagination is always the content's. version: 2 is the flag
     // consumers key on for this shape.
-    expect(plan.diagnostics.version).toBe(3)
+    expect(plan.diagnostics.version).toBe(4)
     expect(plan.diagnostics).not.toHaveProperty('leversUsed')
     // The answer describes the designed variant; the ATS variant is not packed
     // at all, so it has no plan and can have a different page count.

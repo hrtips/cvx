@@ -80,7 +80,7 @@ describe('layoutDiagnostics — fills', () => {
         }
       ])
     )
-    expect(d?.version).toBe(3)
+    expect(d?.version).toBe(4)
     expect(d?.pages[0].main.fill).toBe(0.5) // (0 + 300) / 600
     expect(d?.pages[0].main.usedPt).toBe(300)
     expect(d?.pages[0].main.budgetPt).toBe(600)
@@ -364,7 +364,7 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // levers are gone, so diagnostics are a pure function of the plan alone.
     // version: 2 is the shape flag consumers key on.
     const d = layoutDiagnostics(planOf([{}]))
-    expect(d?.version).toBe(3)
+    expect(d?.version).toBe(4)
     expect(d).not.toHaveProperty('leversUsed')
     expect(layoutDiagnostics.length).toBe(1)
   })
@@ -505,5 +505,70 @@ describe('main-slot-unmeasured names what the planner did not price', () => {
     expect(w?.message).not.toMatch(/\n/)
     expect(w?.message).not.toContain('x'.repeat(45))
     expect(w?.keys?.[0]).toBe(hostile) // untruncated, in the structured field
+  })
+})
+
+// ── D5/D6/D2: the budget must charge what the LAYOUT declares ──────────────
+describe('main-column budget honesty (D2/D5/D6)', () => {
+  const CONTENT = {
+    personal: { name: 'A' },
+    summary: ['A summary bullet that occupies a real amount of page-1 height.'],
+    experience: [
+      { role: 'R1', company: 'C1', period: '2020', bullets: ['b one.', 'b two.', 'b three.'] },
+      { role: 'R2', company: 'C2', period: '2019', bullets: ['b one.', 'b two.', 'b three.'] }
+    ],
+    competencies: ['x']
+  }
+  /** @param {any} layout */
+  const fixedPtOf = (layout) =>
+    layoutDiagnostics(planTwoColumn({ content: CONTENT, layout }))?.pages[0].main.fixedPt
+  const withFirstMain = (/** @type {string[]} */ main) => ({
+    template: 'two-column',
+    first: { sidebar: ['identity-photo', 'contact'], main },
+    continuation: { sidebar: ['identity-compact'], main: ['experience:continued'] },
+    last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+  })
+
+  it('D5: a declared spacer is charged at its declared value, not at a theme constant', () => {
+    const at = (/** @type {string} */ sp) =>
+      /** @type {number} */ (fixedPtOf(withFirstMain(['summary', sp, 'experience'])))
+    // Pre-fix these were byte-identical: the budget subtracted theme.spacing
+    // .spacer (27) whatever the layout said, so the value was inert.
+    expect(at('spacer:0')).toBeLessThan(at('spacer:27'))
+    expect(at('spacer:200')).toBeGreaterThan(at('spacer:27'))
+    expect(at('spacer:200') - at('spacer:0')).toBeCloseTo(200, 5)
+  })
+
+  it('D5: no spacer slot charges no spacer — the phantom 27pt is returned', () => {
+    const none = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'experience'])))
+    const zero = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'spacer:0', 'experience'])))
+    expect(none).toBe(zero)
+    // ...and it really is 27pt less than the shipped default, so deleting the
+    // spacer is now a lever instead of a no-op.
+    const dflt = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'spacer:27', 'experience'])))
+    expect(dflt - none).toBeCloseTo(27, 5)
+  })
+
+  it('D2: a first.main without `summary` does not reserve the summary height', () => {
+    const withS = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'experience'])))
+    const noS = /** @type {number} */ (fixedPtOf(withFirstMain(['experience'])))
+    expect(noS).toBeLessThan(withS)
+  })
+
+  it('D6: `summary` in continuation.main is named unmeasured; in first.main it is not', () => {
+    const codes = (/** @type {any} */ layout) =>
+      layoutDiagnostics(planTwoColumn({ content: CONTENT, layout }))?.warnings.find(
+        (w) => w.code === 'main-slot-unmeasured'
+      )
+    // Measured where it is priced...
+    expect(codes(withFirstMain(['summary', 'experience']))).toBeUndefined()
+    // ...and NOT measured anywhere else, which the flat key list used to miss.
+    const moved = {
+      template: 'two-column',
+      first: { sidebar: ['identity-photo', 'contact'], main: ['experience'] },
+      continuation: { sidebar: ['identity-compact'], main: ['summary', 'experience:continued'] },
+      last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+    }
+    expect(codes(moved)?.keys).toEqual(['summary'])
   })
 })

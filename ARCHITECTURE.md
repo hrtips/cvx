@@ -859,6 +859,192 @@ review→brainstorm→pre-build preview + conflict flagging in the skill;
 version-pinned scaffolds. Rejected: container image, standalone executables
 (§7.3 cut list). Still open, unscheduled:
 
+- **D1–D9 — defects found in the 2026-08-16 skill-driven dogfood** (two real
+  CVs converted end to end through SKILL.md + CLI; every item reproduced on the
+  untouched `cvx init` scaffold before being written down). **This block was
+  corrected the same day after two independent reviews — an adversarial
+  evidence audit and an algorithm review that re-derived the planner exactly
+  (its `entryH`/`packBlocks` mirrors match the shipped functions to 0.001pt and
+  byte-for-byte respectively).** Three first-draft claims were refuted; the
+  refutations are kept inline rather than deleted, because two of them are
+  mistakes the next reader would repeat. Severity is P0–P3 as marked.
+  - **NOT DOING — replacing the greedy packer.** Recorded here so it is not
+    re-opened. `test/layoutOptimality.test.js`'s exhaustive DP oracle asserts
+    the shipped packer is in the optimal set and passes; the review replicated
+    it independently over two seeded corpora (400 and 500 generated CVs, 40%
+    and 55% carrying progression tables) and found **0 cases** where an
+    exhaustive DP beats greedy at the same atom granularity. Bounded lookahead
+    buys nothing (greedy's choice is already the maximal prefix and feasibility
+    is monotone in `k`); best-fit is meaningless (block order is fixed by
+    chronology, so there is no fit choice, only a break point); a break-point
+    optimiser buys nothing at this granularity and would re-litigate the C4
+    finding that aggregate objectives rank a fragmented five-page layout
+    highest. The page-count defect is **atom granularity** (D7), not search.
+  - **CORRECTION 1 (first draft, refuted).** "Bundling the progression table
+    into the indivisible head is *the root cause* of the wasted page-1 space"
+    was over-attributed — both reviews caught it independently. It is the
+    largest removable *term* on that one CV, not the cause. On the pristine
+    scaffold the bare floor (no description, no progression, one bullet) is
+    66.30pt against a 30.09pt opening, so deleting the table there changes
+    nothing. The causal structure is rule 1b × an indivisible head with no
+    upper bound (D7). Further: re-modelling the same four promotions as
+    separate entries — which `docs/ai-guide.md:74` already advises — fills
+    page 1 to 0.985 and removes `page1-ends-early` entirely while still
+    rendering 3 pages. Page-1 emptiness and the 3-page total are two different
+    problems; the first draft merged them, and credited a content *deletion*
+    with a structural insight.
+  - **CORRECTION 2 (first draft, refuted).** "`summary` in `continuation.main`
+    is silently deleted" was wrong, and the measurement behind it was a broken
+    probe (a shell glob against an already-deleted PDF). On a genuine 3-page CV
+    the summary renders there correctly, on sheet 2, and trips
+    `physical-pages-exceed-plan` as designed (planned 3, physical 4). The real
+    bug is D3 and is not summary-specific.
+  - **CORRECTION 3 (first draft, refuted).** "Per-page sidebar slots not
+    pinning sections to pages is undocumented" is false: ARCHITECTURE.md:334
+    already states slot lists across page kinds concatenate into one flow. It
+    is undocumented only in SKILL.md and the scaffolded layout comment (D9).
+  - **D1 (P1) — `referees: []` renders nothing, in any layout.** Three shipped texts
+    promise it prints "References available upon request." wherever a layout
+    carries the `referees` slot: SKILL.md's content-files list, the scaffolded
+    `referees.yaml` header comment, and `layouts/two-column.yaml`'s note that
+    "the ATS layout still includes it". Repro: `cvx init && cvx build --ats` →
+    no "refer" anywhere in the PDF. Non-empty referees render correctly, so it
+    is the empty-list path alone. Either the fallback line ships, or all three
+    texts stop promising it.
+  - **D2 (P0) — `summary` in a sidebar slot is silently deleted.** The whole
+    section vanishes from the PDF; `validate --strict` returns `ok: true` with
+    no errors, warnings or notices; `build --strict` exits 0; and page 1's main
+    column still reserves the summary's height as `fixedPt` (298.8pt scaffold,
+    325.8pt dogfood CV) for content never drawn. Mechanism: `packSidebar` drops
+    any key `sidebarSectionH` returns `null` for, and `summary` is not a
+    sidebar section. Note SKILL.md:130 licenses "any section key" in a **main**
+    slot only, and §7.2 records sections as semantically pinned to their
+    column — so this is arguably out-of-contract input; that is an argument for
+    a validation error, never for silence. The only finding in the set where a
+    user ships a CV missing a required section with every diagnostic green.
+    Fix: reject the key at validation with a field path, **and** stop charging
+    `summaryH` to `mainFirstBudget` when `summary` is not in `first.main`.
+  - **D3 (P0) — `continuation.main` is dead on every 2-page CV, for any key.**
+    `mainSlotKeys` (`src/pdf/CVDocument.jsx:79-87`) returns `layout.last.main`
+    when `index === totalPages - 1`, so on a 2-page document the continuation
+    slot is never consulted and anything placed there renders nowhere. Verified
+    directly: `achievements` in `continuation.main` on a 2-page CV → 0
+    occurrences of three distinct probe strings, `validate --strict ok: true`.
+    Same silent-loss class as D2, broader blast radius, independent fix. Merge
+    `last.main` over `continuation.main` rather than replacing it, or fail
+    validation when they differ on a document with no non-final continuation
+    page. Replaces the refuted half of the first draft's D2 (Correction 2).
+  - **D4 (P1) — the engine's messages make a false *exclusivity* claim, not
+    merely an incomplete one.** `page1-ends-early` says the smallest legal
+    piece is "the role heading plus one bullet" — it also carries `location`,
+    `description` and the entire `progression` table, which reach 52–60% of the
+    figure on scaffold roles (measured deltas: description 35.15pt, a 4-row
+    progression 51.30–63.90pt, bare heading+meta+1 bullet 66.30pt; the dogfood
+    CV's 178.85 → 143.70 on removing the description is the identical 35.15pt,
+    so the first draft's numbers are sound). Worse is the second clause —
+    "N pt freed **anywhere above this role** is what separates it from starting
+    on page 1" — and its siblings in `page1-no-experience` ("the summary is the
+    only thing whose length changes this — no pagination can") and the
+    non-actionable branch ("page 1 is as full as this content allows"). All
+    three are false, and the review refuted them twice by measurement: deleting
+    only the **blocked role's own** description, and separately its own
+    progression table — content strictly *below* the break — moved the break
+    both times (one case 3 pages → 2, page 1 from 0 roles to a full role).
+    SKILL.md repeats the falsehood at lines 84 and 99 and in the
+    `page1-no-experience` bullet; line 99 is the worst because it is the line
+    that ranks levers. Fix engine and skill in one change or they drift.
+  - **D5 (P2) — the planner charges a phantom constant spacer.** Not merely
+    "the layout's spacer is unmeasured": `mainFirstBudget` subtracts
+    `theme.spacing.spacer` (27pt), **not** the layout's value, so `spacer: 0`,
+    `spacer: 20`, `spacer: 200`, two spacers, and the key deleted entirely all
+    yield byte-identical plans (`fixedPt` 298.8, `budgetPt` 383.09). The
+    renderer honours the declared value, so `spacer: 200` produced a 3-sheet
+    PDF against a 2-page plan. Consequences: 27pt of page 1 is unusable even
+    with no spacer slot present, and deleting the spacer does not return it —
+    demonstrated on a knife-edge CV where `shortByPt` 23.36 < 27 and removing
+    the spacer changed nothing. `mainContBudget` has no spacer term at all, so
+    continuation-page spacers are 100% unmeasured (`spacer: 200` there → 4
+    physical sheets against a 3-page plan). `unmeasuredMainKeys` skips `spacer`
+    with the comment "charged by the budget arithmetic", which is false. The
+    loud direction is netted by `physical-pages-exceed-plan` (`--strict` exits
+    2); the quiet 27pt loss is caught by nothing.
+  - **D6 (P2) — `main-slot-unmeasured` is not slot-aware, and its wording is
+    false when it fires.** `MEASURED_MAIN_KEYS` is a flat key list with no
+    notion of which slot measures a key, so (a) `summary` in `continuation.main`
+    is genuinely unmeasured there — `mainContBudget` has no summary term, and
+    it produced a 4th sheet — yet the warning does **not** fire, while
+    `achievements` in the same slot does; and (b) when it does fire it says the
+    section "is rendered but not measured", which on a 2-page CV is untrue —
+    per D3 it is not rendered at all. Make the key list slot-aware and make the
+    message stop asserting a render it has not verified.
+  - **D7 (P2) — the indivisible entry head has no upper bound; adopt
+    `prog-split`.** `experienceBlock().split` parameterises a cut by bullet
+    index only, so the page-leading piece always carries role + meta +
+    `location` + `description` + **every** progression row + ≥1 bullet. A
+    12-row progression makes the head arbitrarily tall, and once it exceeds a
+    page it is force-placed with overflow. The anti-orphan rule itself
+    (`largestFittingPrefix` searching `[1, n-1]`) is textbook and should stay;
+    the unbounded floor is the defect. Also unnamed: a **single-bullet role is
+    completely atomic** at any height, because `largestFittingPrefix` returns 0
+    for `n < 2` and `split()` returns `null` (measured on a 165.35pt entry).
+    Four policies priced over 500 generated CVs: shipped (baseline);
+    defer-all-bullets saves 4.6% but orphans 71 bare headings; **`prog-split`
+    (table breaks at a row boundary, ≥1 atom each side) saves 11.2% and orphans
+    none**, because its `[1, n-1]` range keeps ≥1 row under the heading;
+    prog-defer saves 13.4% but orphans 78. Adopt `prog-split` — the only option
+    that inherits the existing anti-orphan invariant. Its extra cost over the
+    cheapest option is in the **renderer**, not the planner: a continuation
+    piece today drops company/period/description/progression entirely, so
+    `ExpItem.jsx` must draw a partial table under a `(cont'd)` heading, and
+    `test/layoutOptimality.test.js`'s legality mirror must move in lockstep.
+    Sequence **after** P2 (per-entry publication) so the result is verifiable
+    from published numbers rather than rebuild-and-look. The principled rule to
+    state: *an entry's page-leading piece must carry the heading plus at least
+    one unit of substantive content (one progression row, or one bullet); every
+    other component is a splittable atom in document order; nothing is welded
+    to the heading merely because it precedes the bullets.*
+  - **D8 — SKILL.md gaps that made D4 expensive to work around.** Each checked
+    against the file, same dogfood. (a) Line 84 repeats the engine's wrong
+    composition — "shortening the summary (or that role's first bullet)" — so
+    D4's fix must land in both places or they drift. (b) §"Review, then
+    brainstorm" has no cross-section duplication check: `grep -niE
+    "duplicat|repeat|redundan"` returns nothing, and the free 48pt on the
+    dogfood CV was a summary bullet restating the ACHIEVEMENTS sidebar beside
+    it. Grammar, gaps and conflicts are covered; "is this text already on the
+    page?" is not. (c) No rule for ranking levers by cost — page 1 was
+    reachable for 53.64pt and page 2 for 78.11pt, and nothing tells the reader
+    to compare `blockedBy.shortByPt` across pages and take the cheapest one
+    above the earliest block. (d) Line 109's "There are no layout levers"
+    contradicts line 142's "swapping which column carries which section is the
+    strongest one-page lever you have"; the reconciliation — column swaps bite
+    only when the experience list is empty or short, because with a full one
+    the main flow is fixed and `summary` is pinned to `first.main` (D2) — is
+    stated nowhere. (e) The prefix-repair rule, "greedy top-down packing makes
+    prefix repair monotone (an edit below a point cannot move what is above
+    it)" (§7.4 P1a), never made it into the skill; line 113's two worked
+    examples of cuts that fail to move the page count are both edits *below*
+    the block, and the converse case is never given. **It must not ship into
+    SKILL.md without its carve-out**, which the review supplied: an edit below
+    the break cannot move content already placed above it, *but the blocked
+    block's own head is an input to the break, and editing it does move the
+    break* — measured twice (D4). Shipping the rule bare would harden exactly
+    the false inference D4 is about. (f) Nothing tells the converter that
+    recording promotions as a `progression` table rather than separate entries
+    is a **layout-affecting** choice: `docs/ai-guide.md:74` frames it purely as
+    ATS keyword derivation, yet on the dogfood CV the two modellings differ by
+    a full page-1 column (fill 0.767 vs 0.985) and by whether
+    `page1-ends-early` fires at all.
+  - **D9 (P3) — the layout's `first`/`continuation`/`last` keys do not mean
+    what they say.** `layout.js` states the intent plainly — the buckets are
+    "read as ONE ordered flow… not 'referees renders on the final page'" — but
+    neither SKILL.md nor the scaffolded layout comment says so, and the key
+    names actively suggest the opposite. Measured on a 3-page CV with
+    `first.sidebar=[contact]`, `continuation.sidebar=[education]`,
+    `last.sidebar=[referees]`: all three render on **page 1**, and pages 2 and 3
+    report `emptyColumn: sidebar` with no notice or warning. A section named
+    `last.sidebar` landing on page 1 of a 3-page document is not a defect in
+    the engine — it is a defect in the naming and the docs. Either document it
+    loudly in both places or rename the buckets to `order:` groups.
 - `cvx doctor --json`; renderer version + per-output sha256 in build
   JSON/PDF metadata; machine-readable conflict report; per-item provenance
   metadata; `import-report.md`; `init --project`; dependency-failure

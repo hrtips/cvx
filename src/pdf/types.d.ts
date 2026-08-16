@@ -70,6 +70,37 @@ export interface ExperienceEntry {
   startBullet?: number
   /** One-past-the-last bullet index rendered on this slice. */
   endBullet?: number
+  /**
+   * What this placed piece COSTS, attached by `packExperiences` (P2, diagnostics
+   * v4). Absent on a raw content entry — it exists only on the copies the
+   * packer emits, which is what `layoutDiagnostics` spreads onto each published
+   * entry so a consumer can price an edit by subtraction instead of rebuilding.
+   */
+  measured?: EntryMeasurement
+}
+
+/** The published cost of one placed experience piece (P2, diagnostics v4). */
+export interface EntryMeasurement {
+  /** The packer's own height for this piece. */
+  heightPt: number
+  /** The entry divider charged above it. */
+  gapBeforePt: number
+  /**
+   * The INDIVISIBLE part: everything the piece must carry before its first
+   * bullet, so a piece cannot start a page unless `headPt` plus one bullet fit.
+   */
+  headPt: number
+  head: {
+    rolePt: number
+    metaPt: number
+    locationPt: number
+    descriptionPt: number
+    progressionPt: number
+  }
+  /** Height of each bullet of this slice, in order. */
+  bulletsPt: number[]
+  /** Total inter-bullet gap charged on this slice. */
+  bulletGapPt: number
 }
 
 /** One education entry (schema: educationEntry). */
@@ -675,7 +706,7 @@ export interface LayoutDiagnostics {
    * The envelope's `schemaVersion: 1` is unchanged — its fields are only
    * added to.
    */
-  version: 3
+  version: 4
   /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything

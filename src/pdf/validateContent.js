@@ -17,7 +17,8 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
-import { overflowWarnings, planTwoColumn } from './layout.js'
+import { overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
+import { normalizeLayout } from './loadLayout.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -472,6 +473,31 @@ export function validateContent(
         const severity = f.unknownKey && !strict ? 'warning' : 'error'
         add(severity, file, f.unknownKey ? 'unknown-key' : 'schema', f)
       }
+    }
+
+    // D2: a `sidebar` slot key the sidebar cannot render used to be dropped in
+    // SILENCE — `packSidebar` skips any key `sidebarSectionH` returns null for,
+    // and the two-column renderer only draws the slices the packer produced, so
+    // e.g. `summary` in a sidebar slot deleted the whole section from the PDF
+    // while `validate --strict` still reported ok. The schema cannot catch it
+    // (layoutSlot is any non-empty string), so it is checked here. Sections are
+    // semantically pinned to their column (§7.2), so this is a real error, not
+    // a warning: INV-0 does not permit content to vanish quietly.
+    for (const [pageKind, page] of Object.entries(normalizeLayout(doc) ?? {})) {
+      const sidebar = /** @type {{ sidebar?: string[] }} */ (page)?.sidebar
+      if (!Array.isArray(sidebar)) continue
+      sidebar.forEach((key, i) => {
+        if (typeof key !== 'string') return
+        if (key.startsWith('identity-') || key.startsWith('spacer:')) return
+        if (SIDEBAR_SECTION_KEYS.includes(key.split(':')[0])) return
+        add('error', file, 'slot-not-renderable', {
+          path: `/${pageKind}/sidebar/${i}`,
+          message: `"${key}" cannot render in a sidebar slot — it would be dropped from the PDF without warning`,
+          suggestion: didYouMean(key, SIDEBAR_SECTION_KEYS)
+            ? `did you mean "${didYouMean(key, SIDEBAR_SECTION_KEYS)}"?`
+            : `move it to a main slot, or use one of: ${SIDEBAR_SECTION_KEYS.join(', ')}`
+        })
+      })
     }
   }
 
