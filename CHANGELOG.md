@@ -5,10 +5,11 @@ What changed in each release, and why. Full detail lives in the
 version you can read in one sitting.
 
 Content files are versioned separately by `schemaVersion` in `config.yaml`
-(currently `1`). Within a schema major, your content files never break — new
-keys may appear, existing ones keep working.
+(currently `1`). New keys may appear within a schema major; a key that is
+measured to do nothing can also be removed, and the entry that removes it says
+what happens to a file that still sets it.
 
-## Unreleased
+## 1.8.0 — 2026-08-17
 
 **Two ways a CV could lose a whole section, silently, are gone.** Both were
 found by driving two real CVs end to end through the skill, and both were

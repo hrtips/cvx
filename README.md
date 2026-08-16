@@ -84,7 +84,7 @@ npx @hrtips/cvx build --ats
 
 All commands accept `--json` for machine-readable output (one JSON object on stdout, logs on stderr) and use semantic exit codes: `0` ok, `2` validation failed, `3` render failed, `64` usage error. `init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML (built-in themes and layouts need no extra files).
 
-**Compatibility promise:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). Within a schema major version, your content files never break — new keys may appear, existing ones keep working. `npx @hrtips/cvx validate` on today's files will still pass on every future 1.x release.
+**Content schema:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). New keys may appear within a schema major. Keys can also be **removed** when they are measured to do nothing — `page1ExperienceCount` and `page1SplitBullets` were, in 1.8.0 — in which case builds keep working and `validate` names the removal, while `validate --strict` treats the now-unknown key as an error. The CHANGELOG says so at the release that does it.
 
 ---
 

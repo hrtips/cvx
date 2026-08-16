@@ -190,7 +190,7 @@ Leadership: [Executive Leadership, Team Building]
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `schemaVersion` | integer | `1` | Content schema major version — content files never break within a major |
+| `schemaVersion` | integer | `1` | Content schema major version — new keys may appear within a major; inert keys can be removed (the CHANGELOG names them) |
 | `theme` | `teal` \| `coral` \| `mono` | `teal` | Colour scheme (`mono` is black-and-white, ATS-optimised) |
 | `layout` | `two-column` \| `single-column` \| custom layout filename | `two-column` | Page structure |
 | `atsKeywords.enabled` | boolean | `true` | Master switch for keyword metadata |

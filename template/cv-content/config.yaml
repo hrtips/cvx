@@ -10,7 +10,7 @@
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
-# schemaVersion  Content schema major — content files never break within a major.
+# schemaVersion  Content schema major — new keys may appear within a major.
 schemaVersion: 1
 
 theme: teal
