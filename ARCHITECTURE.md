@@ -1107,7 +1107,39 @@ version-pinned scaffolds. Rejected: container image, standalone executables
   for the finished CV; needs its own design doc before any build. Does not
   close the blind-client hole.
 - **The per-CV design surface** (unbuilt, unscheduled; key lists and
-  per-token bounds drafted in archived design-p3-surface.md). Surviving
+  per-token bounds drafted in archived design-p3-surface.md).
+
+  **MEASURED JUSTIFICATION, 2026-08-16 dogfood.** The narrowest useful first
+  slice is the INTER-ENTRY vertical gap — `spacing.entryMb` (11) plus
+  `chrome.dividerMargin` (16.5) twice plus `chrome.dividerHeight` (0.75),
+  ≈44.75pt between experience entries. On the dogfood CV, swept by patching the
+  theme and rebuilding at each setting:
+
+  | `entryMb` / `dividerMargin` | gap | pages | main fills |
+  |---|---|---|---|
+  | 11 / 16.5 (shipped) | 44.75pt | 3 | 0.996 · 0.99 · 0.141 |
+  | 9 / 13 | 35.75pt | **2** | 0.999 · 0.995 |
+  | 8 / 11 | 30.75pt | **2** | 0.99 · 0.978 |
+  | 6 / 9 | 24.75pt | **2** | 0.978 · 0.958 |
+  | 4 / 6 | 16.75pt | **2** | 0.964 · 0.932 |
+
+  A ~20% reduction in one vertical token takes that CV from 3 pages to 2 with
+  ZERO content change, and it is not a knife edge — every tighter setting also
+  holds at 2. This is R-J's "spacing tokens are where predictable leverage
+  lives" confirmed with numbers, and it is the only lever left for a CV whose
+  author will not alter the text: the three shipped themes are **geometrically
+  identical** (verified — they differ in palette only), the layout's `geometry:`
+  block was deleted as inert, and user-space themes are unbuilt. So an author
+  who wants a tighter CV has, today, no control that does anything.
+
+  Two riders the sweep also establishes. (a) The minimum that works (9/13) fills
+  the pages to 0.999/0.995 — a surface that lets an author sit there ships a CV
+  that reflows the next time they add a sentence, so the bounds want a comfort
+  floor, not just a legibility floor. (b) The tokens are GLOBAL today: tightening
+  teal.js to fix one CV silently reflows every CV the tool has ever produced,
+  which is the whole argument for per-CV exposure over a maintainer edit.
+
+  Surviving
   design law: geometry behind a **closed key list** (a typo fails loudly the
   moment geometry starts working); whitelisted spacing tokens — vertical
   whitespace scalable, horizontal offsets never (they change wrap widths,
