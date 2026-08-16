@@ -541,11 +541,15 @@ describe('main-column budget honesty (D2/D5/D6)', () => {
 
   it('D5: no spacer slot charges no spacer — the phantom 27pt is returned', () => {
     const none = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'experience'])))
-    const zero = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'spacer:0', 'experience'])))
+    const zero = /** @type {number} */ (
+      fixedPtOf(withFirstMain(['summary', 'spacer:0', 'experience']))
+    )
     expect(none).toBe(zero)
     // ...and it really is 27pt less than the shipped default, so deleting the
     // spacer is now a lever instead of a no-op.
-    const dflt = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'spacer:27', 'experience'])))
+    const dflt = /** @type {number} */ (
+      fixedPtOf(withFirstMain(['summary', 'spacer:27', 'experience']))
+    )
     expect(dflt - none).toBeCloseTo(27, 5)
   })
 

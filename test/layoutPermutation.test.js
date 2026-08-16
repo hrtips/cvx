@@ -174,6 +174,56 @@ describe.skipIf(!hasPdftoppm())('layout permutations — no section may vanish (
     }
   }, 60000)
 
+  it('D7: a promotion table split across pages renders every row exactly once', () => {
+    // The render-level proof for prog-split. The planner may now cut inside the
+    // table; this asserts the PAGE agrees — every row present, none duplicated
+    // at the seam, and in document order. A model that measured rows the
+    // renderer did not draw would pass every unit test and fail here.
+    const dir = mkFixtureDir('perm-prog-split')
+    const rows = [
+      { title: 'Zenith Principal Engineer', period: 'Jan 2022 - May 2024' },
+      { title: 'Yarrow Senior Engineer', period: 'Aug 2020 - Dec 2021' },
+      { title: 'Xenon Engineer', period: 'Jan 2018 - Jul 2020' },
+      { title: 'Wisteria Associate Engineer', period: 'Apr 2016 - Dec 2017' },
+      { title: 'Viburnum Graduate Trainee', period: 'Jan 2015 - Mar 2016' },
+      { title: 'Umbra Placement Student', period: 'Jun 2014 - Dec 2014' }
+    ]
+    const c = content(3)
+    c.summary = Array.from(
+      { length: 7 },
+      (_unusedSummary, i) =>
+        `Summary ${i}: a sentence long enough to wrap across two lines of the main column comfortably.`
+    )
+    c.experience = [
+      c.experience[0],
+      { ...c.experience[1], role: 'Promoted Role', progression: rows },
+      c.experience[2] ?? c.experience[0]
+    ]
+    writeFixtureContent(dir, c)
+    writeLayout(dir, {
+      template: 'two-column',
+      pages: {
+        first: { sidebar: ['identity-photo', 'contact'], main: ['summary', 'experience'] },
+        continuation: { sidebar: ['identity-compact'], main: ['experience:continued'] },
+        last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+      }
+    })
+    const { text, plan } = buildAndExtract(dir)
+    // The fixture must actually split the table, or this proves nothing.
+    const pieces = plan.pages.flatMap((/** @type {any} */ p) =>
+      p.main.entries.filter((/** @type {any} */ e) => e.role === 'Promoted Role')
+    )
+    expect(pieces.length, 'fixture did not split the promoted role').toBeGreaterThan(1)
+
+    const positions = rows.map((r) => {
+      const occurrences = text.split(r.title).length - 1
+      expect(occurrences, `"${r.title}" appears ${occurrences}x, expected exactly 1`).toBe(1)
+      return text.indexOf(r.title)
+    })
+    // ...and in document order across the page seam.
+    expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  }, 60000)
+
   it('D2: a key the sidebar cannot render is a validation ERROR, never a silent drop', () => {
     const dir = mkFixtureDir('perm-summary-in-sidebar')
     writeFixtureContent(dir, content(2))

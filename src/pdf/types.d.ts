@@ -66,6 +66,16 @@ export interface ExperienceEntry {
   bullets?: BulletItem[]
   /** Set by packExperiences() on a continuation slice. */
   isContinuation?: boolean
+  /**
+   * First progression-row index rendered on this slice (D7 `prog-split`).
+   * Absent means 0. A page-leading piece may carry only part of the promotion
+   * table, with the rest continuing overleaf — before this the whole table was
+   * welded into the indivisible head, which made an entry carrying one far
+   * harder to start on a part-full page than its bullet count suggested.
+   */
+  startProg?: number
+  /** One-past-the-last progression-row index rendered on this slice. */
+  endProg?: number
   /** First bullet index rendered on this slice. */
   startBullet?: number
   /** One-past-the-last bullet index rendered on this slice. */

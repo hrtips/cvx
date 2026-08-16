@@ -977,8 +977,8 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     section "is rendered but not measured", which on a 2-page CV is untrue —
     per D3 it is not rendered at all. Make the key list slot-aware and make the
     message stop asserting a render it has not verified.
-  - **D7 (P2) — the indivisible entry head has no upper bound; adopt
-    `prog-split`.** `experienceBlock().split` parameterises a cut by bullet
+  - **D7 (P2) — LANDED 2026-08-16. The indivisible entry head had no upper
+    bound; `prog-split` adopted.** `experienceBlock().split` parameterises a cut by bullet
     index only, so the page-leading piece always carries role + meta +
     `location` + `description` + **every** progression row + ≥1 bullet. A
     12-row progression makes the head arbitrarily tall, and once it exceeds a
@@ -997,12 +997,46 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     piece today drops company/period/description/progression entirely, so
     `ExpItem.jsx` must draw a partial table under a `(cont'd)` heading, and
     `test/layoutOptimality.test.js`'s legality mirror must move in lockstep.
-    Sequence **after** P2 (per-entry publication) so the result is verifiable
-    from published numbers rather than rebuild-and-look. The principled rule to
-    state: *an entry's page-leading piece must carry the heading plus at least
-    one unit of substantive content (one progression row, or one bullet); every
-    other component is a splittable atom in document order; nothing is welded
-    to the heading merely because it precedes the bullets.*
+    The principled rule, now implemented: *an entry's page-leading piece must
+    carry the heading plus at least one unit of substantive content (one
+    progression row, or one bullet); every other component is a splittable atom
+    in document order; nothing is welded to the heading merely because it
+    precedes the bullets.* The cut axis is the entry's atoms in document order —
+    progression rows, then bullets — and `largestFittingPrefix`'s `[1, n-1]`
+    range is unchanged, which is what keeps the anti-orphan guarantee for free.
+    `smallestPiecePt` follows automatically (`declineOf` asks the splitter for
+    its forced minimum), so the engine message and SKILL.md were re-worded again
+    in the same change: the piece is the heading block plus the first ATOM, no
+    longer the heading block plus the whole table.
+
+    Measured on the calibrated sweep, the degradation is monotone: as page 1
+    fills, the head takes 6 rows, then 6 with no bullet, then 4, then 1 — and
+    when even one row will not fit, the role defers to the next page whole
+    rather than leaving a bare heading. Verified on the dogfood CV: page 1's
+    fill went 0.767 -> 0.996 and `page1-ends-early` stopped firing.
+
+    **Three tests are knowingly RED and are a test-model debt, not a defect —
+    scheduled for their own sprint by maintainer ruling 2026-08-16:**
+      · `test/layoutOptimality.test.js` — the exhaustive DP oracle enumerates
+        bullet-level cuts only, so its legality mirror now covers a smaller
+        space than the real packer. It needs a progression-row dimension.
+      · `test/layoutRenderOracle.test.js` (`edge-page1-blocked`) — the harness's
+        structural `noOrphanHeading` has no id for a progression row, so a head
+        carrying three rows and no bullets reads to it as a bare heading. The
+        real invariant is asserted instead in `src/pdf/layout.progSplit.test.js`
+        ("no piece is a bare heading — each carries a row or a bullet"), swept
+        over eight page-1 fill levels, and the render was inspected by eye.
+      · `test/planLayout.test.js` (`edge-page1-blocked`) — that fixture no
+        longer ends page 1 early, because `prog-split` fixed exactly the shape
+        it was built to demonstrate. The fixture needs replacing, not the code.
+
+    New proofs added with the change: `src/pdf/layout.progSplit.test.js` (split
+    correctness, exactly-once placement of every row and bullet in document
+    order, the monotone degradation above, and the anti-orphan property) and a
+    render-level case in `test/layoutPermutation.test.js` asserting a split
+    table appears in the PDF exactly once, in order, across the page seam. The
+    model-vs-render oracles (`layoutMainMeasureDiff`, `layout.mirror`) pass
+    unchanged, which is what proves the new measurement matches what is drawn.
   - **D8 — SKILL.md gaps that made D4 expensive to work around.** Each checked
     against the file, same dogfood. (a) Line 84 repeats the engine's wrong
     composition — "shortening the summary (or that role's first bullet)" — so

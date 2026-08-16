@@ -55,13 +55,16 @@ them if that ever changes.
 
 ## Found, unscheduled
 
-- **D1, D4–D9** (§7.4) — the remainder of the 2026-08-16 dogfood, all
-  reproduced on the stock scaffold. D2 and D3 are not here: they are release
-  blockers in Sprint 1 above. Ordering that matters: **D4** (the engine's false
-  exclusivity claim, fixed in engine and skill together) and **P2** (per-entry
-  publication) come before **D7** (`prog-split`), because P2 is how a packing
-  change gets verified. §7.4 also records **NOT DOING — replacing the greedy
-  packer**: proven optimal in-repo and over 900 generated CVs, 0 counterexamples.
+- **Test-model debt from D7** (§7.4) — `prog-split` landed and three tests are
+  knowingly red because their models predate a splittable promotion table: the
+  optimality DP oracle needs a progression-row dimension, the harness's
+  structural `noOrphanHeading` has no id for a progression row, and
+  `edge-page1-blocked` no longer demonstrates the shape it was built for. The
+  real invariants are asserted in `src/pdf/layout.progSplit.test.js` and
+  `test/layoutPermutation.test.js` meanwhile. Maintainer ruling 2026-08-16:
+  implement the change accurately now, re-model the tests in their own sprint.
+- §7.4 also records **NOT DOING — replacing the greedy packer**: proven optimal
+  in-repo and over 900 generated CVs, 0 counterexamples.
 
 ## Decisions needed (pointers, not content)
 

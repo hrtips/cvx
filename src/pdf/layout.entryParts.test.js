@@ -17,7 +17,10 @@ const BULLETS = [
 
 /** Every structural combination × every legal slice — 4320 shapes. */
 function* shapes() {
-  for (const role of ['R', 'A very long role title that wraps onto a second line in the main column'])
+  for (const role of [
+    'R',
+    'A very long role title that wraps onto a second line in the main column'
+  ])
     for (const company of [undefined, 'Co'])
       for (const period of [undefined, '2020 – 2024'])
         for (const location of [undefined, 'Colombo'])
@@ -92,9 +95,7 @@ describe('entryParts — the published breakdown of an entry height', () => {
       bullets: BULLETS
     }
     const p = entryParts(e, m)
-    expect(p.headPt).toBe(
-      p.rolePt + p.metaPt + p.locationPt + p.descriptionPt + p.progressionPt
-    )
+    expect(p.headPt).toBe(p.rolePt + p.metaPt + p.locationPt + p.descriptionPt + p.progressionPt)
     expect(p.bulletsPt).toHaveLength(BULLETS.length)
     // The finding that started this: on an entry with a promotion table, the
     // description + progression dominate the head — which is exactly what the
@@ -102,7 +103,7 @@ describe('entryParts — the published breakdown of an entry height', () => {
     expect(p.descriptionPt + p.progressionPt).toBeGreaterThan(p.rolePt + p.metaPt)
   })
 
-  it('a continuation piece charges no description, meta or progression', () => {
+  it('a continuation piece charges no description, meta or location', () => {
     const base = {
       role: 'R',
       company: 'Co',
@@ -111,11 +112,37 @@ describe('entryParts — the published breakdown of an entry height', () => {
       progression: [{ title: 'T', period: 'P' }],
       bullets: BULLETS
     }
-    const p = entryParts({ ...base, isContinuation: true }, m)
+    // D7 changed this: a continuation used to charge no progression either,
+    // because it could not carry any. It can now carry the rows its head did
+    // not take, so `progressionPt` is a function of the SLICE on both kinds of
+    // piece — asserted below rather than pinned to zero here.
+    const p = entryParts({ ...base, isContinuation: true, startProg: 1 }, m)
     expect(p.metaPt).toBe(0)
     expect(p.descriptionPt).toBe(0)
-    expect(p.progressionPt).toBe(0)
     expect(p.locationPt).toBe(0)
+    expect(p.progressionPt).toBe(0) // startProg 1 of a 1-row table = no rows left
     expect(p.rolePt).toBeGreaterThan(0)
+  })
+
+  it('D7: a continuation carrying progression rows charges for them', () => {
+    const base = {
+      role: 'R',
+      company: 'Co',
+      period: '2020',
+      progression: [
+        { title: 'T1', period: 'P1' },
+        { title: 'T2', period: 'P2' },
+        { title: 'T3', period: 'P3' }
+      ],
+      bullets: BULLETS
+    }
+    const none = entryParts({ ...base, isContinuation: true, startProg: 3 }, m)
+    const two = entryParts({ ...base, isContinuation: true, startProg: 1 }, m)
+    expect(none.progressionPt).toBe(0)
+    expect(two.progressionPt).toBeGreaterThan(0)
+    // ...and a head taking a PREFIX charges less than the whole table.
+    const whole = entryParts({ ...base, endProg: 3 }, m)
+    const prefix = entryParts({ ...base, endProg: 2 }, m)
+    expect(prefix.progressionPt).toBeLessThan(whole.progressionPt)
   })
 })

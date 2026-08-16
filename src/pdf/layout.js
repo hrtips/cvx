@@ -423,6 +423,19 @@ export function summaryH(
 }
 
 /**
+ * The progression rows one piece renders — `[startProg, endProg)`, defaulting
+ * to the whole table (D7). Both kinds of piece can carry rows: a head takes a
+ * prefix, its continuation takes the rest.
+ *
+ * @param {import('./types.js').ExperienceEntry} e
+ * @returns {import('./types.js').ProgressionStep[]}
+ */
+function progressionSlice(e) {
+  const all = e.progression ?? []
+  return all.slice(e.startProg ?? 0, e.endProg ?? all.length)
+}
+
+/**
  * The COMPONENTS of one entry's measured height, in render order — the same
  * arithmetic `entryH` sums, exposed as its terms.
  *
@@ -494,22 +507,27 @@ export function entryParts(
       const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
       descriptionPt = m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
     }
-    if (e.progression?.length) {
-      const pw = m.innerW - m.progPl - m.sectionBorderWidth
-      progressionPt =
-        m.progMt +
-        m.progMb +
-        e.progression.reduce(
-          (acc, p) =>
-            acc +
-            m.progPy * 2 +
-            Math.max(
-              rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
-              rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
-            ),
-          0
-        )
-    }
+  }
+  // D7: the promotion table is a SLICE now, on both kinds of piece. A
+  // continuation used to carry no progression at all; it can now carry the
+  // rows its head did not take, which is what lets a role start on a part-full
+  // page instead of waiting for room for the whole table.
+  const progRows = progressionSlice(e)
+  if (progRows.length > 0) {
+    const pw = m.innerW - m.progPl - m.sectionBorderWidth
+    progressionPt =
+      m.progMt +
+      m.progMb +
+      progRows.reduce(
+        (acc, p) =>
+          acc +
+          m.progPy * 2 +
+          Math.max(
+            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+          ),
+        0
+      )
   }
   // `descMt` is the bullet list's own margin-top, charged once when any bullet
   // is visible — it belongs to the bullets, not the head.
@@ -546,6 +564,22 @@ export function entryH(
       weight: m.roleWeight,
       leading: m.roleLeading
     })
+    // D7: a continuation may now carry the progression rows its head did not
+    // take. Charged in exactly the order ExpItem draws them — table, then
+    // bullets — so the mirror between model and render holds.
+    const contProg = progressionSlice(e)
+    if (contProg.length > 0) {
+      h += m.progMt + m.progMb
+      const pw = m.innerW - m.progPl - m.sectionBorderWidth
+      for (const p of contProg) {
+        h +=
+          m.progPy * 2 +
+          Math.max(
+            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+          )
+      }
+    }
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
     if (visible.length > 0) {
       h += m.descMt
@@ -577,10 +611,12 @@ export function entryH(
     const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
     h += m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
   }
-  if (e.progression?.length) {
+  // D7: the rows THIS piece renders, not necessarily the whole table.
+  const headProg = progressionSlice(e)
+  if (headProg.length > 0) {
     h += m.progMt + m.progMb
     const pw = m.innerW - m.progPl - m.sectionBorderWidth
-    for (const p of e.progression) {
+    for (const p of headProg) {
       h +=
         m.progPy * 2 +
         Math.max(
@@ -1191,28 +1227,58 @@ function experienceBlock(entry, m, measure, gapBefore) {
     height,
     gapBefore,
     split: (room, forceMinimum) => {
+      // D7 `prog-split`. The cut axis is the entry's ATOMS in document order:
+      // the progression rows this piece holds, then its bullets. Before, only
+      // bullets were atoms, so the whole promotion table was welded into the
+      // indivisible head — a 12-row table made the head arbitrarily tall with
+      // no upper bound, and a role carrying one was far harder to start on a
+      // part-full page than its bullet count suggested.
+      //
+      // The anti-orphan rule is unchanged and is what makes this safe: the
+      // search range `[1, n-1]` inside `largestFittingPrefix` keeps at least
+      // one atom on each side, so a head that cuts inside the table still
+      // carries the heading PLUS at least one progression row. That is why
+      // this variant never orphans a bare heading, where deferring the table
+      // wholesale (or the description with it) does.
+      const prog = entry.progression ?? []
+      const pStart = entry.startProg ?? 0
+      const pEnd = entry.endProg ?? prog.length
+      const nProg = Math.max(0, pEnd - pStart)
+
       const bullets = entry.bullets ?? []
-      const start = entry.startBullet ?? 0
-      const end = entry.endBullet ?? bullets.length
-      const headAt = (/** @type {number} */ k) =>
-        entryH({ ...entry, startBullet: start, endBullet: start + k }, m, measure)
-      const k = largestFittingPrefix(end - start, headAt, room, forceMinimum)
+      const bStart = entry.startBullet ?? 0
+      const bEnd = entry.endBullet ?? bullets.length
+      const nBullets = Math.max(0, bEnd - bStart)
+
+      const n = nProg + nBullets
+      /** The piece holding the first `k` atoms: table rows first, then bullets. */
+      const pieceAt = (/** @type {number} */ k) => ({
+        ...entry,
+        startProg: pStart,
+        endProg: pStart + Math.min(k, nProg),
+        startBullet: bStart,
+        endBullet: bStart + Math.max(0, k - nProg)
+      })
+      const headAt = (/** @type {number} */ k) => entryH(pieceAt(k), m, measure)
+      const k = largestFittingPrefix(n, headAt, room, forceMinimum)
       if (k === 0) return null
       // The head keeps the entry's own kind (a continuation stays a
       // continuation), so a long entry can be cut more than once.
-      const head = experienceBlock(
-        { ...entry, startBullet: start, endBullet: start + k },
-        m,
-        measure,
-        gapBefore
-      )
+      const head = experienceBlock(pieceAt(k), m, measure, gapBefore)
       const tail = experienceBlock(
-        { ...entry, isContinuation: true, startBullet: start + k, endBullet: end },
+        {
+          ...entry,
+          isContinuation: true,
+          startProg: pStart + Math.min(k, nProg),
+          endProg: pEnd,
+          startBullet: bStart + Math.max(0, k - nProg),
+          endBullet: bEnd
+        },
         m,
         measure,
         gapBefore
       )
-      assertShrinks(`experience entry "${entry.role}"`, end - start, end - start - k, tail, height)
+      assertShrinks(`experience entry "${entry.role}"`, n, n - k, tail, height)
       return { head, tail }
     }
   }

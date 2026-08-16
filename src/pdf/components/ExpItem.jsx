@@ -66,6 +66,8 @@ export default function ExpItem({
   description,
   progression,
   bullets,
+  startProg = 0,
+  endProg,
   startBullet = 0,
   endBullet,
   isContinuation = false
@@ -73,6 +75,23 @@ export default function ExpItem({
   const s = useStyles(makeStyles)
   const t = useTheme()
   const visibleBullets = (bullets ?? []).slice(startBullet, endBullet)
+  // D7 `prog-split`: the promotion table is a slice, on BOTH kinds of piece.
+  // `layout.js`'s `progressionSlice` is the same arithmetic — the two must
+  // agree row for row or the model measures something the page does not draw.
+  const visibleProg = /** @type {import('../types.js').ProgressionStep[]} */ (
+    progression ?? []
+  ).slice(startProg, endProg)
+
+  const progTable = visibleProg.length > 0 && (
+    <View style={s.progBlock}>
+      {visibleProg.map((p) => (
+        <View key={p.title} style={s.progRow}>
+          <Text style={s.progTitle}>{p.title}</Text>
+          <Text style={s.progPeriod}>{p.period}</Text>
+        </View>
+      ))}
+    </View>
+  )
 
   if (isContinuation) {
     return (
@@ -80,6 +99,7 @@ export default function ExpItem({
         <Text style={s.contRole}>
           {role} <Text style={s.contTag}>(cont'd)</Text>
         </Text>
+        {progTable}
         {visibleBullets.length > 0 && (
           <BulletList items={visibleBullets} gap={t.spacing.bulletGap} />
         )}
@@ -96,20 +116,7 @@ export default function ExpItem({
       </View>
       {location && <Text style={s.location}>{location}</Text>}
       {description && <Text style={s.desc}>{description}</Text>}
-      {
-        /** @type {import('../types.js').ProgressionStep[]} */ (progression)?.length > 0 && (
-          <View style={s.progBlock}>
-            {
-              /** @type {import('../types.js').ProgressionStep[]} */ (progression).map((p) => (
-                <View key={p.title} style={s.progRow}>
-                  <Text style={s.progTitle}>{p.title}</Text>
-                  <Text style={s.progPeriod}>{p.period}</Text>
-                </View>
-              ))
-            }
-          </View>
-        )
-      }
+      {progTable}
       {visibleBullets.length > 0 && <BulletList items={visibleBullets} gap={t.spacing.bulletGap} />}
     </View>
   )

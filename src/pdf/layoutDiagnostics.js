@@ -350,18 +350,21 @@ function page1EndsEarly(pages) {
   // structured `nextRole` field.
   const roleQuote = d.role ? ` ("${String(d.role).replace(/\s+/g, ' ').slice(0, 80)}")` : ''
   // D4: this used to read "the role heading plus one bullet", which named the
-  // two CHEAPEST components and omitted the two expensive ones. The piece is
-  // indivisible and carries the whole head: role, company/period, location,
-  // description, and EVERY progression row, before the first bullet. Measured
-  // on the shipped scaffold, description is 35.15pt and a 4-row progression
-  // 51.30-63.90pt against a 66.30pt bare heading+meta+bullet — i.e. 52-60% of
-  // the figure came from the two terms the sentence did not mention, which is
-  // what sent a reader at the summary when a structural term was the blocker.
+  // two CHEAPEST components and omitted the expensive ones — measured on the
+  // shipped scaffold, the description and progression rows were 52-60% of the
+  // figure, which is what sent a reader at the summary when a structural term
+  // was the blocker.
+  //
+  // D7 then made the promotion table splittable, so the piece no longer drags
+  // the WHOLE table along: it is the heading block plus the entry's first atom,
+  // one progression row or one bullet. `smallestPiecePt` follows that by
+  // construction (`declineOf` asks the splitter for its forced minimum), so
+  // this sentence has to describe the same thing the number measures.
   const opening =
     `page 1's experience list ends ${d.residualPt}pt before the foot of the column: the next ` +
     `role${roleQuote} cannot start here because its smallest legal piece — the role heading ` +
-    `with its company/period line, any description and every progression row, plus the first ` +
-    `bullet — needs ${d.smallestPiecePt}pt and ` +
+    `with its company/period line and any description, plus its first unit of content (one ` +
+    `progression row, or the first bullet) — needs ${d.smallestPiecePt}pt and ` +
     (room > 0
       ? `only ${room}pt remain after the ${d.gapBeforePt}pt entry divider. `
       : `the ${d.gapBeforePt}pt entry divider alone exceeds the ${d.residualPt}pt left. `) +
