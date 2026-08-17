@@ -155,21 +155,34 @@ jobs:
           cat SHA256SUMS.txt
 
       # TAG via env, never inlined into the script: a ref interpolated straight
-      # into `run` is a template-injection sink (zizmor). Idempotent on purpose
-      # — re-running a release must not fail on "already exists", and must
-      # refresh the assets rather than leaving a stale bundle attached.
-      - name: Create or update the GitHub Release
+      # into `run` is a template-injection sink (zizmor).
+      #
+      # ── This repo has IMMUTABLE RELEASES enabled ────────────────────────────
+      # Publishing freezes a release's assets, and reserves its tag name
+      # PERMANENTLY — even if the release is later deleted. Two consequences,
+      # both learned the hard way on v1.9.0:
+      #
+      #   1. Assets must be attached while the release is still a DRAFT, and the
+      #      draft published afterwards. Create-then-upload fails with
+      #      "HTTP 422: Cannot upload assets to an immutable release", which
+      #      leaves a published release with NO assets.
+      #   2. There is no update path, so this step is not idempotent by
+      #      refreshing — it is idempotent by declining. Never delete and
+      #      recreate a published release to fix it: the tag name cannot be
+      #      reused, so that version can never have a GitHub release again.
+      #      v1.9.0 is on npm with no release for exactly this reason.
+      #
+      # A leftover DRAFT from a failed run is safe to replace — drafts are not
+      # immutable, and that is the one case worth retrying automatically.
+      - name: Create the GitHub Release with its assets
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # The annotation splits cleanly into the two fields a release needs:
-          # subject → title, body → notes. `--notes-from-tag` would work on
-          # create but does not exist on `gh release edit`, so a notes FILE is
-          # used for both — one mechanism, so the create and re-run paths cannot
-          # produce different release text.
+          # subject → title, body → notes. One mechanism (a notes file) so the
+          # release text cannot differ between a first run and a retry.
           SUBJECT="$(git tag -l --format='%(contents:subject)' "$TAG")"
           git tag -l --format='%(contents:body)' "$TAG" > notes.md
           if [ -z "$SUBJECT" ] || [ ! -s notes.md ]; then
@@ -177,13 +190,23 @@ jobs:
                  "Cut releases with 'git tag -a', not a lightweight tag."
             exit 1
           fi
-          if gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
-            echo "release $TAG exists — refreshing notes and assets"
-            gh release edit "$TAG" --repo "$REPO" \
-              --title "CVX v$SUBJECT" --notes-file notes.md --latest
-          else
-            gh release create "$TAG" --repo "$REPO" \
-              --title "CVX v$SUBJECT" --notes-file notes.md --latest --verify-tag
+
+          DRAFT="$(gh release view "$TAG" --repo "$REPO" --json isDraft -q .isDraft 2>/dev/null || echo absent)"
+          if [ "$DRAFT" = "false" ]; then
+            echo "::notice::release $TAG is already published and immutable — leaving it untouched."
+            exit 0
           fi
-          gh release upload "$TAG" --repo "$REPO" --clobber \
+          if [ "$DRAFT" = "true" ]; then
+            echo "replacing a leftover draft for $TAG"
+            gh release delete "$TAG" --repo "$REPO" --yes
+          fi
+
+          # Assets are passed to `create`, not uploaded after: see note above.
+          gh release create "$TAG" --repo "$REPO" --draft --verify-tag \
+            --title "CVX v$SUBJECT" --notes-file notes.md \
             dist/cvx-*.bundle.js dist/cvx.bundle.js dist/SHA256SUMS.txt
+
+          # Publish only once every asset is attached, which is also the moment
+          # the release becomes immutable.
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
+          gh release view "$TAG" --repo "$REPO" --json assets -q '.assets[].name'

@@ -9,6 +9,24 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
+## 1.9.1 — 2026-08-17
+
+**Same code as 1.9.0; it exists because 1.9.0 can never have a GitHub release.**
+No source change — `cvx --version` and the bundle banner are the only difference.
+
+This repository has GitHub's **immutable releases** enabled. Publishing a
+release freezes its assets *and reserves its tag name permanently*, even if the
+release is later deleted. 1.9.0's release automation created the release first
+and uploaded the bundle afterwards, which the API rejects
+(`422 Cannot upload assets to an immutable release`) — leaving a published
+release with no assets. Deleting it to retry burned the tag name for good.
+
+So the fix is both halves: the release job now attaches assets while the release
+is still a **draft** and publishes it only once they are all there, and it
+**declines** rather than tries to repair an already-published release, because
+delete-and-recreate is what made 1.9.0 unrecoverable. 1.9.0 remains on npm and
+is functionally identical; use 1.9.1 for the downloadable bundle.
+
 ## 1.9.0 — 2026-08-17
 
 **CVX now ships as a single self-contained JavaScript file, for environments

@@ -1,6 +1,6 @@
 {
   "name": "@hrtips/cvx",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "CVX — structured input, professional output. YAML content in, pixel-perfect CV PDFs out; swappable themes and layouts, no headless browser. MCP server included. Formerly makecv.",
   "mcpName": "io.github.hrtips/cvx",
   "bin": {
