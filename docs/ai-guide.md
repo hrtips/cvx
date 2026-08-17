@@ -267,8 +267,6 @@ The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder i
 
 **If the download is blocked** in that sandbox, download `cvx.bundle.min.js.zip` (0.92 MB) from the [latest release](https://github.com/hrtips/cvx/releases/latest) yourself, upload it into the conversation, and tell the assistant to unzip it and run `node cvx.bundle.min.js` instead of the `curl` line. Everything after that is the same. You still need no Node and no terminal — just a browser, once.
 
-If you use ChatGPT often, [docs/custom-gpt.md](custom-gpt.md) turns this prompt into a Custom GPT so you stop pasting it.
-
 **Privacy note:** CVX itself runs entirely locally and makes zero network calls — the bundle included, which is asserted by a test that fails the build if anything reaches the network. But in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 
 ---

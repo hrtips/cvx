@@ -72,11 +72,10 @@ describe('Custom GPT action schema', () => {
   })
 
   it('keeps the GPT instructions inside the 8000-char box, in a file of their own', () => {
-    // The builder rejects instructions over 8000 characters. They live in
-    // site/gpt/instructions.txt rather than inside docs/custom-gpt.md because
-    // the first version was a fenced block in that document — and the document
-    // (9.8 KB) got pasted instead of the block (5.5 KB), which is a mistake the
-    // layout invited rather than one the person made.
+    // The builder rejects instructions over 8000 characters. They live in a file
+    // containing nothing else because the first version was a fenced block inside
+    // a longer document — and the document (9.8 KB) got pasted instead of the
+    // block (5.5 KB), a mistake that layout invited rather than one anyone made.
     const instructions = readFileSync(path.join(ROOT, 'site', 'gpt', 'instructions.txt'), 'utf8')
     expect(instructions.length).toBeLessThanOrEqual(8000)
 
@@ -95,14 +94,9 @@ describe('Custom GPT action schema', () => {
     // 4. cd first — CVX writes into the working directory, and getting this wrong
     //    scatters cv-content/ and the PDF wherever the shell happened to start.
     expect(instructions).toMatch(/CURRENT working directory/)
-    // 5. The step that makes a GPT better than a YAML handoff: it must look at the
+    // 5. The step that makes this better than a YAML handoff: it must look at the
     //    PDF it rendered, not just report that a build succeeded.
     expect(instructions).toMatch(/render its pages to images/i)
-
-    // And the setup doc must not carry a second copy to drift from.
-    const doc = readFileSync(path.join(ROOT, 'docs', 'custom-gpt.md'), 'utf8')
-    expect(doc).not.toContain('```text')
-    expect(doc).toContain('site/gpt/instructions.txt')
   })
 
   it('matches the paths the Pages workflow actually publishes', () => {

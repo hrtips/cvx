@@ -46,8 +46,11 @@ CVX collects nothing and makes no network calls, the hosts that serve a download
 hosted assistant or CI runner puts your content in that platform's hands rather than
 ours.
 
-Everything above is documented in [docs/custom-gpt.md](docs/custom-gpt.md), now
-linked from the README. Four undocumented platform limits are encoded in
+The Custom GPT setup guide that accompanied this was removed before release: with
+the bundle downloadable directly, the Action is redundant for the case it was built
+for, and a GPT is no longer the recommended way to reach CVX from ChatGPT — the
+[AI guide](docs/ai-guide.md)'s Route D prompt does it with nothing to install and
+nothing to upload. Four undocumented platform limits are encoded in
 `test/gptOpenapi.test.js` so they fail in CI instead of in a web form: the 300-char
 cap on Action operation descriptions, the 8000-char cap on GPT instructions, the
 `openaiFileResponse` envelope shape, and that every path in the schema is one the

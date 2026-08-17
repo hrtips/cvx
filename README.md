@@ -201,8 +201,6 @@ ChatGPT's sandbox has a Node runtime but usually cannot reach the npm registry, 
 
 **In most ChatGPT sandboxes it can fetch the file itself**, so you upload nothing — the [Route D prompt](docs/ai-guide.md#route-d--agent-mode-assistant-zero-local-setup) gives it the four setup commands verbatim, which matters because an assistant left to work it out will try `npx` first and waste your turn. If the download is blocked, download the 0.92 MB zip and upload it instead; everything after that is identical.
 
-Use ChatGPT for this often? **[docs/custom-gpt.md](docs/custom-gpt.md)** turns that prompt into a Custom GPT, and includes the [privacy policy](https://hrtips.github.io/cvx/privacy) URL one with an action needs. There is no CVX GPT to install — OpenAI restricts who may create and publish them, so that page is a recipe rather than a link.
-
 The GPT does what a chat assistant otherwise cannot: it renders the PDF, **opens it and looks at the pages**, then fixes the layout before you ever see it.
 
 ### Your photo
