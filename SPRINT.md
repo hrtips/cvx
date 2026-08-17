@@ -38,7 +38,7 @@ unscheduled" — it is I4's prerequisite, not a nicety.
 
 ### Release plumbing — read this before the next tag
 
-Three things changed, and the second one cost a version number.
+Two things changed, and the second one cost a version number.
 
 1. The GitHub Release is created by `publish.yml` from the **annotated tag's**
    message (subject → title, body → notes). A lightweight tag now fails the job
@@ -54,9 +54,6 @@ Three things changed, and the second one cost a version number.
    release to retry:** that is what happened to v1.9.0, which is on npm and can
    never have a GitHub release. The job now declines to touch an already-published
    release rather than trying to repair one.
-3. `publish.yml` dispatches `pages.yml` after the release exists, because the
-   Custom GPT fetches the bundle from Pages. See the GPT item under "Found,
-   unscheduled" for the failure mode that creates.
 
 ### The ChatGPT route, and the Custom GPT that was built then dropped
 
@@ -150,12 +147,6 @@ them if that ever changes.
   JavaScript matches — only the compressed payload differs. Still a gap in a repo
   that runs a cross-architecture repro matrix for PDFs; fixable by storing the
   payload uncompressed or with a pinned deflate.
-- **The GPT can silently serve the previous release.** `gpt/bundle.json` is
-  rebuilt only when `pages.yml` runs, so if the dispatch at the end of
-  `publish.yml` does not fire, a GPT keeps handing out the old bundle with nothing
-  to alert anyone. `gpt/version.json` publishes the version and the delivered
-  file's sha256 next to each other, which makes the drift *detectable* — nothing
-  currently *checks* it.
 - **Five undocumented platform limits cost most of the 2026-08-18 session**, each
   discoverable only by trying it: assets must precede publication on an immutable
   release; Action operation descriptions cap at 300 chars; GPT instructions cap at
@@ -173,9 +164,11 @@ them if that ever changes.
   as available. **Then the GPT direction was dropped altogether** (maintainer,
   2026-08-18): a sandbox turned out to be able to download the bundle itself, which
   makes the Action redundant for its own use case, so `docs/custom-gpt.md` was
-  deleted and Route D became the recommended ChatGPT path. The endpoints under
-  `site/gpt/` still exist and still regenerate per release — see the last item under
-  "Decisions needed".
+  deleted and Route D became the recommended ChatGPT path. On the same day the rest
+  went too: `site/gpt/` (the Action schema and the pasted instructions),
+  `scripts/gpt-endpoints.js`, `test/gptOpenapi.test.js`, the endpoint generation in
+  `pages.yml` and the `refresh-gpt-endpoints` job in `publish.yml`. `site/privacy.html`
+  stays — it is the project's privacy statement and stands on its own.
 - **Three OpenAI surfaces moved under this work in one day** — the container's npm
   reachability, `container.download`'s reliability, and GPT creation/sharing. The
   bundle survived all three because it is a file that runs on Node and depends on

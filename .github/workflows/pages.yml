@@ -13,10 +13,6 @@ on:
       - assets/hero-ats.png
       - assets/brand/**
       - .github/workflows/pages.yml
-      # gpt/version.json is generated from package.json below, so a release
-      # commit (which bumps the version) must redeploy the page — otherwise the
-      # Custom GPT action would keep reporting the previous release.
-      - package.json
   workflow_dispatch:
 
 permissions:
@@ -53,46 +49,13 @@ jobs:
           cp assets/hero-ats.png _site/hero-ats.png
           cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
           cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
-          # Published at BOTH /privacy and /privacy/ — a public GPT with a custom
-          # action requires a privacy-policy URL, and which of the two forms gets
-          # pasted into the builder is not worth leaving to chance.
+          # The project privacy statement, at BOTH /privacy and /privacy/ so either
+          # form of the URL resolves.
           cp site/privacy.html _site/privacy.html
           mkdir -p _site/privacy
           cp site/privacy.html _site/privacy/index.html
 
-          mkdir -p _site/gpt
-          cp site/gpt/openapi.json _site/gpt/openapi.json
-          # Published so the GPT's instructions can be copied straight from a URL.
-          # They live in a file of their own because pasting them out of a longer
-          # document is how they end up over the builder's 8000-char limit.
-          cp site/gpt/instructions.txt _site/gpt/instructions.txt
           ls -la _site
-
-      # ── Custom GPT endpoints ──────────────────────────────────────────────
-      # The bundle is fetched from the RELEASE rather than rebuilt here, so what
-      # a GPT receives is provably the published bytes. `releases/latest` is a
-      # public URL, so this needs no token.
-      #
-      # Note what this makes possible: because the GPT downloads the bundle at
-      # run time, its Action schema and instructions name no version, and a new
-      # CVX release needs no change to the GPT at all. A Knowledge attachment
-      # cannot do that — there is no API to update one, so every release would
-      # otherwise mean re-uploading a file by hand.
-      - name: Generate gpt/version.json and gpt/bundle.json from the latest release
-        env:
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          TAG="$(curl -sSfL "https://api.github.com/repos/$REPO/releases/latest" | jq -r .tag_name)"
-          echo "latest release: $TAG"
-          # Downloaded under its real name: gpt-endpoints.js takes the delivered
-          # filename from the path, and the GPT's instructions name that file.
-          curl -sSfL -O \
-            "https://github.com/$REPO/releases/latest/download/cvx.bundle.min.js.zip"
-          node scripts/gpt-endpoints.js \
-            --bundle cvx.bundle.min.js.zip --version "$TAG" --out _site
-          rm cvx.bundle.min.js.zip
-          ls -la _site/gpt
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

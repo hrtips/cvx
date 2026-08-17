@@ -12,49 +12,48 @@ what happens to a file that still sets it.
 ## Unreleased
 
 **Nothing in the npm package changed.** This entry records work on how CVX is
-*reached*, which ships as documentation and as static files on the project site.
+*reached* — documentation, and one static page on the project site.
 
-**CVX can now be driven from a ChatGPT Custom GPT.** An Action returns the zipped
-standalone bundle as an `openaiFileResponse`; ChatGPT materialises it for Code
-Interpreter, which unzips it and runs `node cvx.bundle.min.js`. The GPT then does
-the thing a chat assistant otherwise cannot: renders the PDF, **opens it and looks
-at the pages**, and fixes the layout before the user sees it.
+**Assistants are now told to fetch the bundle, not to ask for it.** A sandbox that
+cannot reach the npm registry can usually still download a file: verified in a
+ChatGPT container, where `npx` fails but a release asset downloads fine. Six places
+said the opposite — that the bundle "cannot be downloaded in a sandbox with no
+network" and "has to be there already" — so every surface was steering assistants
+into a handoff or asking the user to upload a file when they could simply fetch it.
 
-The design point is that the GPT downloads CVX at run time rather than carrying it.
-A Custom GPT's Knowledge attachments can only be changed by hand — there is no API,
-so no workflow can refresh one — which would have meant a manual re-upload on every
-release and a silently stale GPT in between. Fetching instead means the Action
-schema and the instructions name no version, so **a CVX release needs no change to
-the GPT at all**. `publish.yml` dispatches `pages.yml` once a release exists, and
-`scripts/gpt-endpoints.js` regenerates the endpoints from the published artifact —
-so what a GPT receives is provably the released bytes rather than a fresh build that
-merely should match.
+The bigger change is shape rather than fact. An assistant told only what is
+*possible* will try `npx`, wait for it to fail, explore the filesystem, and burn a
+turn working out what to do. So [the AI guide](docs/ai-guide.md), the
+[skill](skills/cvx/SKILL.md) and [llms.txt](llms.txt) now all carry the same
+four-command setup block verbatim, with an explicit fallback ladder (Python's
+`urlretrieve`, any download tool, a copy already on disk, then ask the user), and
+the instructions to stop at the first that works, report one line instead of
+narrating failures, and not explore first. Deterministic beats descriptive when the
+reader is a model.
 
-The endpoints are static files, so there is no service to run, pay for or secure:
+The skill also gains a **0–7 run order** at the top. It had deep reference material
+on layout diagnostics and no statement of what to do first, which is how a session
+ends up reporting a successful build that nobody looked at. Step 6 is "open the PDF
+and look at every page", and the table names the two failures that actually recur.
 
-- `gpt/bundle.json` — the bundle, ~1.23 MB base64 in a file-response envelope
-- `gpt/version.json` — version, Node floor, download URLs, and the sha256 of the
-  file it delivers
-- `gpt/openapi.json` — the Action schema
-- `gpt/instructions.txt` — the instructions to paste, in a file of their own
+**Route D of the AI guide is now the recommended way to use CVX from ChatGPT** —
+one pasted prompt, nothing installed, nothing uploaded. The prompt spells out the
+setup commands and tells the assistant to open the PDF and check the layout before
+showing anything, which is the whole difference between this and being handed YAML.
 
-Also added `site/privacy.html`, the project's privacy statement, which a shareable
-Action requires. It is deliberately general — it has to hold for someone who only
-ever runs the CLI — and it states plainly what remains true however CVX is reached:
-CVX collects nothing and makes no network calls, the hosts that serve a download
-(npm, GitHub) see the request under their own policies, and running CVX through any
-hosted assistant or CI runner puts your content in that platform's hands rather than
-ours.
+Also added `site/privacy.html`, the project's privacy statement, served at
+`/privacy`. It is deliberately general — it has to hold for someone who only ever
+runs the CLI — and states what remains true however CVX is reached: CVX collects
+nothing and makes no network calls, the hosts that serve a download (npm, GitHub)
+see the request under their own policies, and running CVX through any hosted
+assistant or CI runner puts your content in that platform's hands rather than ours.
 
-The Custom GPT setup guide that accompanied this was removed before release: with
-the bundle downloadable directly, the Action is redundant for the case it was built
-for, and a GPT is no longer the recommended way to reach CVX from ChatGPT — the
-[AI guide](docs/ai-guide.md)'s Route D prompt does it with nothing to install and
-nothing to upload. Four undocumented platform limits are encoded in
-`test/gptOpenapi.test.js` so they fail in CI instead of in a web form: the 300-char
-cap on Action operation descriptions, the 8000-char cap on GPT instructions, the
-`openaiFileResponse` envelope shape, and that every path in the schema is one the
-generator actually produces.
+A Custom GPT integration was built during this work and then removed before
+release: an Action that delivered the bundle as an `openaiFileResponse`, backed by
+static endpoints on the site. It worked, but once the sandbox turned out to be able
+to download the bundle itself the Action was redundant for its own use case, and
+OpenAI restricts who may create or publish GPTs in any case. Nothing about it
+shipped.
 
 ## 1.9.2 — 2026-08-17
 

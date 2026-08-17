@@ -218,23 +218,3 @@ jobs:
           # the release becomes immutable.
           gh release edit "$TAG" --repo "$REPO" --draft=false --latest
           gh release view "$TAG" --repo "$REPO" --json assets -q '.assets[].name'
-
-  # ── Refresh the Custom GPT endpoints ────────────────────────────────────────
-  # The GPT downloads the bundle at run time from
-  # hrtips.github.io/cvx/gpt/bundle.json, which the Pages workflow builds from
-  # `releases/latest`. So Pages has to run AFTER the release exists, or it would
-  # publish the previous version's bundle. This is the step that makes a release
-  # require no manual work on the GPT: there is no ChatGPT API for updating a
-  # Knowledge attachment, so anything shipped inside the GPT would have to be
-  # re-uploaded by hand every time.
-  refresh-gpt-endpoints:
-    needs: release
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write # dispatch the Pages workflow
-    steps:
-      - env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: gh workflow run pages.yml --repo "$REPO" --ref main
