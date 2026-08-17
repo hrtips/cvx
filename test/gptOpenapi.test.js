@@ -71,6 +71,25 @@ describe('Custom GPT action schema', () => {
     ])
   })
 
+  it('keeps the GPT instructions inside the 8000-char box, in a file of their own', () => {
+    // The builder rejects instructions over 8000 characters. They live in
+    // site/gpt/instructions.txt rather than inside docs/custom-gpt.md because
+    // the first version was a fenced block in that document — and the document
+    // (9.8 KB) got pasted instead of the block (5.5 KB), which is a mistake the
+    // layout invited rather than one the person made.
+    const instructions = readFileSync(path.join(ROOT, 'site', 'gpt', 'instructions.txt'), 'utf8')
+    expect(instructions.length).toBeLessThanOrEqual(8000)
+    // The lines that matter most in a sandbox with no shell network.
+    expect(instructions).toMatch(/NEVER run npm install, npm, or npx/)
+    expect(instructions).toMatch(/downloadCvxBundle/)
+    expect(instructions).toMatch(/CURRENT working directory/)
+
+    // And the setup doc must not carry a second copy to drift from.
+    const doc = readFileSync(path.join(ROOT, 'docs', 'custom-gpt.md'), 'utf8')
+    expect(doc).not.toContain('```text')
+    expect(doc).toContain('site/gpt/instructions.txt')
+  })
+
   it('matches the paths the Pages workflow actually publishes', () => {
     // The generator writes gpt/version.json and gpt/bundle.json; a path here that
     // it does not produce would import cleanly and 404 at run time.

@@ -55,6 +55,10 @@ jobs:
           cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
           mkdir -p _site/gpt
           cp site/gpt/openapi.json _site/gpt/openapi.json
+          # Published so the GPT's instructions can be copied straight from a URL.
+          # They live in a file of their own because pasting them out of a longer
+          # document is how they end up over the builder's 8000-char limit.
+          cp site/gpt/instructions.txt _site/gpt/instructions.txt
           ls -la _site
 
       # ── Custom GPT endpoints ──────────────────────────────────────────────
