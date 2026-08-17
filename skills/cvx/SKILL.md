@@ -88,8 +88,8 @@ Apply the answers, re-validate, then build both variants. A truthful thin bullet
   - `main-column-empty` (**fact**) — a multi-page CV whose wide column renders nothing on any page: every page carries only its sidebar. Payload: `pages`. This is *not* the ordinary case of a sidebar outlasting a short experience list (that shape has content on page 1 and runs out later, and is fine). It usually means the layout should carry sections in `main` — see "Student and first-job CVs" below.
   - `experience-empty` (**fact**) — this CV has no experience entries at all: a student or first-job CV. Payload: `fixedPt`, how much of page 1 the summary occupies. It is mutually exclusive with `page1-no-experience`, which needs roles to exist — so on a CV with no work history you get this, never that.
   - `page1-no-experience` — page 1 carries no roles at all, because the summary and identity block leave less room than the smallest piece of the first role. The reader's first page shows no work history; raise it with the user. Two lengths move it: the summary, and the first role's own head (its `description` and `progression` rows are part of the piece that has to fit).
-- `notices` is a separate, plain-text list of notes about the run (a font with no glyph for some text, a layout that fell back to the default). It is not the same field as `diagnostics.warnings`.
-- `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets**. It means **no ink in that column** — a page-1 main column carrying a summary is *not* empty (it used to report `'main'` before `version: 4`'s lineage, which is why older docs explain the difference). A *last* page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it. The one case that is *not* fine is page 1 — and that one arrives as the `page1-no-experience` warning, so you never have to judge it from `emptyColumn` alone.
+- **`--all` restructures stdout**: `cvx build --json` puts `diagnostics` at the top level, while `cvx build --all --json` returns `{outputs: [{filename, diagnostics, …}, …]}` — one entry per variant. A script written against one shape throws on the other, so read `outputs` when you pass `--all`. `notices` is a separate, plain-text list of notes about the run (a font with no glyph for some text, a layout that fell back to the default). It is not the same field as `diagnostics.warnings`.
+- `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets**. It means **no ink in that column** — a page-1 main column carrying a summary is *not* empty (it used to report `'main'` before `version: 4`'s lineage, which is why older docs explain the difference). A *last* page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it — but do READ it: a sidebar that ends early names exactly which sections the CV has nothing for, and "you have no languages or certifications listed — do you have any?" is usually the most useful question left. An underfilled sidebar is a content-gathering prompt, not a layout defect. The one case that is *not* fine is page 1 — and that one arrives as the `page1-no-experience` warning, so you never have to judge it from `emptyColumn` alone.
 
 **What the warnings price, and what you do about it.** The engine states
 conditions and their cost; choosing the edit is your job with the user (that
@@ -97,9 +97,13 @@ split is deliberate — a renderer has no business having opinions about someone
 career). The usual moves, by code:
 
 - `page1-ends-early` / `page1-no-experience` — `shortByPt` is exactly how much
-  must come free for the next role to start on page 1, and **there are two
-  places it can come from**: the fixed content above the roles (the summary,
-  usually), or the blocked role's own head — its `description` and its
+  must come free for the next role to start on page 1. **Check `spacerPt`
+  first**: it is published beside `shortByPt`, it is the layout's own
+  `- spacer: N` above the roles, and it is pure whitespace — editable in
+  `layouts/*.yaml`, costing no words and needing no permission to change text.
+  If it covers the shortfall, that is the cheapest fix there is. Otherwise there
+  are two places the space can come from: the fixed content above the roles (the
+  summary, usually), or the blocked role's own head — its `description` and its
   `progression` rows, which shrinks the piece rather than enlarging the hole.
   The second is invisible if you only read "what is above it", and on a role
   with a promotion table it is often the cheaper of the two. Offer the user the
@@ -121,7 +125,13 @@ That is *not* the same as "layout changes never help", and the two cases are wor
 
 **Rank levers by cost before you recommend one.** Compare `blockedBy.shortByPt` across pages and take the cheapest, not the most comfortable. Greedy top-down packing makes prefix repair monotone: **an edit below a break cannot move content already placed above it** — so a cut in the last role cannot fill page 1. The carve-out that matters: *the blocked role's own head is an input to its break*, so shrinking that role's `description` or `progression` does move the break even though the role sits below it.
 
-**Tighten the template before you cut the text.** `cv-content/layouts/*.yaml` takes a `spacing:` block of multipliers on the theme's own vertical whitespace — `1` is unchanged, and the legible range is `0.6`–`1.5` (outside it is a validation error, not a silent clamp):
+**Tighten the template before you cut the text.** Two levers live in
+`cv-content/layouts/*.yaml`, and the smaller one is easy to miss: a literal
+`- spacer: N` in a `main` slot is N points of plain whitespace between the
+sections around it. It is local, it is not content, and its value *is* the
+budget you can reclaim — dropping 27 to 14 frees 13pt at page 1, which is often
+the whole shortfall. `plan_layout` publishes it as `main.spacerPt`. The other
+lever is global: `cv-content/layouts/*.yaml` also takes a `spacing:` block of multipliers on the theme's own vertical whitespace — `1` is unchanged, and the legible range is `0.6`–`1.5` (outside it is a validation error, not a silent clamp):
 
 ```yaml
 spacing:
@@ -135,6 +145,8 @@ Prefer `entryGap` alone: it compresses the gaps between jobs and leaves the read
 **Check for text that is already on the page.** Before proposing any cut, look for duplication across sections — a summary bullet listing awards that the `achievements` sidebar prints beside it, or skills restated in both the summary and `competencies`. On a real CV a single duplicated summary bullet was 48pt of the 53.64pt needed, and removing it lost no fact at all. This is the cheapest edit that exists and it is invisible to a grammar pass.
 
 **Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither do you. If the CV is longer than the user wants, name the options and what each one costs — *"we could cut the two oldest roles to 2 bullets each, or drop the publications section — which would you prefer?"* — and let them decide. Once they've given you direction, editing the text is your job: tighten the prose, make the cut they chose, and say what you changed each time you change it. The rule is that the user decides *what* goes, not that you may never act.
+
+**Under a "don't change the text" brief the hierarchy inverts.** The template levers stop being what you try first and become the *only* thing you may touch, and the review step changes character with them: its job is no longer to tighten prose but to surface every decision the author has to make — including their own typos, which are theirs to keep or fix. Distinguish an author's typo from a `pdftotext` wrap artifact by where the join sits: mid-line is the author's, at a wrap point is the tool's.
 
 **Don't promise a page count for an edit you haven't planned.** Cuts don't map to pages the way they look like they should: on the shipped example CV, dropping the whole publications section still renders 3 pages (page 3 holds the referees), and so does trimming the two oldest roles to 2 bullets each. Sidebar and main are two independent flows, and the page count is the longer of them — so removing main-column text can leave the total untouched. If the user wants a number, make the edit and re-run `plan_layout`.
 
@@ -177,11 +189,11 @@ pdftotext -layout original.pdf -   # read the text with its visual structure
 pdfimages -png original.pdf img    # pull the photo; convert/rename to cv-content/images/profile.jpg
 ```
 
-Transcribe **verbatim** into the nearest honest section — never relabel content under a heading that misrepresents it (a "Training / Courses" list belongs in `certifications.yaml` and will render as "Certifications"; that's an honest home with a different label, so tell the user about the rename). What the schema can't express, disclose instead of approximating silently: grouped skills flatten to one tag cloud, education details (GPA, specialization) fold into the `institution` string, a paragraph summary becomes bullets, inline bold is lost.
+Transcribe **verbatim** into the nearest honest section — never relabel content under a heading that misrepresents it (a "Training / Courses" list belongs in `certifications.yaml` and will render as "Certifications"; that's an honest home with a different label, so tell the user about the rename). What the schema can't express, disclose instead of approximating silently: grouped skills flatten to one tag cloud, education details (GPA, specialization) fold into the `institution` string, a paragraph summary becomes bullets, inline bold is lost. **A personal-details block** (full legal name distinct from the display name, date of birth, civil status, nationality) **and a signed declaration** — both conventional in South Asian, Middle Eastern and several African markets — have no home at all. Dropping them is usually the better CV for a Western-market application, because DOB and civil status invite bias screening; say that, and let the author decide, rather than leaving them to notice the text went missing.
 
 **Promotions within one employer are a layout decision, not just an ATS one.** You can model them as one entry with a `progression` table, or as separate entries — both are truthful, and the guide recommends separate entries so ATS keyword derivation sees every title. What neither says is that the choice moves the page break: a `progression` table is welded into the entry's indivisible head, so an entry carrying one is much harder to start on a part-full page. Measured on a real CV, the two modellings of the *same four promotions* differed by a whole page-1 column (`main.fill` 0.767 vs 0.985) and by whether `page1-ends-early` fired at all. If page 1 is ending early on an entry with a promotion table, try the other modelling before proposing any cut — it changes no facts.
 
-After the build, prove nothing was lost: extract the new PDF's text in **reading order** (`pdftotext` *without* `-layout` — layout mode interleaves the two columns and breaks phrases that wrap), normalize whitespace, and check that a few dozen distinctive strings from the original — every name, phone number, date, grade, URL — appear. Anything missing is either a wrap artifact (check the normalized text) or genuine loss; find out which before handing over.
+After the build, prove nothing was lost: extract the new PDF's text in **reading order** (`pdftotext` *without* `-layout` — layout mode interleaves the two columns and breaks phrases that wrap), normalize whitespace, and check that a few dozen distinctive strings from the original — every name, phone number, date, grade, URL — appear. Do this for **both** PDFs, not just the designed one: they are built from one folder by one command and can still differ, and checking only one hides exactly that. Anything missing has three possible causes, and the third is the one that will not occur to you: a wrap artifact (check the normalized text), genuine loss, or **a section your layout has no slot for** — present and valid in the YAML, rendered in the ATS variant, and never placed in the designed one. The build reports that last one as `section-has-no-slot`, but the fidelity check is what caught it before the code did; the first two causes are about text and the third is about configuration, so go read `layouts/*.yaml` rather than hunting the prose.
 
 ## Rules that are not optional
 
@@ -203,7 +215,7 @@ Every scaffolded file carries a `$schema` header, pinned to the CVX release that
 - `languages.yaml`: list of `{language, proficiency}` — `proficiency` is free text (Native, Professional, …).
 - `competencies.yaml`: 6–12 short skill strings.
 - `achievements.yaml`: list of `{year, text}` — `year` is the bold headline (often the award name), `text` the attribution.
-- `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` to print "References available upon request." Modern guidance treats even that line as filler — offer to drop the section (a layout without the `referees` slot) and reclaim the space.
+- `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]`. **The shipped `two-column` layout has no `referees` slot** (it costs ~231pt), so on the default designed CV this file renders *nothing* — populated or not — while the ATS variant renders it either way. `[]` prints "References available upon request." only where a slot exists, which today means the ATS variant. Put content in this file and the build now says so: `section-has-no-slot`, a defect, because your two deliverables would otherwise differ without you knowing. To render it in the designed CV, add `referees` to a sidebar slot in `cv-content/layouts/two-column.yaml`.
 - `keywords.yaml` (optional): extra truthful ATS keywords not already covered by competencies/titles; embedded in PDF metadata, never printed.
 - `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename). Pagination is automatic — the old page-1 keys were removed; if a legacy config still has them, validation says so and they are ignored.
 

@@ -25,6 +25,7 @@ import {
   findUnsupportedGlyphs
 } from './measure.js'
 import { PHOTO_EXTENSIONS } from './profilePhoto.js'
+import { resolveDocument } from './resolveDocument.js'
 import { THEMES } from './themes/index.js'
 import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 
@@ -390,13 +391,62 @@ export function validateContent(
   // there is nothing to lose by skipping it when the news is already bad.
   const config = /** @type {import('./types.js').CVConfig} */ (docs.config ?? {})
   if (errors.length === 0 && Array.isArray(docs.experience) && docs.personal) {
-    const theme = THEMES[/** @type {string} */ (config.theme)] ?? THEMES.teal
     try {
+      // Through the SAME chain the build uses. This block used to call
+      // `planTwoColumn` with a theme looked up by name and NO layout, so
+      // `validate` estimated a different document than `build` rendered
+      // whenever a workspace had its own `layouts/*.yaml` — the divergence
+      // ARCHITECTURE §8 tracked. Two things made that load-bearing rather than
+      // untidy: D11's `spacing:` block lives on the layout and scales the theme
+      // the measurements come from, and `section-has-no-slot` below is a
+      // statement ABOUT the layout, invisible to a plan built without it (the
+      // built-in default renders `referees`; the shipped layout file does not,
+      // which is the whole defect).
+      const layoutName = /** @type {string} */ (config.layout ?? 'two-column')
+      const layoutPath = join(contentDir, 'layouts', `${layoutName}.yaml`)
+      let userLayout
+      if (existsSync(layoutPath)) {
+        // A layout that fails to parse or validate is reported by its own
+        // findings below; here it just means "estimate against the default".
+        try {
+          userLayout = normalizeLayout(
+            /** @type {import('./types.js').RawLayout} */ (
+              loadYaml(readFileSync(layoutPath, 'utf8'))
+            )
+          )
+        } catch {
+          userLayout = undefined
+        }
+      }
+      const resolved = resolveDocument({
+        config,
+        theme: THEMES[/** @type {string} */ (config.theme)],
+        layout: userLayout
+      })
       const plan = planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
-        theme,
+        layout: resolved.activeLayout,
+        theme: resolved.activeTheme,
         measure
       })
+      // Content the layout renders nowhere — the same predicate `build` reports
+      // as `section-has-no-slot`, surfaced here so it is caught before a build
+      // rather than after one.
+      // A WARNING here and a DEFECT in the build diagnostics, deliberately, and
+      // the asymmetry is the point rather than an oversight. `validate` asks
+      // whether the workspace is well-formed, and this one is: keeping a
+      // populated `referees.yaml` for the ATS variant while the designed layout
+      // omits the slot is a legitimate setup, and the only escape hatch an
+      // error would leave is emptying the file — which drops the content from
+      // the ATS PDF too. `build` asks whether the artifact matches the content,
+      // and there the answer is no: the two PDFs differ. Same condition, two
+      // honest answers to two different questions.
+      for (const key of plan.unplacedSections ?? []) {
+        add('warning', `${key}.yaml`, 'section-has-no-slot', {
+          message: `"${key}" has content, and no slot in layout "${layoutName}" renders it — it will appear in the ATS PDF and not in the designed one`,
+          suggestion: `add "${key}" to a slot in cv-content/layouts/${layoutName}.yaml, or empty the file if the omission is intended`
+        })
+      }
       for (const w of overflowWarnings(plan)) {
         add('warning', 'summary.yaml', 'page-overflow', {
           message: w.message,

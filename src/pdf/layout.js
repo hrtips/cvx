@@ -1393,13 +1393,14 @@ export function packExperiences(
       continuationChunks: [],
       totalPages: 1,
       pageMetrics: [
-        {
+        /** @type {{ used: number, budget: number, capacity: number, spacerPt: number, blockedBy: null }} */ ({
           used: 0,
           budget: quantize(capacity - sumH - spacer1),
           capacity,
+          spacerPt: quantize(spacer1),
           // Nothing was blocked: there is no next entry to name.
           blockedBy: null
-        }
+        })
       ]
     }
   }
@@ -1430,6 +1431,15 @@ export function packExperiences(
       capacity: quantize(
         i === 0 ? mainColumnCapacity(m, m.mainPad) : mainColumnCapacity(m, m.contPad)
       ),
+      // The literal `- spacer: N` this page's main slot declares (D5 made the
+      // planner charge the declared value rather than a theme constant). It is
+      // published because it is the CHEAPEST lever there is for a small
+      // shortfall — pure whitespace, editable in the layout file, costing no
+      // words — and the 1.8.0 dogfood found an author with a "don't change the
+      // text" brief discovering it by reading the YAML, because
+      // `page1-ends-early` named only content edits. A number beside
+      // `shortByPt` turns that judgement into arithmetic.
+      spacerPt: quantize(i === 0 ? spacer1 : (slots.contSpacerPt ?? 0)),
       blockedBy: blockedBy ? { ...blockedBy, entry: experience[blockedBy.index] ?? null } : null
     }))
   }
@@ -2074,6 +2084,52 @@ export const MEASURED_MAIN_KEYS = Object.freeze(['summary', 'experience'])
 const slotKey = (slot) => String(slot ?? '').split(':')[0]
 
 /**
+ * Every section key a layout can render, in either column. `contact` is here
+ * because a slot draws it, even though its content lives in `personal.yaml`.
+ */
+const RENDERABLE_SECTION_KEYS = Object.freeze([...MEASURED_MAIN_KEYS, ...SIDEBAR_SECTION_KEYS])
+
+/**
+ * Content sections that are POPULATED but that no slot in this layout renders —
+ * so the designed PDF silently omits them.
+ *
+ * The 1.8.0 dogfood found this the hard way: `referees.yaml` with a real
+ * referee in it rendered in the ATS variant and vanished from the designed one,
+ * with `validate --strict` clean and both builds reporting nothing. It is the
+ * shipped DEFAULT: `layouts/two-column.yaml` deliberately omits `referees`
+ * (~231pt), so anyone who fills that file in loses it from the designed CV.
+ *
+ * Why the engine cannot just render it anyway: a section with no slot has no
+ * position — the layout IS the statement of where things go, and inventing a
+ * place for an unplaced section would override the designer (§7.3). So the
+ * honest move is not to place it, but to say so. That is INV-5: the content is
+ * still in `cv-content/` and still in the ATS variant, and the one unacceptable
+ * outcome is the user not knowing the two deliverables differ.
+ *
+ * `contact` and the identity blocks are excluded because they are drawn from
+ * `personal.yaml` by their own slots, and `keywords` is metadata that is never
+ * drawn at all.
+ *
+ * @param {import('./types.js').CVContent} content
+ * @param {{ first?: { main?: unknown[], sidebar?: unknown[] }, continuation?: { main?: unknown[], sidebar?: unknown[] }, last?: { main?: unknown[], sidebar?: unknown[] } }} layout
+ * @returns {string[]} populated-but-unplaced section keys, in content order
+ */
+function unplacedSections(content, layout) {
+  const placed = new Set()
+  for (const page of [layout?.first, layout?.continuation, layout?.last]) {
+    for (const slot of [...(page?.main ?? []), ...(page?.sidebar ?? [])]) {
+      const key = slotKey(slot)
+      if (key) placed.add(key)
+    }
+  }
+  const populated = (/** @type {string} */ key) => {
+    const v = /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (content))?.[key]
+    return Array.isArray(v) ? v.length > 0 : Boolean(v)
+  }
+  return RENDERABLE_SECTION_KEYS.filter((key) => populated(key) && !placed.has(key))
+}
+
+/**
  * Which sections a layout puts in a `main` slot that {@link MEASURED_MAIN_KEYS}
  * does not cover — deduplicated, in first-seen order, across every page kind
  * (a section unmeasured on continuation pages is just as unpriced as one on
@@ -2474,6 +2530,12 @@ export function planTwoColumn({
      * planner starts measuring these and the array is empty by construction.
      */
     unmeasuredMainKeys: unmeasuredMainKeys(layout),
+    /**
+     * Populated content sections no slot in this layout renders — present in
+     * `cv-content/` and in the ATS variant, absent from this designed PDF.
+     * `layoutDiagnostics` turns it into the `section-has-no-slot` defect.
+     */
+    unplacedSections: unplacedSections(content, layout),
     mainPageCount: main.totalPages,
     sidebarPageCount: sidebar.totalPages,
     pages: Array.from({ length: totalPages }, (_, index) => {
@@ -2493,8 +2555,19 @@ export function planTwoColumn({
       const mainRow = main.pageMetrics[index] ?? null
       const sidebarRow = sidebar.pageMetrics[index] ?? null
       const fillOf = (
-        /** @type {{ used: number, budget: number, capacity: number } | null} */ r
-      ) => (r ? { used: r.used, budget: r.budget, capacity: r.capacity } : null)
+        /** @type {{ used: number, budget: number, capacity: number, spacerPt?: number } | null} */ r
+      ) =>
+        r
+          ? {
+              used: r.used,
+              budget: r.budget,
+              capacity: r.capacity,
+              // Carried through rather than dropped: the sidebar rows have no
+              // spacer, so this stays undefined there and the diagnostics
+              // publish null.
+              ...(r.spacerPt === undefined ? {} : { spacerPt: r.spacerPt })
+            }
+          : null
       const mainFill = fillOf(mainRow)
       const sidebarFill = fillOf(sidebarRow)
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>

@@ -331,6 +331,11 @@ export interface ColumnFill {
   used: number
   budget: number
   /**
+   * The layout's declared `- spacer: N` charged to this column on this page.
+   * Absent on the sidebar, which has no spacer slot.
+   */
+  spacerPt?: number
+  /**
    * The whole column this page offers, before ANY content — fixed or packed —
    * is charged: body box minus badge (main only), pads, and the safety
    * backstop. `capacity − budget` is the page's fixed content (summary +
@@ -446,6 +451,12 @@ export interface LayoutPlanPage {
 export interface LayoutPlan {
   totalPages: number
   /**
+   * Populated content sections no slot in this layout renders — present in
+   * `cv-content/` and the ATS variant, absent from the designed PDF. Drives the
+   * `section-has-no-slot` defect.
+   */
+  unplacedSections?: string[]
+  /**
    * Sections a `main` slot names that the packer does not measure (I1). Empty
    * for every shipped layout; non-empty means `totalPages` and `overflowPt`
    * describe less ink than the pages carry, which `layoutDiagnostics` states
@@ -506,6 +517,14 @@ export interface ColumnDiagnostics {
   capacityPt: number | null
   /** `capacityPt − budgetPt`: this page's fixed content, pt. `null` when the flow ended earlier. */
   fixedPt: number | null
+  /**
+   * The layout's declared `- spacer: N` charged to this column on this page,
+   * or null where none applies (the sidebar has no spacer). The one part of
+   * the fixed content that is WHITESPACE rather than text, and therefore the
+   * cheapest lever for a small shortfall — published so that comparing it with
+   * `blockedBy.shortByPt` is arithmetic rather than a discovery.
+   */
+  spacerPt?: number | null
   /**
    * Why the next block did not start on this page (§3.8): identity, its
    * smallest legal piece, the room that was left, and `shortByPt` — the ONE
@@ -663,6 +682,7 @@ export interface LayoutDiagnosticWarning {
     | 'physical-pages-exceed-plan'
     | 'experience-empty'
     | 'main-column-empty'
+    | 'section-has-no-slot'
   /**
    * CVX classifying its own message (architecture review 4a): 'defect' =
    * something is wrong, act on it; 'fact' = true and priced, act only if the
@@ -704,6 +724,13 @@ export interface LayoutDiagnosticWarning {
   planned?: number
   /** physical-pages-exceed-plan only: sheets the rendered PDF actually has. */
   physical?: number
+  /**
+   * The layout's declared `spacer: N` charged to this column on this page, or
+   * null where none applies (the sidebar has no spacer). The one part of the
+   * fixed content that is whitespace rather than text — the cheapest lever for
+   * a small shortfall.
+   */
+  spacerPt?: number | null
   /** page1-ends-early only: page 1's fixed content (summary + spacer + section title) — the lever. */
   fixedPt?: number
   nextRole?: string | null

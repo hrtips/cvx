@@ -9,6 +9,56 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
+## Unreleased
+
+**A populated section that no layout slot renders is no longer dropped in
+silence.** The 1.8.0 dogfood found it on the shipped default: put a real
+referee in `referees.yaml`, and it appears in the ATS PDF and vanishes from the
+designed one — while `validate --strict` reports ok with zero findings and the
+build reports nothing at all. `layouts/two-column.yaml` omits the `referees`
+slot deliberately (it costs ~231pt), so this reached every user of the default
+layout who filled that file in. It is not referees-specific: any populated
+section whose key appears in no slot behaves the same way.
+
+It evaded every existing guard because each of them watches content that
+reached the packer — this is content the layout never handed it. The fix is
+disclosure rather than placement, because a section with no slot has no
+position and inventing one would override the designer: `build` now reports
+`section-has-no-slot` (a **defect** — one command produced two documents that
+do not contain the same information), and `validate` reports it as a warning
+before you build. An empty file stays silent, since omitting the "references
+available upon request" line is documented intent.
+
+**`validate` now measures the document the build renders.** It was calling the
+planner with no layout and a theme looked up by name, so on any workspace with
+its own `layouts/*.yaml` it estimated a different document than `build`
+produced — and after 1.8.0's `spacing:` block, a differently-scaled one too. It
+goes through `resolveDocument`, the same chain the renderer uses. This is what
+makes the defect above visible to `validate` at all: the built-in default
+renders `referees`, and the shipped layout file does not.
+
+**The page-1 warning now names the lever that costs no words.** `spacerPt` is
+published beside `shortByPt`, on the warning and on every page's column
+diagnostics. It is the layout's own `- spacer: N` — plain whitespace, editable
+in `layouts/*.yaml` — and for a small shortfall it is the cheapest fix
+available. An author with a "don't change the text" brief previously had to
+find it by reading the YAML, because every documented lever was a content edit.
+
+**Docs corrected from the same run.** The ai-guide's capability probe told
+assistants to run `timeout 30s npx …`; `timeout` is GNU coreutils and macOS
+does not ship it, so the probe failed with `command not found` on a machine
+where `npx` works — and the guide's own "any error means switch to the
+fallback" rule then cost the user their PDF. The guide now uses the runtime's
+timeout and says a shell error is not an npm error. SKILL.md's claim that
+`referees: []` prints "References available upon request" was false on the
+shipped designed layout (no slot); the content-fidelity check now names the
+third cause of a missing string (a section with no slot) and says to run it on
+both variants; `--all` restructuring `--json` stdout into `outputs` is
+documented; the personal-details block and signed declaration conventional in
+South Asian, Middle Eastern and African CVs are named in the can't-express
+list; and a "don't change the text" brief is documented as promoting the
+template levers from first-resort to only-resort.
+
 ## 1.8.0 — 2026-08-17
 
 **Two ways a CV could lose a whole section, silently, are gone.** Both were

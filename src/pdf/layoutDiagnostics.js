@@ -90,7 +90,16 @@ function columnFill(f) {
     usedPt: pt(f.used),
     budgetPt: pt(f.budget),
     capacityPt: pt(f.capacity),
-    fixedPt: pt(fixed)
+    fixedPt: pt(fixed),
+    /**
+     * The layout's own `- spacer: N` charged to this column on this page.
+     * Published because it is the one part of the fixed content that is
+     * WHITESPACE: for a small shortfall it is the cheapest lever there is, and
+     * the 1.8.0 dogfood found an author under a "don't change the text" brief
+     * discovering it by reading the YAML, because every documented lever was a
+     * content edit.
+     */
+    spacerPt: f.spacerPt === undefined ? null : pt(f.spacerPt)
   }
 }
 
@@ -141,6 +150,49 @@ function bulletsOn(entry) {
     bullets: end - start,
     ofBullets: all.length
   }
+}
+
+/**
+ * Content the user supplied that this layout renders nowhere.
+ *
+ * The defect the 1.8.0 dogfood found: a populated `referees.yaml` appears in
+ * the ATS PDF and not in the designed one, with `validate --strict` clean and
+ * both builds silent — in the SHIPPED DEFAULT layout, which omits the slot.
+ * Every other content-loss guard in the engine watches text that reached the
+ * packer; this one watches text that never got that far, which is why nothing
+ * caught it. INV-0 is about what the renderer does with content it is given;
+ * this is content the layout never hands it.
+ *
+ * `kind: 'defect'`, and the reason is the divergence rather than the omission:
+ * one `build --all` produces two documents from one folder that do not contain
+ * the same information, and a user sending one to a recruiter and the other to
+ * a portal has no way to know. Leaving a section out is a legitimate choice —
+ * the default layout makes it deliberately, for 231pt — but it has to be a
+ * choice, not a silence.
+ *
+ * Per R-F the message names the condition and where the content did and did not
+ * go; whether to add the slot or empty the file is the caller's, and the skill
+ * teaches both moves.
+ *
+ * @param {import('./types.js').LayoutPlan} plan
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function sectionHasNoSlot(plan) {
+  const keys = plan.unplacedSections ?? []
+  if (keys.length === 0) return []
+  const list = keys.join(', ')
+  const one = keys.length === 1
+  return [
+    {
+      code: /** @type {const} */ ('section-has-no-slot'),
+      kind: /** @type {const} */ ('defect'),
+      keys: [...keys],
+      message:
+        `${list} ${one ? 'has' : 'have'} content, and no slot in this layout ${one ? 'renders it' : 'renders them'}: ` +
+        `${one ? 'it is' : 'they are'} in cv-content/ and in the ATS variant, and absent from this designed PDF. ` +
+        `The two documents a single build produces therefore differ.`
+    }
+  ]
 }
 
 /**
@@ -381,6 +433,8 @@ function page1EndsEarly(pages) {
       smallestPiecePt: d.smallestPiecePt,
       gapBeforePt: d.gapBeforePt,
       fixedPt: fixed,
+      /** The layout's spacer above the roles — the lever that costs no words. */
+      spacerPt: page1.main.spacerPt ?? null,
       nextRole: d.role,
       // D4: both branches used to claim the content ABOVE the roles was the
       // only lever ("freed anywhere above this role" / "page 1 is as full as
@@ -395,7 +449,11 @@ function page1EndsEarly(pages) {
           `Page 1's fixed content above the roles is ${fixed}pt (the summary, its spacer and ` +
           `the section title). Two edits close the gap: free ${d.shortByPt}pt above this role ` +
           `(the summary is the usual place), or take ${d.shortByPt}pt out of the role's own ` +
-          `head — its description or its progression rows — which shrinks the piece itself.`
+          `head — its description or its progression rows — which shrinks the piece itself.` +
+          (page1.main.spacerPt
+            ? ` ${page1.main.spacerPt}pt of the fixed content is the layout's own spacer, which is ` +
+              `whitespace rather than text.`
+            : '')
         : opening +
           `The fixed content above the roles is only ${fixed}pt in total, less than the ` +
           `${d.shortByPt}pt this role needs, so no edit above the roles can move it. ` +
@@ -540,6 +598,9 @@ export function layoutDiagnostics(plan) {
       message: w.message
     })),
     ...page1WithoutExperience(pages),
+    // Defects before facts — section-has-no-slot is a defect, so it belongs in
+    // this group and not after page1EndsEarly, which is a priced fact.
+    ...sectionHasNoSlot(plan),
     ...page1EndsEarly(pages),
     ...experienceEmpty(pages),
     ...mainColumnEmpty(pages, plan.totalPages, plan.unmeasuredMainKeys ?? []),
