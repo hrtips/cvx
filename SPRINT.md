@@ -180,18 +180,4 @@ them if that ever changes.
 - Git-history redaction of the pre-consolidation dogfooding report (names
   were redacted in the working tree 2026-08-14; history rewrite is a
   maintainer call).
-- **§7.3's cut list is now two steps out of date.** It cuts "container image /
-  standalone executables / … / GPT Actions", and §7.4 repeats "Rejected: container
-  image, standalone executables". Since then: 1.9.0 shipped a single-file JS
-  bundle, and 2026-08-18 shipped a GPT Action by explicit maintainer override. The
-  bundle does not contradict the list (it requires Node, so it is not a standalone
-  executable) but a reader cannot tell that distinction was deliberate rather than
-  eroded, and the GPT Actions entry is now simply false. What genuinely stayed cut,
-  on evidence: native executables (+110 MB, and reinstates a platform matrix to
-  solve "no Node", a problem no measured target has) and container images (the
-  sandbox has no container runtime at all). §7.3 needs the amendment; only the
-  maintainer should write it.
-- **Where the ChatGPT limitations report lives.** Untracked in the working tree
-  as `cvx-chatgpt-environment-limitations.md`; it is the source document for
-  1.9.0 and `research/` is deliberately split, so committing it is a maintainer
-  call.
+- *(none open)*

@@ -845,6 +845,22 @@ written down).
   investment**: the standing cut list — solo-maintainer economics and the
   dumb-instrument thesis. (The awesome-mcp-servers PR died on this: its only
   merge path required the Glama container gate.)
+  - **GPT Actions — tried and re-cut, 2026-08-18.** The ruling was overridden
+    to get a ChatGPT UX working: a Custom GPT with an Action that delivered the
+    standalone bundle as an `openaiFileResponse`, backed by static endpoints on
+    the Pages site. It worked. It was removed the same day, and the entry stands
+    — because the sandbox turned out to be able to download the bundle itself,
+    which makes the Action redundant for the one job it existed to do, and
+    because OpenAI restricts who may create or publish GPTs at all. What
+    replaced it costs nothing to maintain: the landing page carries the
+    instructions, and the assistant fetches the release asset. Nothing shipped.
+  - **The single-file JS bundle (1.9.0) is NOT a breach of "standalone
+    executables"**, and the distinction is deliberate rather than eroded: it
+    requires Node, so it is a distribution format for a runtime that already
+    exists, not a runtime we ship. Native executables stayed cut on the
+    measurement — +110 MB, and a per-platform build matrix to solve "no Node",
+    a problem no measured target environment has. Container images stayed cut
+    because the sandboxes this is for have no container runtime at all.
 - **Positioning claim discipline**: never "the only local MCP PDF renderer"
   (falsified by mcp-z/mcp-pdf, Reactive Resume MCP, cf-rendercv); the honest
   claim is "the only complete, validated CV workflow an AI agent can drive
