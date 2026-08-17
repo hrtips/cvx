@@ -73,6 +73,8 @@ node cvx.bundle.min.js build --json      # --ats, --all, list: all the same
 
 It writes `cv-content/` and the PDF into the **current working directory**, so `cd` first and stay there.
 
+**Download it with the shell, not a GitHub integration.** If you have a GitHub connector or repo tool, do not use it for this: it can read repository and release *metadata*, but it does not follow the binary release-asset redirect, and it fails in a way that reads as "this sandbox cannot download" — which is wrong, and costs the user a round trip asking them to upload a file you could have fetched. **One tool failing is not evidence that the sandbox has no network.** Work down the list before concluding anything.
+
 **If `curl` is blocked, try these in order and stop at the first that works** — one attempt each, and report one line rather than narrating every failure:
 
 1. Python: `python3 -c "import urllib.request;urllib.request.urlretrieve('https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip','cvx.bundle.min.js.zip')"`

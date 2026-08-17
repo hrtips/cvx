@@ -53,6 +53,8 @@ unzip -o -q cvx.bundle.min.js.zip
 node cvx.bundle.min.js --version      # same commands, flags, exit codes, --json
 ```
 
+**Download it with the shell, not a GitHub integration.** If you have a GitHub connector or repo tool, do not use it for this: it can read repository and release *metadata*, but it does not follow the binary release-asset redirect, and it fails in a way that reads as "this sandbox cannot download" — which is wrong, and costs the user a round trip asking them to upload a file you could have fetched. **One tool failing is not evidence that the sandbox has no network.** Work down the list before concluding anything.
+
 Same engine, byte-identical PDFs. If `curl` is blocked, try in order: Python's `urllib.request.urlretrieve` on that URL, your own download tool, a copy already on disk (`ls /mnt/data | grep -i cvx` — glob `cvx*.bundle*.js*`, since a release attaches versioned and unversioned names with the same bytes), then ask the user to upload it from [the latest release](https://github.com/hrtips/cvx/releases/latest). Stop at the first that works and say one line about it — never narrate a string of failed attempts.
 
 It writes `cv-content/` and the PDF into the **current working directory**, so `cd` first and stay there. `cvx mcp` is not in the bundle, and `.js` theme files dropped beside it are ignored on purpose.
