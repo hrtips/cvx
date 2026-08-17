@@ -35,6 +35,15 @@ let _discovered = null
 export async function discoverThemes() {
   if (_discovered) return _discovered
 
+  // In the single-file standalone bundle there is no themes directory: __dir is
+  // wherever the user dropped cvx.bundle.js — typically their working directory
+  // — so scanning it would import unrelated .js files found next to the bundle.
+  // STATIC_THEMES above is complete for every theme CVX ships.
+  if (process.env.CVX_STANDALONE) {
+    _discovered = STATIC_THEMES
+    return STATIC_THEMES
+  }
+
   try {
     const files = readdirSync(__dir).filter((f) => f.endsWith('.js') && f !== 'index.js')
 

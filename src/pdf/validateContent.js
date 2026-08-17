@@ -31,10 +31,11 @@ import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 
 const Ajv2020 = /** @type {any} */ (Ajv2020Module).default ?? Ajv2020Module
 
+// CVX_ASSET_ROOT overrides the package root for the standalone bundle, whose
+// schema is extracted to a directory rather than sitting beside the code
+// (unset in a normal install; see scripts/build-standalone.js).
 const SCHEMA_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..',
+  process.env.CVX_ASSET_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..', '..'),
   'schema',
   'v1',
   'cvx.schema.json'

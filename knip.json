@@ -2,7 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "scripts/*.js",
-    "test/**/*.{test.js,js}"
+    "test/**/*.{test.js,js}",
+    "src/standalone/entry.js"
   ],
   "project": [
     "src/**/*.{js,jsx}",
@@ -13,5 +14,8 @@
     "pdftoppm",
     "pdftotext",
     "pdfinfo"
+  ],
+  "ignoreDependencies": [
+    "cvx"
   ]
 }

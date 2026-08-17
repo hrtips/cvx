@@ -28,8 +28,14 @@ import { cpSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-/** Repo root in a checkout, package root in an install — same two levels up. */
-const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+/**
+ * Repo root in a checkout, package root in an install — same two levels up.
+ * CVX_ASSET_ROOT overrides it for the standalone bundle, whose assets are
+ * extracted to a directory rather than sitting beside the code (unset in a
+ * normal install; see scripts/build-standalone.js).
+ */
+const pkgRoot =
+  process.env.CVX_ASSET_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 /** @type {string} The template every scaffold is a copy of. */
 export const TEMPLATE_DIR = join(pkgRoot, 'template', 'cv-content')

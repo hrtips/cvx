@@ -23,13 +23,23 @@ on:
     tags: ['v*.*.*']
   workflow_dispatch:
 
+# Least privilege at the workflow level; each job opts into what it needs.
+#
+# `id-token: write` deliberately does NOT live here. It mints the npm Trusted
+# Publishing identity, and a workflow-level grant hands that identity to every
+# job in the file — which was harmless while this workflow had one job, and
+# stopped being harmless the moment the `release` job below was added. Scoped to
+# `publish` instead, where it is the credential; zizmor's excessive-permissions
+# audit catches the regression if it ever drifts back up here.
 permissions:
   contents: read
-  id-token: write # npm --provenance attestation via GitHub OIDC
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm --provenance attestation via GitHub OIDC
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,3 +76,114 @@ jobs:
       - name: Publish stable
         if: github.event_name == 'push'
         run: npm publish --provenance --access public
+
+  # ── GitHub Release + standalone bundle ──────────────────────────────────────
+  #
+  # Why this job exists: it didn't, and the Releases page silently fell two
+  # versions behind npm. v1.8.0 and v1.8.1 were tagged, published and
+  # ANNOTATED with full release notes, but `releases/latest` still pointed at
+  # v1.7.2 — because creating the release was a manual step someone had to
+  # remember, and the notes were already written somewhere the automation
+  # never looked.
+  #
+  # So the notes come from the annotated tag (`--notes-from-tag`). That is not
+  # a convenience: it means the release text has ONE source, the thing the
+  # maintainer already writes when cutting a version, and there is no second
+  # place to keep in sync. A lightweight tag with no annotation fails the job
+  # rather than publishing an empty release.
+  #
+  # Separate job, not extra steps above, so `contents: write` is scoped to the
+  # job that needs it and never granted to the one holding the npm OIDC
+  # identity. `needs: publish` because a GitHub Release for a version that
+  # failed to reach npm would advertise something nobody can install.
+  release:
+    needs: publish
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release, upload its assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-tags: true # --notes-from-tag needs the annotation, not just the commit
+      # zizmor: ignore[cache-poisoning]
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build:standalone
+
+      # Never attach an artifact nobody has run. This is the sandbox the bundle
+      # exists for, reproduced as closely as a runner allows: the file alone in
+      # an empty directory, no node_modules above it, a scrubbed environment.
+      # Not a network-off test (CI cannot drop the runner's network mid-job);
+      # test/standalone.test.js covers that with every network primitive rigged
+      # to throw, and it has already run in `npm test` above.
+      - name: Smoke-test the bundle in an empty directory
+        run: |
+          set -euo pipefail
+          DIR="$(mktemp -d)"
+          cp dist/cvx.bundle.js "$DIR/"
+          cd "$DIR"
+          env -i PATH="$PATH" HOME="$HOME" node ./cvx.bundle.js --version
+          env -i PATH="$PATH" HOME="$HOME" node ./cvx.bundle.js init
+          env -i PATH="$PATH" HOME="$HOME" node ./cvx.bundle.js build --json > out.json
+          node -e '
+            const r = require(process.argv[1] + "/out.json")
+            if (!r.ok) { console.error("build reported failure", r); process.exit(1) }
+            const pdf = require("node:fs").readFileSync(process.argv[1] + "/" + r.filename)
+            if (pdf.subarray(0, 5).toString() !== "%PDF-") { console.error("not a PDF"); process.exit(1) }
+            console.log("bundle ok:", r.filename, r.bytes, "bytes,", r.diagnostics.totalPages, "pages")
+          ' "$DIR"
+
+      # Both names are attached: the versioned one is what a user keeps and can
+      # still identify months later, the unversioned one is what keeps
+      # releases/latest/download/cvx.bundle.js a stable URL for the docs and for
+      # refreshing a Custom GPT Knowledge file.
+      #
+      # `cmp`, not `sha256sum --check`: the latter only re-verifies each file
+      # against its own recorded hash, which is trivially true seconds after
+      # writing it. What actually matters is that the two names hold the SAME
+      # bytes, because the stable URL would otherwise be able to serve something
+      # other than the release it is named after.
+      - name: Checksum, and prove the two names are one artifact
+        run: |
+          cd dist
+          cmp cvx-*.bundle.js cvx.bundle.js
+          sha256sum cvx-*.bundle.js cvx.bundle.js > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # TAG via env, never inlined into the script: a ref interpolated straight
+      # into `run` is a template-injection sink (zizmor). Idempotent on purpose
+      # — re-running a release must not fail on "already exists", and must
+      # refresh the assets rather than leaving a stale bundle attached.
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # The annotation splits cleanly into the two fields a release needs:
+          # subject → title, body → notes. `--notes-from-tag` would work on
+          # create but does not exist on `gh release edit`, so a notes FILE is
+          # used for both — one mechanism, so the create and re-run paths cannot
+          # produce different release text.
+          SUBJECT="$(git tag -l --format='%(contents:subject)' "$TAG")"
+          git tag -l --format='%(contents:body)' "$TAG" > notes.md
+          if [ -z "$SUBJECT" ] || [ ! -s notes.md ]; then
+            echo "::error::tag $TAG has no annotation — release notes come from the tag message." \
+                 "Cut releases with 'git tag -a', not a lightweight tag."
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+            echo "release $TAG exists — refreshing notes and assets"
+            gh release edit "$TAG" --repo "$REPO" \
+              --title "CVX v$SUBJECT" --notes-file notes.md --latest
+          else
+            gh release create "$TAG" --repo "$REPO" \
+              --title "CVX v$SUBJECT" --notes-file notes.md --latest --verify-tag
+          fi
+          gh release upload "$TAG" --repo "$REPO" --clobber \
+            dist/cvx-*.bundle.js dist/cvx.bundle.js dist/SHA256SUMS.txt

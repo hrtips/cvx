@@ -2,7 +2,7 @@
 name: cvx
 description: Create, validate, and render professional CV/resume PDFs from plain YAML using CVX — fully local, no accounts. Use when the user wants to write a CV or resume, convert an existing CV to a maintained format, tailor a CV for a job application, or produce an ATS-safe variant. Covers the cv-content/ YAML schema, the edit→validate→build loop, themes, layouts, and ATS keywords.
 license: Apache-2.0
-compatibility: Requires Node.js 20+ (runs via npx, no install). MCP server available via `npx @hrtips/cvx mcp`.
+compatibility: Requires Node.js 20+ (runs via npx, no install). Sandboxes with no npm access can run the single-file `cvx.bundle.js` from the GitHub releases instead. MCP server available via `npx @hrtips/cvx mcp`.
 metadata:
   author: hrtips
   homepage: https://github.com/hrtips/cvx
@@ -27,7 +27,15 @@ Exit codes: `0` ok · `2` validation failed · `3` render failed · `64` usage e
 
 Always validate after every edit and before every build. Findings include the file, the field path, and a suggested fix — apply the fix and re-validate.
 
-If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the AI guide's default flow (see below — it ships with CVX, so no network is needed to read it) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
+If `npx` is unreachable (no network in your sandbox), **look for `cvx.bundle.js` before falling back** — CVX ships as one self-contained file that needs Node and nothing else:
+
+```bash
+node /mnt/data/cvx.bundle.js build --json   # same commands, flags, exit codes, --json
+```
+
+Check `/mnt/data`, the working directory, and wherever uploads land — glob `cvx*.bundle.js`, since releases attach both `cvx.bundle.js` and `cvx-<version>.bundle.js` (same bytes). It is the same engine and renders byte-identical PDFs; it writes `cv-content/` and the PDF into the current working directory, so `cd` first. It cannot be downloaded in a sandbox with no network — it has to be there already (a Custom GPT Knowledge file, or a file the user uploaded). `cvx mcp` is not included in it, and `.js` theme files dropped next to it are ignored on purpose.
+
+Only if there is no bundle either: write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the AI guide's default flow (see below — it ships with CVX, so no network is needed to read it) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
 
 ## Ask about shape before you draft — once, with examples
 

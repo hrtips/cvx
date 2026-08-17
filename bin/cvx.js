@@ -29,7 +29,16 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
-const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+/**
+ * Where CVX's OWN assets live — package.json, schema/, template/, lib/fonts/.
+ *
+ * Normally one level up from bin/. The single-file standalone bundle
+ * (`npm run build:standalone`) has no package tree around it, so its prelude
+ * extracts the embedded assets to a directory and points CVX_ASSET_ROOT at it;
+ * every asset lookup below then works unchanged. Unset in a normal install, so
+ * this is a no-op there. See scripts/build-standalone.js.
+ */
+const pkgRoot = process.env.CVX_ASSET_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..')
 const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
 
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }

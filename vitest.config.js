@@ -2,12 +2,22 @@
 // build file) so the "hostile" per-file coverage gate lives on its own.
 // Vitest resolves this file ahead of vite.config.js and we merge the vite
 // plugins (react, yaml) back in so test transforms match the real build.
+import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig, mergeConfig } from 'vitest/config'
 import viteConfig from './vite.config.js'
 
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    resolve: {
+      alias: {
+        // `cvx:assets` only exists inside the standalone bundle, where
+        // scripts/build-standalone.js generates it. Pointing it at a fixture
+        // makes src/standalone/runtime.js importable here, so its extraction
+        // logic is unit-tested rather than waived out of the coverage gate.
+        'cvx:assets': fileURLToPath(new URL('./test/fixtures/standaloneAssets.js', import.meta.url))
+      }
+    },
     test: {
       // Never discover tests inside git worktrees (subagents create them under
       // .claude/worktrees/); they duplicate the suite and break coverage counts.

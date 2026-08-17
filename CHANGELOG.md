@@ -9,6 +9,62 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
+## 1.9.0 — 2026-08-17
+
+**CVX now ships as a single self-contained JavaScript file, for environments
+that have a Node runtime and nothing else.** `cvx.bundle.js` is attached to
+this release: copy it anywhere, run `node cvx.bundle.js build`, and it works
+with no `npm install`, no `npx`, no `node_modules`, no package manager and no
+network. Everything the renderer needs — the JSON schema, the `init` template,
+the Lato fonts, the version metadata — is embedded in the file.
+
+It exists because "just run `npx @hrtips/cvx`" is not available everywhere an
+agent runs. Measured in an OpenAI sandbox: Node v22.16.0 present, and **zero
+DNS** — `npm`, `npx`, `curl` and `git clone` all fail identically, and no proxy
+is configured. That environment is not unusual; CI runners, air-gapped
+installs and other agent sandboxes impose the same constraint. The bundle turns
+"CVX cannot run here" into a file copy.
+
+The npm package is unchanged and remains the recommended install. This is an
+additional distribution format, not a replacement: the tarball is still 94
+files and ~0.4 MB, and `dist/` is not part of it.
+
+Each release attaches the same bytes under two names. **`cvx-<version>.bundle.js`
+is the one to keep** — once the file is downloaded, uploaded, or loaded into a
+Custom GPT's Knowledge, its filename is the only thing that says which release
+it is, and a stale copy is otherwise indistinguishable from a current one.
+**`cvx.bundle.js`** exists so that
+`releases/latest/download/cvx.bundle.js` is a stable download URL, which GitHub
+resolves only by exact asset name. A build that fails never overwrites it, and
+CI refuses to publish unless the two files compare equal.
+
+Two behaviours differ inside the bundle, both deliberate. **Theme
+auto-discovery no longer scans the directory it lives in.** In an install that
+directory belongs to the package; for a loose file it belongs to the user, so
+the same scan would `import()` any `.js` sitting beside the bundle — arbitrary
+code from a working directory. All three shipped themes come from the static
+registry instead, and `config.yaml`/`layouts/*.yaml` are unaffected. **The MCP
+server is not included** — it would add ~21 MB of dependencies to serve a
+stdio server that a sandbox cannot connect to, so `cvx mcp` exits 64 pointing
+at the npm package.
+
+The bundle renders **byte-identically** to the npm entry point under
+`SOURCE_DATE_EPOCH`, which is how we know it runs the real engine rather than a
+reduced copy of it. Verified on the target platform — Linux x86_64, Node
+v22.16.0, network disabled, the file alone in an empty directory — for
+`--version`, `init`, `validate`, `build` and `build --all`, and again on Node
+v20.20.2, because the bundle must not have a higher floor than the package it
+comes from (`engines: >=20`). A test asserts the build completes with every
+outbound network primitive rigged to throw, and the build itself fails if any
+non-Node-builtin dependency escapes the bundle.
+
+**GitHub Releases are now created by CI from the annotated tag.** They had
+drifted two versions behind npm: 1.8.0 and 1.8.1 were published and tagged
+with full release notes, but nobody created the release, so `releases/latest`
+still pointed at 1.7.2 while npm served 1.8.1. The release notes now come from
+the tag message — the one place that text was already being written — and both
+missing releases have been backfilled.
+
 ## 1.8.1 — 2026-08-17
 
 **A populated section that no layout slot renders is no longer dropped in

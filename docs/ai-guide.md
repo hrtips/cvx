@@ -45,10 +45,36 @@ That list is what lets you **backtrack** when an edit makes the page worse (you 
 ### 2. Pick your execution path (by your own capabilities)
 
 1. **You have CVX MCP tools or the cvx skill** → use them: `get_schema` → `init_cv` → edit → `validate_cv` → `build_pdf`.
-2. **You can run shell commands** → probe **once, with a bounded timeout, as your first action after getting source content**: `npx -y @hrtips/cvx --version`, bounded by **your runtime's own tool-call timeout** (~30s). Do NOT wrap it in the shell's `timeout` command: that is GNU coreutils and macOS does not ship it, so `timeout 30s npx …` fails there with `command not found: timeout` — a SHELL error, on a machine where npx works perfectly. If you do use it, guard it: `command -v timeout >/dev/null && timeout 30s npx … || npx …`. If it succeeds: `npx @hrtips/cvx init`, replace the example content, `npx @hrtips/cvx validate --strict --json` after every edit, `npx @hrtips/cvx build` and `build --ats`. Deliver the PDFs **and a zip of `cv-content/`** — sandboxes are ephemeral and the YAML is what the user keeps. If the probe fails or times out — any NPM error means the same thing (403/404/429/503, proxy, DNS; sandboxes often have no npm network) — retry at most once, then **switch to path 3 in the same turn**. A **shell** error is not an npm error: `command not found` means your probe command was wrong, not that the runtime is unavailable, and falling back on it costs the user their PDF for no reason. Fix the command and re-probe and report the exact command, exit code, and error alongside the fallback. Do not keep the user waiting while you investigate.
+2. **You can run shell commands** → probe **once, with a bounded timeout, as your first action after getting source content**: `npx -y @hrtips/cvx --version`, bounded by **your runtime's own tool-call timeout** (~30s). Do NOT wrap it in the shell's `timeout` command: that is GNU coreutils and macOS does not ship it, so `timeout 30s npx …` fails there with `command not found: timeout` — a SHELL error, on a machine where npx works perfectly. If you do use it, guard it: `command -v timeout >/dev/null && timeout 30s npx … || npx …`. If it succeeds: `npx @hrtips/cvx init`, replace the example content, `npx @hrtips/cvx validate --strict --json` after every edit, `npx @hrtips/cvx build` and `build --ats`. Deliver the PDFs **and a zip of `cv-content/`** — sandboxes are ephemeral and the YAML is what the user keeps. If the probe fails or times out — any NPM error means the same thing (403/404/429/503, proxy, DNS; sandboxes often have no npm network) — retry at most once, then **switch to path 3 in the same turn**. A **shell** error is not an npm error: `command not found` means your probe command was wrong, not that the runtime is unavailable, and falling back on it costs the user their PDF for no reason. Fix the command and re-probe and report the exact command, exit code, and error alongside the fallback. Before falling back, check for a standalone bundle (2b) — if one is present you can still build the PDF yourself. Do not keep the user waiting while you investigate.
 3. **You can write files but not run CVX** → generate every `cv-content/` file from the schema, package the folder as a downloadable zip (or one fenced code block per file, titled with its exact path), then give the user the handoff below. Start each generated file with its `# yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/<file>.schema.json` header (layouts use `layout.schema.json`) so editors validate it. Use `main` **only** when you are writing these files from scratch, with no CVX installed — `cvx init` and `init_cv` instead pin the header to the release that scaffolded the folder (`.../cvx/v<version>/schema/v1/...`). If the folder already has pinned headers, copy that same ref into any file you add, and never rewrite an existing one back to `main`. **The CVX CLI is the only renderer — never substitute reportlab, LaTeX, HTML-to-PDF, or any other generator.** The whole point is a validated, reproducible format the user keeps.
 
 **No research sinks:** this guide plus [cv-schema.md](https://raw.githubusercontent.com/hrtips/cvx/main/docs/cv-schema.md) are everything you need — once you have them and the user's source content, generate; further repository exploration adds nothing to the CV.
+
+### 2b. The standalone bundle — a Node runtime and nothing else
+
+Some sandboxes have Node but no way to reach npm: **measured in an OpenAI container, `node -v` reports v22.16.0 while every hostname fails to resolve**, so `npx`, `npm install`, `curl` and `git clone` all fail identically. That is not a broken probe, and no amount of retrying fixes it.
+
+For exactly that case CVX ships **`cvx.bundle.js`** — one self-contained file, attached to every [release](https://github.com/hrtips/cvx/releases/latest). It needs Node 20+ and nothing else: no `npm install`, no `npx`, no `node_modules`, no network.
+
+Each release attaches the same bytes under two names: `cvx-<version>.bundle.js`, which is the one to keep because its name says what it is, and `cvx.bundle.js`, which exists so that `https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.js` is a stable download URL. When looking for a copy in a sandbox, match **either** — glob `cvx*.bundle.js`. Run it wherever it happens to be:
+
+```bash
+node /mnt/data/cvx.bundle.js init
+node /mnt/data/cvx.bundle.js validate --strict --json
+node /mnt/data/cvx.bundle.js build --json      # --ats, --all, list: all the same
+```
+
+Every command, flag, exit code and `--json` envelope is identical to `npx @hrtips/cvx` — it is the same engine, and it renders byte-identical PDFs. It writes `cv-content/` and the PDF into the **current working directory**, so `cd` to where you want them first.
+
+**You cannot download it in a sandbox with no DNS** — if `npx` failed for network reasons, fetching a URL will fail too. The bundle has to be *already there*:
+
+- a **Custom GPT Knowledge file**, which lands at `/mnt/data/cvx.bundle.js` — the whole point of the file's existence, and it needs no user action per conversation;
+- a file the **user uploaded** to the conversation;
+- anything pre-seeded into the image or workspace.
+
+So look for it before you give up: check `/mnt/data`, the working directory, and anywhere else uploads land. If it is not there, ask the user to download it from the release page and upload it — one file, no install, and they need only a browser. If they would rather not, go to path 3.
+
+Two limits, both deliberate. **`cvx mcp` is not in the bundle** (it exits 64 and points at npm — an MCP client cannot connect to it in a sandbox anyway). And **drop-in `.js` theme files are ignored** next to the bundle, because that directory is the user's; the three built-in themes and your own `layouts/*.yaml` work normally.
 
 ### 3. Review, brainstorm, and preview — before any build
 
@@ -219,7 +245,19 @@ My CV:
 
 The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder is the durable asset. Next time, upload the zip back (or switch to any other route) and ask for the changes you need.
 
-**Privacy note:** CVX itself runs entirely locally and makes zero network calls — but in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
+**If the assistant reports that `npx` or npm failed,** its sandbox has a Node runtime but no route to the registry — common, and not something retrying fixes. Download **`cvx.bundle.js`** from the [latest release](https://github.com/hrtips/cvx/releases/latest), upload it to the conversation, and say:
+
+```text
+Use the cvx.bundle.js file I uploaded — it is the whole of CVX in one file
+and needs no installation. Run it with plain node, e.g.
+  node /mnt/data/cvx.bundle.js init
+  node /mnt/data/cvx.bundle.js build --json
+then open the PDF you produced, check the layout, and iterate.
+```
+
+You need nothing installed for this — no Node, no terminal, just a browser to download the file once. And because the assistant can open the PDF it just produced, it can check the layout and fix it before handing it back, which is the part a plain file handoff cannot do. (A published Custom GPT can carry the bundle as a Knowledge file, so even that upload disappears.)
+
+**Privacy note:** CVX itself runs entirely locally and makes zero network calls — the bundle included, which is asserted by a test that fails the build if anything reaches the network. But in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 
 ---
 
