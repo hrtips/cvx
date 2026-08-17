@@ -41,9 +41,38 @@ megabyte-scale artifact can go this way at all.
 
 ### 1. Create the GPT
 
-Name and description as you like. Under **Capabilities**, enable **Code Interpreter
-& Data Analysis** — that is what runs `node` and what lets the GPT open the PDF it
-produced. Web Browsing is not needed.
+**Name**
+
+```
+CVX — CV & Résumé Builder
+```
+
+**Description**
+
+```
+Turns your existing CV or LinkedIn export into a designed, pixel-perfect PDF — plus an ATS-safe version — and hands back the YAML source so you can update it any time. Every fact stays yours: it invents nothing.
+```
+
+**Conversation starters** — one per real capability, each inviting the user to
+bring their material, which is what the first reply asks for anyway:
+
+```
+Turn my current CV into a polished PDF
+Tailor my CV for a specific job ad
+Make an ATS-safe version of my resume
+Build my CV from my LinkedIn export
+```
+
+**Knowledge:** leave empty. That is the design — the bundle arrives through the
+action, so there is nothing to attach and nothing to re-upload on a release.
+
+**Capabilities:** enable **Code Interpreter & Data Analysis**. It is what runs
+`node`, and what lets the GPT open the PDF it produced. Web Browsing is not
+needed, and cannot substitute for it.
+
+**Recommended model:** pick a strong reasoning model rather than leaving it open.
+Reading a rendered page and deciding what to tighten is judgement work, and the
+smallest models do it badly.
 
 ### 2. Add the Action
 
