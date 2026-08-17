@@ -59,17 +59,43 @@ Two things changed, and the second one cost a version number.
 
 **A sandbox can download the bundle itself.** Verified 2026-08-18, and it
 supersedes the earlier finding that it could not: `npx` still fails there, but
-fetching a release asset works. So the recommended ChatGPT path is now the
+fetching the bundle works. So the recommended ChatGPT path is now the
 [AI guide](docs/ai-guide.md)'s Route D — one pasted prompt, nothing installed,
 nothing uploaded — and every agent-facing surface carries the same four-command
 setup block verbatim, because an assistant told only what is *possible* will try
 npx, fail, and explore until it works it out.
 
+**The hostname is a tool-routing signal, and that cost a real run.** Driving a real
+CV through the site prompt failed at exactly one step: the assistant saw a
+`github.com` URL, reached for its GitHub connector — which reads repository and
+release metadata but does not follow the binary release-asset redirect — and from
+that true failure concluded the *sandbox* could not download, then asked the user to
+upload the file by hand. Everything else in that run was correct: it refused to
+substitute another renderer, batched its questions, and planned validate → build
+both → inspect the pages.
+
+The first fix was prose ("do not use a GitHub connector"), which was the wrong shape:
+the hostname decides the tool before the model weighs any instruction. So the signal
+was removed instead. **For execution the documented URL is now
+`hrtips.github.io/cvx/download/cvx.bundle.min.js.zip`** — this origin, no repository
+connotation — with a versioned copy, a `.sha256`, and `latest.json` beside it.
+`pages.yml` copies it from the release (never committed, so no binary enters git
+history) and `unzip -t`s it before publishing; `publish.yml` dispatches `pages.yml`
+after a release, which it MUST, or the download URL silently serves the previous
+version. GitHub Releases remain the source of truth and keep serving humans,
+provenance and history.
+
+Declined from the same report: `agent.json`. An invented manifest with no consumer,
+duplicating `latest.json` and `llms.txt` — the duplication this repo's docsSync
+tests exist to prevent.
+
 A Custom GPT was built on top of a GPT Action that delivered the bundle as an
 `openaiFileResponse`. It worked. It was then **dropped** (maintainer, 2026-08-18):
 once the sandbox can download, the Action is redundant for its own use case, and
 OpenAI restricts who may create or publish GPTs anyway. `docs/custom-gpt.md` is
-deleted. What remains live is listed under "Decisions needed".
+deleted, along with `site/gpt/`, `scripts/gpt-endpoints.js` and the endpoint
+generation. What replaced it is the Pages download above, which costs nothing to
+maintain beyond one copy step.
 
 GPT Actions were on ARCHITECTURE.md §7.3's cut list and the maintainer overrode
 that ruling to try this; the attempt is over, but §7.3 still needs the amendment —

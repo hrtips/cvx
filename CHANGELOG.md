@@ -31,6 +31,30 @@ the instructions to stop at the first that works, report one line instead of
 narrating failures, and not explore first. Deterministic beats descriptive when the
 reader is a model.
 
+**The bundle is now served from the project site, and the hostname is the reason.**
+`https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip` is the URL every
+agent-facing surface names for execution. A `github.com` URL turned out to be a
+tool-routing signal: driving a real CV through the site prompt, the assistant
+reached for its GitHub connector — which reads repository and release metadata but
+does not follow the binary release-asset redirect — and from that failure concluded
+the *sandbox* could not download, then asked the user to upload the file by hand.
+Telling it not to do that, in prose on a page, loses to a signal the model acts on
+before it reads anything. Removing the signal does not.
+
+Published beside the bundle: a versioned copy under `/download/<tag>/`, a
+`.sha256`, and `latest.json` for update discovery without scraping HTML or the
+Releases API. CI copies the file from the release rather than committing it — no
+binary enters git history, and the site provably serves the published bytes — and
+`unzip -t`s it before publishing, so a corrupt archive fails in CI rather than in
+someone's sandbox. GitHub Releases remain the source of truth, and keep serving
+humans, provenance and release history.
+
+The landing page also carries the whole runbook now, because its own prompt tells
+assistants to open it and follow the instructions for AI assistants, and it had
+none. It sits immediately after the hero, which is not cosmetic: a fetcher extracts
+text in DOM order, so instructions below the part a fetch returns are the same as
+absent.
+
 The skill also gains a **0–7 run order** at the top. It had deep reference material
 on layout diagnostics and no statement of what to do first, which is how a session
 ends up reporting a successful build that nobody looked at. Step 6 is "open the PDF
@@ -40,6 +64,9 @@ and look at every page", and the table names the two failures that actually recu
 one pasted prompt, nothing installed, nothing uploaded. The prompt spells out the
 setup commands and tells the assistant to open the PDF and check the layout before
 showing anything, which is the whole difference between this and being handed YAML.
+`docs/ai-guide.md` and `docs/cv-schema.md` are served from the site origin too, so
+an assistant handed the site URL can follow through in one hop rather than to a
+second host some fetchers will not visit.
 
 Also added `site/privacy.html`, the project's privacy statement, served at
 `/privacy`. It is deliberately general — it has to hold for someone who only ever
