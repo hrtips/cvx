@@ -5,6 +5,32 @@ the PDF it just rendered**, fix the layout, and hand back a finished CV. That lo
 is the point: an assistant that only writes YAML has to pass the build back to the
 user and never sees what it produced.
 
+> **This is a recipe, not a link.** OpenAI withdrew public GPT sharing (as of
+> 2026-08-18 the only visibility option offered is "Only me"), so nobody can hand
+> you a ready-made CVX GPT — you build your own, which takes about three minutes.
+> Everything it needs is a public URL, and nothing here has to be updated when CVX
+> releases a new version.
+>
+> No ChatGPT Plus, or would rather not build one? You do not need a GPT at all:
+> download `cvx.bundle.min.js.zip` from the
+> [latest release](https://github.com/hrtips/cvx/releases/latest), upload it into
+> an ordinary ChatGPT conversation, and ask it to unzip and run — see
+> [Route D](ai-guide.md#route-d--agent-mode-assistant-zero-local-setup). The only
+> difference is that you re-upload it each conversation; a GPT's action does that
+> for you.
+
+## Three-minute setup
+
+1. **Create a GPT** → Configure
+2. **Instructions:** paste the whole of
+   `https://hrtips.github.io/cvx/gpt/instructions.txt`
+3. **Actions → Import from URL:** `https://hrtips.github.io/cvx/gpt/openapi.json`
+4. **Capabilities:** tick **Code Interpreter & Data Analysis**
+5. **Knowledge:** leave empty — the action delivers CVX
+
+Name, description and conversation starters are below; the rest of this page
+explains why it is built this way.
+
 ## The design, and why it is this one
 
 **The GPT downloads CVX at run time. Nothing is attached to it.**
