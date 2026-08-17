@@ -5,16 +5,24 @@ the PDF it just rendered**, fix the layout, and hand back a finished CV. That lo
 is the point: an assistant that only writes YAML has to pass the build back to the
 user and never sees what it produced.
 
-> **You build your own — it takes about three minutes.** Everything it needs is a
-> public URL, and nothing here has to be updated when CVX releases a new version.
+> **There is no CVX GPT to install.** Nobody publishes one, so this page is the
+> recipe for building your own — about three minutes, every input a public URL,
+> and nothing here needs updating when CVX releases a new version.
 >
-> **No ChatGPT Plus, or would rather not build one?** You do not need a GPT at all:
-> download `cvx.bundle.min.js.zip` from the
-> [latest release](https://github.com/hrtips/cvx/releases/latest), upload it into
-> an ordinary ChatGPT conversation, and ask it to unzip and run — see
-> [Route D](ai-guide.md#route-d--agent-mode-assistant-zero-local-setup). The only
-> difference is that you re-upload it each conversation; a GPT's action does that
-> for you.
+> **Check you can build one before you start.** OpenAI restricts who may create
+> and publish GPTs, and the restriction has moved more than once
+> ([Troubleshooting GPTs](https://help.openai.com/en/articles/11325361-troubleshooting-gpts)
+> is the current word). If your account cannot, nothing below will help — but the
+> next paragraph will.
+>
+> **You do not need a GPT at all.** Download `cvx.bundle.min.js.zip` (0.92 MB) from
+> the [latest release](https://github.com/hrtips/cvx/releases/latest), upload it
+> into an ordinary ChatGPT conversation, and ask it to unzip and run — see
+> [Route D](ai-guide.md#route-d--agent-mode-assistant-zero-local-setup). This works
+> on any account with no builder involved, and you get the same thing that matters:
+> the assistant renders the PDF, looks at the pages, and fixes the layout before
+> you see it. The only cost is re-uploading once per conversation, which is
+> precisely the chore a GPT's action removes.
 
 ## Three-minute setup
 
@@ -26,8 +34,9 @@ user and never sees what it produced.
 5. **Capabilities:** tick **Code Interpreter & Data Analysis**
 6. **Knowledge:** leave empty — the action delivers CVX
 
-Sharing, if you want it, is behind **··· → Edit GPT → Share** rather than the
-Create button; step 4 is what makes any option other than "Only me" available.
+That is a working GPT, for you. Sharing it with anyone else is a separate question
+with its own answer — see [Sharing it](#sharing-it) below; do step 4 regardless,
+because it is a precondition and costs nothing.
 
 Name, description and conversation starters are below; the rest of this page
 explains why it is built this way.
@@ -110,11 +119,12 @@ smallest models do it badly.
   `https://hrtips.github.io/cvx/gpt/openapi.json`
 - **Privacy policy URL:** `https://hrtips.github.io/cvx/privacy`
 
-That last field is not optional if you ever want the GPT to be anything other than
-private: **a GPT with a custom action cannot be shared or listed without a
-privacy-policy URL.** It points at [site/privacy.html](../site/privacy.html), the
-project's own privacy statement — deliberately general rather than written around
-this integration, since it has to hold for the CLI and the npm package too.
+Fill in that last field even if the GPT is only ever for you: **a GPT with a custom
+action cannot be shared or listed without a privacy-policy URL**, so it is a
+precondition you would otherwise discover later. It points at
+[site/privacy.html](../site/privacy.html), the project's own privacy statement —
+deliberately general rather than written around this integration, since it has to
+hold for the CLI and the npm package too.
 
 You should see two operations appear:
 
@@ -138,6 +148,34 @@ builder's 8000-character limit.
 
 > Do **not** paste this page. This document is ~9.8 KB and will be rejected —
 > which is exactly why the instructions are kept in their own file.
+
+## Sharing it
+
+A GPT you build is private by default, and that is enough if you only want it for
+yourself. Making it available to anyone else depends on your ChatGPT account, not
+on anything in this repository.
+
+**What is required either way:** a GPT that uses a custom action cannot be shared
+or listed without a **privacy-policy URL** — step 4 above. Publishing publicly may
+also ask you to complete a **builder profile** (a verified name, or a domain you
+control).
+
+**What may not be possible at all:** OpenAI's documentation states that personal
+accounts — Free, Go, Plus and Pro — cannot create or publish new GPTs, and that
+Business, Enterprise and Edu workspaces can, subject to workspace settings.
+Observed on 2026-08-18 on a personal account: creating a GPT worked, and the only
+visibility offered was "Only me", with *"Sharing GPTs with the public is no longer
+available."*
+
+Treat that as a moving target rather than a settled rule — it has changed more than
+once, and the answer you get in the product beats anything written here. The
+practical consequence does not move, though: **do not build a plan on a shareable
+GPT.** If you want other people to use CVX through ChatGPT, point them at the
+upload route in [Route D](ai-guide.md#route-d--agent-mode-assistant-zero-local-setup),
+which needs no GPT, no subscription and no builder; or at
+[`npx @hrtips/cvx`](../README.md) if they have a terminal; or at the
+[MCP server](../README.md#plug-it-into-your-agent-mcp) if they use Claude, Cursor
+or VS Code. None of those depend on a product decision at OpenAI.
 
 ## Verifying it
 

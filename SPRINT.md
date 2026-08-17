@@ -165,9 +165,12 @@ them if that ever changes.
   visibility offered was "Only me", with *"Sharing GPTs with the public is no
   longer available."* So the durable ChatGPT route is the one that needs no GPT at
   all — upload `cvx.bundle.min.js.zip` into an ordinary conversation and ask it to
-  unzip and run. **docs/custom-gpt.md and the README still describe sharing as
-  available; that is wrong and needs correcting** once the account's plan is
-  known.
+  unzip and run. The docs were corrected on 2026-08-18 to stop describing sharing
+  as available: `docs/custom-gpt.md` now has a "Sharing it" section stating what is
+  required (privacy-policy URL, builder profile), what may be impossible (personal
+  accounts), and that this is a moving target where the product beats the doc — and
+  the README leads with the upload route. **Publishing a CVX GPT is not decided**;
+  the maintainer is working toward it.
 - **Three OpenAI surfaces moved under this work in one day** — the container's npm
   reachability, `container.download`'s reliability, and GPT creation/sharing. The
   bundle survived all three because it is a file that runs on Node and depends on
