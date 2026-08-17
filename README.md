@@ -199,7 +199,7 @@ Then restart the client and ask it to make your CV — it fetches the schema, sc
 
 ChatGPT's sandbox has a Node runtime but no network, so `npx` cannot work there. CVX therefore ships as **one self-contained file** — schema, template, fonts and all — attached to [every release](https://github.com/hrtips/cvx/releases/latest) as `cvx.bundle.min.js`. It needs nothing but Node 20+: no install, no `node_modules`, no network.
 
-Upload it to any ChatGPT conversation and ask it to run — or spend three minutes wiring a personal GPT that fetches the current release itself, so it never goes stale. **[docs/custom-gpt.md](docs/custom-gpt.md)** has both, including the instructions to paste and the action to import. (OpenAI withdrew public GPT sharing, so this is a build-your-own recipe rather than a link someone can hand you.)
+Upload it to any ChatGPT conversation and ask it to run — or spend three minutes wiring a GPT that fetches the current release itself, so it never goes stale. **[docs/custom-gpt.md](docs/custom-gpt.md)** has both, including the instructions to paste, the action to import, and the [privacy policy](https://hrtips.github.io/cvx/privacy) URL a GPT with an action needs before it can be shared.
 
 The GPT does what a chat assistant otherwise cannot: it renders the PDF, **opens it and looks at the pages**, then fixes the layout before you ever see it.
 

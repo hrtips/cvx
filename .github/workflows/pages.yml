@@ -53,6 +53,13 @@ jobs:
           cp assets/hero-ats.png _site/hero-ats.png
           cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
           cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
+          # Published at BOTH /privacy and /privacy/ — a public GPT with a custom
+          # action requires a privacy-policy URL, and which of the two forms gets
+          # pasted into the builder is not worth leaving to chance.
+          cp site/privacy.html _site/privacy.html
+          mkdir -p _site/privacy
+          cp site/privacy.html _site/privacy/index.html
+
           mkdir -p _site/gpt
           cp site/gpt/openapi.json _site/gpt/openapi.json
           # Published so the GPT's instructions can be copied straight from a URL.

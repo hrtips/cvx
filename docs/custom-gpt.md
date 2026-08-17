@@ -5,13 +5,10 @@ the PDF it just rendered**, fix the layout, and hand back a finished CV. That lo
 is the point: an assistant that only writes YAML has to pass the build back to the
 user and never sees what it produced.
 
-> **This is a recipe, not a link.** OpenAI withdrew public GPT sharing (as of
-> 2026-08-18 the only visibility option offered is "Only me"), so nobody can hand
-> you a ready-made CVX GPT — you build your own, which takes about three minutes.
-> Everything it needs is a public URL, and nothing here has to be updated when CVX
-> releases a new version.
+> **You build your own — it takes about three minutes.** Everything it needs is a
+> public URL, and nothing here has to be updated when CVX releases a new version.
 >
-> No ChatGPT Plus, or would rather not build one? You do not need a GPT at all:
+> **No ChatGPT Plus, or would rather not build one?** You do not need a GPT at all:
 > download `cvx.bundle.min.js.zip` from the
 > [latest release](https://github.com/hrtips/cvx/releases/latest), upload it into
 > an ordinary ChatGPT conversation, and ask it to unzip and run — see
@@ -25,8 +22,12 @@ user and never sees what it produced.
 2. **Instructions:** paste the whole of
    `https://hrtips.github.io/cvx/gpt/instructions.txt`
 3. **Actions → Import from URL:** `https://hrtips.github.io/cvx/gpt/openapi.json`
-4. **Capabilities:** tick **Code Interpreter & Data Analysis**
-5. **Knowledge:** leave empty — the action delivers CVX
+4. **Actions → Privacy policy:** `https://hrtips.github.io/cvx/privacy`
+5. **Capabilities:** tick **Code Interpreter & Data Analysis**
+6. **Knowledge:** leave empty — the action delivers CVX
+
+Sharing, if you want it, is behind **··· → Edit GPT → Share** rather than the
+Create button; step 4 is what makes any option other than "Only me" available.
 
 Name, description and conversation starters are below; the rest of this page
 explains why it is built this way.
@@ -107,8 +108,14 @@ smallest models do it badly.
 - **Authentication:** None
 - **Schema:** *Import from URL* →
   `https://hrtips.github.io/cvx/gpt/openapi.json`
-- **Privacy policy:** the repository URL is sufficient; the endpoints take no
-  input and store nothing
+- **Privacy policy URL:** `https://hrtips.github.io/cvx/privacy`
+
+That last field is not optional if you ever want the GPT to be anything other than
+private: **a GPT with a custom action cannot be shared or listed without a
+privacy-policy URL.** The page it points at is
+[site/privacy.html](../site/privacy.html), and it can be short and truthful here
+because the endpoints are static files — they accept no input, so no CV content can
+reach them even in principle.
 
 You should see two operations appear:
 
