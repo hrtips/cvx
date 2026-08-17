@@ -9,6 +9,8 @@ on:
     paths:
       - site/**
       - llms.txt
+      - docs/ai-guide.md
+      - docs/cv-schema.md
       - assets/hero-two-column.png
       - assets/hero-ats.png
       - assets/brand/**
@@ -49,6 +51,12 @@ jobs:
           cp assets/hero-ats.png _site/hero-ats.png
           cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
           cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
+          # Served from THIS origin so an assistant that was handed the site URL can
+          # follow through in one hop. Fetching raw.githubusercontent.com is a
+          # second host, which some fetchers will not do — and the instruction block
+          # on index.html links to these relative paths.
+          cp docs/ai-guide.md _site/ai-guide.md
+          cp docs/cv-schema.md _site/cv-schema.md
           # The project privacy statement, at BOTH /privacy and /privacy/ so either
           # form of the URL resolves.
           cp site/privacy.html _site/privacy.html

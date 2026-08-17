@@ -178,6 +178,44 @@
     </div>
   </section>
 
+  <!-- ── Instructions for AI assistants ─────────────────────────────────────
+       Placed HIGH on the page deliberately. The prompt above tells an assistant to
+       "open that page and follow its instructions for AI assistants", and a fetcher
+       extracts text in DOM order — so if this drops below the part of the page a
+       fetch actually returns, that promise breaks silently. It is the reason the
+       whole paste-a-URL flow works, not a footnote to it.
+       Kept out of cvx-i18n.js on purpose: these are commands, and translating them
+       would be a way to break them. -->
+  <section id="for-assistants" style="background: #101718; color: #E9EDEC; border-top: 1px solid #E7E3DC">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 46px 40px 50px">
+      <h2 style="font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em">Instructions for AI assistants</h2>
+      <p style="margin: 0 0 26px; color: #9FB0AE; font-size: 15px">If someone sent you here to build their CV, this is your runbook — follow it in order. Everyone else can skip this section.</p>
+
+      <div style="background: #0B1112; border-radius: 10px; padding: 22px 24px; font-size: 14.5px; line-height: 1.62">
+        <p style="margin: 0 0 8px"><b style="color: #A9D6DE">1 · Get CVX.</b> Run exactly this, before promising anything. Do not use <code>npm</code> or <code>npx</code> — usually unreachable in a sandbox, and never needed:</p>
+        <pre style="margin: 0 0 6px; padding: 14px 16px; background: #131C1D; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #E9EDEC"><code>mkdir -p cvx &amp;&amp; cd cvx
+curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+unzip -o -q cvx.bundle.min.js.zip
+node cvx.bundle.min.js --version</code></pre>
+        <p style="margin: 0 0 18px; color: #9FB0AE; font-size: 13.5px">One self-contained file — schema, template and fonts embedded. Needs Node 20+ and nothing else. If <code>curl</code> is blocked, try in order and stop at the first that works: Python <code>urllib.request.urlretrieve</code> on that URL; any download tool you have; a copy already on disk (<code>ls /mnt/data | grep -i cvx</code>); then ask the user to upload it. Report one line — never narrate a string of failed attempts.</p>
+
+        <p style="margin: 0 0 18px"><b style="color: #A9D6DE">2 · Ask once, batched, then wait.</b> Their CV (a file, or pasted text — a <code>linkedin.com</code> URL cannot be fetched even when public, so ask for <b>More → Save to PDF</b>); a photo or “no photo”; one page or two; anything to lead with or play down; the job ad if they are targeting a role.</p>
+
+        <p style="margin: 0 0 18px"><b style="color: #A9D6DE">3 · Scaffold, then replace everything.</b> <code>node cvx.bundle.min.js init</code> writes <code>cv-content/</code> holding a complete Bruce Wayne example, and <code>cv-content/README.md</code> is the schema. Overwrite every value with the user’s real content and delete the placeholder photo. <b>Never invent facts</b> — no invented metrics, employers or dates. A thin truthful bullet beats an embellished one.</p>
+
+        <p style="margin: 0 0 18px"><b style="color: #A9D6DE">4 · Validate after every edit.</b> <code>node cvx.bundle.min.js validate --strict --json</code> reports every problem at once with file, field path and a fix. Apply and re-run until clean.</p>
+
+        <p style="margin: 0 0 18px"><b style="color: #A9D6DE">5 · Preview before you build.</b> Tell the user in plain language what the CV will contain — sections, entries, what lands on page 1, the ATS keywords, theme and photo status — and get their OK. Summarise; do not dump YAML.</p>
+
+        <p style="margin: 0 0 18px"><b style="color: #A9D6DE">6 · Build, then look at it.</b> <code>build --json</code> and <code>build --ats --json</code>. Then <b>open the PDF you just made, render its pages to images, and inspect them</b> — page count, a page ending early, an orphaned heading, a short column. The <code>--json</code> envelope carries per-page diagnostics; read them, but trust the rendered page over the numbers. Fix and rebuild. This step is what makes you more useful than a YAML generator.</p>
+
+        <p style="margin: 0"><b style="color: #A9D6DE">7 · Deliver both PDFs and the <code>cv-content/</code> folder.</b> The YAML is the durable asset — a sandbox is erased when the conversation ends, and that folder is what lets them update the CV next time. Say so.</p>
+      </div>
+
+      <p style="margin: 22px 0 0; font-size: 14px; color: #9FB0AE">CVX is the only renderer — never substitute LaTeX, HTML-to-PDF or your own drawing code. Full detail, all on this origin: <a href="./llms.txt" style="color: #A9D6DE">llms.txt</a> · <a href="./ai-guide.md" style="color: #A9D6DE">AI guide</a> · <a href="./cv-schema.md" style="color: #A9D6DE">content schema</a></p>
+    </div>
+  </section>
+
   <section id="start" style="border-top: 1px solid #E7E3DC; background: #F5F2EC">
     <div style="max-width: 1180px; margin: 0 auto; padding: 82px 40px">
       <div style="display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 64px; align-items: end; margin-bottom: 46px">
