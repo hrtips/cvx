@@ -48,12 +48,12 @@ If `npx` is unreachable, **get the standalone bundle instead of falling back to 
 
 ```bash
 mkdir -p .cvx && cd .cvx
-curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+curl -sSfLO https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip
 unzip -o -q cvx.bundle.min.js.zip
 node cvx.bundle.min.js --version      # same commands, flags, exit codes, --json
 ```
 
-**Download it with the shell, not a GitHub integration.** If you have a GitHub connector or repo tool, do not use it for this: it can read repository and release *metadata*, but it does not follow the binary release-asset redirect, and it fails in a way that reads as "this sandbox cannot download" — which is wrong, and costs the user a round trip asking them to upload a file you could have fetched. **One tool failing is not evidence that the sandbox has no network.** Work down the list before concluding anything.
+**Running CVX is a file download, not a repository task.** That URL is a public ZIP served from the project site — fetch it with ordinary HTTP. Do not clone the repository, call the GitHub API, or route this through a GitHub connector: none of it is needed to run CVX, and a connector fails on binary assets in a way that reads as "this sandbox cannot download", which is false. **One tool failing is not evidence that the sandbox has no network** — work down the list below before concluding anything, and never ask the user to upload a file you have not yet failed to fetch several ways. The repository is for reading or changing CVX's own source, nothing else.
 
 Same engine, byte-identical PDFs. If `curl` is blocked, try in order: Python's `urllib.request.urlretrieve` on that URL, your own download tool, a copy already on disk (`ls /mnt/data | grep -i cvx` — glob `cvx*.bundle*.js*`, since a release attaches versioned and unversioned names with the same bytes), then ask the user to upload it from [the latest release](https://github.com/hrtips/cvx/releases/latest). Stop at the first that works and say one line about it — never narrate a string of failed attempts.
 

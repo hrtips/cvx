@@ -58,7 +58,7 @@ Run this exact block. Do not explore the filesystem first, and do not retry npm:
 
 ```bash
 mkdir -p .cvx && cd .cvx
-curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+curl -sSfLO https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip
 unzip -o -q cvx.bundle.min.js.zip
 node cvx.bundle.min.js --version
 ```
@@ -73,11 +73,11 @@ node cvx.bundle.min.js build --json      # --ats, --all, list: all the same
 
 It writes `cv-content/` and the PDF into the **current working directory**, so `cd` first and stay there.
 
-**Download it with the shell, not a GitHub integration.** If you have a GitHub connector or repo tool, do not use it for this: it can read repository and release *metadata*, but it does not follow the binary release-asset redirect, and it fails in a way that reads as "this sandbox cannot download" — which is wrong, and costs the user a round trip asking them to upload a file you could have fetched. **One tool failing is not evidence that the sandbox has no network.** Work down the list before concluding anything.
+**Running CVX is a file download, not a repository task.** That URL is a public ZIP served from the project site — fetch it with ordinary HTTP. Do not clone the repository, call the GitHub API, or route this through a GitHub connector: none of it is needed to run CVX, and a connector fails on binary assets in a way that reads as "this sandbox cannot download", which is false. **One tool failing is not evidence that the sandbox has no network** — work down the list below before concluding anything, and never ask the user to upload a file you have not yet failed to fetch several ways. The repository is for reading or changing CVX's own source, nothing else.
 
 **If `curl` is blocked, try these in order and stop at the first that works** — one attempt each, and report one line rather than narrating every failure:
 
-1. Python: `python3 -c "import urllib.request;urllib.request.urlretrieve('https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip','cvx.bundle.min.js.zip')"`
+1. Python: `python3 -c "import urllib.request;urllib.request.urlretrieve('https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip','cvx.bundle.min.js.zip')"`
 2. any file-download tool your runtime gives you, on that same URL;
 3. **a copy already on disk** — `ls /mnt/data | grep -i cvx`, matching `cvx*.bundle*.js*`, since a release attaches versioned and unversioned names holding the same bytes, and an upload or a Custom GPT action may have put one there;
 4. ask the user to download it from the [latest release](https://github.com/hrtips/cvx/releases/latest) and upload it — one file, no install, they need only a browser.
@@ -242,7 +242,7 @@ If your assistant can execute commands in a workspace (ChatGPT with Code Interpr
 ```text
 Set up CVX first, by running exactly this and nothing else:
   mkdir -p cvx && cd cvx
-  curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+  curl -sSfLO https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip
   unzip -o -q cvx.bundle.min.js.zip
   node cvx.bundle.min.js --version
 Do not use npm or npx — CVX needs no installation, and that just wastes time.

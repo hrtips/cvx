@@ -65,6 +65,58 @@ jobs:
 
           ls -la _site
 
+      # ── Serve the runnable bundle from THIS origin ────────────────────────
+      # The point is the hostname, not convenience. A github.com URL is a
+      # tool-routing signal: an assistant that sees one reaches for its GitHub
+      # connector, which reads repository and release metadata but does not follow
+      # the binary release-asset redirect — and then reports that the sandbox
+      # cannot download, which is false. Observed on a real run.
+      #
+      # Prose telling it otherwise loses to the signal, so the signal goes: for
+      # EXECUTION the documented URL is hrtips.github.io/cvx/download/…, which
+      # looks like what it is, a public file over HTTP. GitHub Releases stay the
+      # source of truth and keep serving humans, provenance and history.
+      #
+      # Copied from the release rather than committed, so no binary enters git
+      # history and what the site serves is provably the published bytes.
+      - name: Publish the bundle for direct download
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="$(curl -sSfL "https://api.github.com/repos/$REPO/releases/latest" | jq -r .tag_name)"
+          VERSION="${TAG#v}"
+          echo "publishing bundle from $TAG"
+
+          mkdir -p "_site/download/$TAG"
+          curl -sSfL -o _site/download/cvx.bundle.min.js.zip \
+            "https://github.com/$REPO/releases/latest/download/cvx.bundle.min.js.zip"
+          cp _site/download/cvx.bundle.min.js.zip "_site/download/$TAG/cvx.bundle.min.js.zip"
+
+          SHA="$(sha256sum _site/download/cvx.bundle.min.js.zip | awk '{print $1}')"
+          printf '%s  cvx.bundle.min.js.zip\n' "$SHA" > _site/download/cvx.bundle.min.js.zip.sha256
+          cp _site/download/cvx.bundle.min.js.zip.sha256 "_site/download/$TAG/cvx.bundle.min.js.zip.sha256"
+
+          # One machine-readable file for "what is current" — enough for update
+          # discovery without scraping HTML or the Releases API.
+          cat > _site/download/latest.json <<EOF
+          {
+            "version": "$VERSION",
+            "node": ">=20",
+            "bundle": "https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip",
+            "versionedBundle": "https://hrtips.github.io/cvx/download/$TAG/cvx.bundle.min.js.zip",
+            "sha256": "$SHA",
+            "run": "unzip -o -q cvx.bundle.min.js.zip && node cvx.bundle.min.js --version",
+            "docs": "https://hrtips.github.io/cvx/ai-guide.md",
+            "sourceRepository": "https://github.com/$REPO"
+          }
+          EOF
+
+          # A zip that is not a zip would be worse than a 404: it would fail inside
+          # the user's sandbox instead of here.
+          unzip -t -q _site/download/cvx.bundle.min.js.zip
+          ls -la _site/download
+
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site

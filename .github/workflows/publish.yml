@@ -218,3 +218,20 @@ jobs:
           # the release becomes immutable.
           gh release edit "$TAG" --repo "$REPO" --draft=false --latest
           gh release view "$TAG" --repo "$REPO" --json assets -q '.assets[].name'
+
+  # ── Refresh the Pages download ──────────────────────────────────────────────
+  # hrtips.github.io/cvx/download/… is the URL every agent-facing surface names,
+  # and pages.yml builds it from `releases/latest` — so it has to rerun once the
+  # release exists, or the site keeps serving the previous version's bundle with
+  # nothing to indicate it.
+  refresh-download:
+    needs: release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # dispatch the Pages workflow
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: gh workflow run pages.yml --repo "$REPO" --ref main
