@@ -52,27 +52,35 @@ That list is what lets you **backtrack** when an edit makes the page worse (you 
 
 ### 2b. The standalone bundle — a Node runtime and nothing else
 
-Some sandboxes have Node but no way to reach npm: **measured in an OpenAI container, `node -v` reports v22.16.0 while every hostname fails to resolve**, so `npx`, `npm install`, `curl` and `git clone` all fail identically. That is not a broken probe, and no amount of retrying fixes it.
+A sandbox that cannot reach npm can usually still fetch a file. So when `npx` fails, **do not fall back to a handoff — fetch the bundle.** CVX ships as one self-contained file: schema, `init` template and fonts embedded, Node 20+ and nothing else. No `npm install`, no `node_modules`, no further downloads.
 
-For exactly that case CVX ships **`cvx.bundle.js`** — one self-contained file, attached to every [release](https://github.com/hrtips/cvx/releases/latest). It needs Node 20+ and nothing else: no `npm install`, no `npx`, no `node_modules`, no network.
-
-Each release attaches the same bytes under two names: `cvx-<version>.bundle.js`, which is the one to keep because its name says what it is, and `cvx.bundle.js`, which exists so that `https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.js` is a stable download URL. When looking for a copy in a sandbox, match **either** — glob `cvx*.bundle.js`. Run it wherever it happens to be:
+Run this exact block. Do not explore the filesystem first, and do not retry npm:
 
 ```bash
-node /mnt/data/cvx.bundle.js init
-node /mnt/data/cvx.bundle.js validate --strict --json
-node /mnt/data/cvx.bundle.js build --json      # --ats, --all, list: all the same
+mkdir -p .cvx && cd .cvx
+curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+unzip -o -q cvx.bundle.min.js.zip
+node cvx.bundle.min.js --version
 ```
 
-Every command, flag, exit code and `--json` envelope is identical to `npx @hrtips/cvx` — it is the same engine, and it renders byte-identical PDFs. It writes `cv-content/` and the PDF into the **current working directory**, so `cd` to where you want them first.
+Then use it exactly like the CLI — every command, flag, exit code and `--json` envelope is identical, because it is the same engine, and it renders byte-identical PDFs:
 
-**You cannot download it in a sandbox with no DNS** — if `npx` failed for network reasons, fetching a URL will fail too. The bundle has to be *already there*:
+```bash
+node cvx.bundle.min.js init
+node cvx.bundle.min.js validate --strict --json
+node cvx.bundle.min.js build --json      # --ats, --all, list: all the same
+```
 
-- a **Custom GPT Knowledge file**, which lands at `/mnt/data/cvx.bundle.js` — the whole point of the file's existence, and it needs no user action per conversation;
-- a file the **user uploaded** to the conversation;
-- anything pre-seeded into the image or workspace.
+It writes `cv-content/` and the PDF into the **current working directory**, so `cd` first and stay there.
 
-So look for it before you give up: check `/mnt/data`, the working directory, and anywhere else uploads land. If it is not there, ask the user to download it from the release page and upload it — one file, no install, and they need only a browser. If they would rather not, go to path 3.
+**If `curl` is blocked, try these in order and stop at the first that works** — one attempt each, and report one line rather than narrating every failure:
+
+1. Python: `python3 -c "import urllib.request;urllib.request.urlretrieve('https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip','cvx.bundle.min.js.zip')"`
+2. any file-download tool your runtime gives you, on that same URL;
+3. **a copy already on disk** — `ls /mnt/data | grep -i cvx`, matching `cvx*.bundle*.js*`, since a release attaches versioned and unversioned names holding the same bytes, and an upload or a Custom GPT action may have put one there;
+4. ask the user to download it from the [latest release](https://github.com/hrtips/cvx/releases/latest) and upload it — one file, no install, they need only a browser.
+
+Only if all of those fail is path 3 the answer. Which variant to fetch: **`cvx.bundle.min.js.zip` (0.92 MB)** is the smallest and the default above; `cvx.bundle.js` (5.3 MB, unminified) is worth it only when you need readable stack traces.
 
 Two limits, both deliberate. **`cvx mcp` is not in the bundle** (it exits 64 and points at npm — an MCP client cannot connect to it in a sandbox anyway). And **drop-in `.js` theme files are ignored** next to the bundle, because that directory is the user's; the three built-in themes and your own `layouts/*.yaml` work normally.
 
@@ -227,35 +235,39 @@ If validate reports problems, paste its output back to the assistant — the fin
 
 ## Route D — agent-mode assistant, zero local setup
 
-If your assistant can execute commands in a workspace (e.g. ChatGPT's agent mode), you don't need anything installed locally — not even Node. Paste:
+If your assistant can execute commands in a workspace (ChatGPT with Code Interpreter, agent mode, and similar), you need **nothing installed and nothing to upload** — not even Node. It fetches CVX itself. Paste:
 
 ```text
-In your workspace, install Node if needed, then run:
-  npx @hrtips/cvx init
-Replace the example content in cv-content/ with my CV below, following
-the schema in cv-content/README.md. Keep every fact truthful to my
-input — don't invent anything. Then run:
-  npx @hrtips/cvx build
-and give me BOTH the finished PDF AND a zip of the cv-content folder
-as downloads. I need the zip to keep my content for future updates.
+Set up CVX first, by running exactly this and nothing else:
+  mkdir -p cvx && cd cvx
+  curl -sSfLO https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip
+  unzip -o -q cvx.bundle.min.js.zip
+  node cvx.bundle.min.js --version
+Do not use npm or npx — CVX needs no installation, and that just wastes time.
+
+Then: node cvx.bundle.min.js init, replace the example content in
+cv-content/ with my CV below following cv-content/README.md, run
+node cvx.bundle.min.js validate --strict --json after every edit, then
+node cvx.bundle.min.js build --json and build --ats --json.
+
+Keep every fact truthful to my input — don't invent anything.
+
+Then OPEN the PDF you just made, render its pages to images, and check the
+layout before showing me anything. Fix it and rebuild if it looks wrong.
+Finally give me both PDFs AND a zip of the cv-content folder as downloads —
+I need the zip to keep my content for future updates.
 
 My CV:
 <paste your old CV / LinkedIn profile text here>
 ```
 
+Two things make that prompt worth pasting verbatim. It **names the exact setup commands**, because an assistant left to work it out will try `npx` first, wait for it to fail, and go round the houses. And it **tells the assistant to look at the PDF** — the step that separates this from a handoff, since it can then fix the layout before you ever see it.
+
 The zip matters: agent workspaces are ephemeral, and your `cv-content/` folder is the durable asset. Next time, upload the zip back (or switch to any other route) and ask for the changes you need.
 
-**If the assistant reports that `npx` or npm failed,** its sandbox has a Node runtime but no route to the registry — common, and not something retrying fixes. Download **`cvx.bundle.js`** from the [latest release](https://github.com/hrtips/cvx/releases/latest), upload it to the conversation, and say:
+**If the download is blocked** in that sandbox, download `cvx.bundle.min.js.zip` (0.92 MB) from the [latest release](https://github.com/hrtips/cvx/releases/latest) yourself, upload it into the conversation, and tell the assistant to unzip it and run `node cvx.bundle.min.js` instead of the `curl` line. Everything after that is the same. You still need no Node and no terminal — just a browser, once.
 
-```text
-Use the cvx.bundle.js file I uploaded — it is the whole of CVX in one file
-and needs no installation. Run it with plain node, e.g.
-  node /mnt/data/cvx.bundle.js init
-  node /mnt/data/cvx.bundle.js build --json
-then open the PDF you produced, check the layout, and iterate.
-```
-
-You need nothing installed for this — no Node, no terminal, just a browser to download the file once. And because the assistant can open the PDF it just produced, it can check the layout and fix it before handing it back, which is the part a plain file handoff cannot do. (A published Custom GPT can carry the bundle as a Knowledge file, so even that upload disappears.)
+If you use ChatGPT often, [docs/custom-gpt.md](custom-gpt.md) turns this prompt into a Custom GPT so you stop pasting it.
 
 **Privacy note:** CVX itself runs entirely locally and makes zero network calls — the bundle included, which is asserted by a test that fails the build if anything reaches the network. But in Route D (and any cloud assistant route) your CV content is processed on the assistant vendor's infrastructure, subject to their terms. If you want your data to never leave your machine, use Route A/C with a local model (e.g. via Ollama) or write the YAML yourself.
 

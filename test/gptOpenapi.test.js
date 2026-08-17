@@ -79,10 +79,25 @@ describe('Custom GPT action schema', () => {
     // layout invited rather than one the person made.
     const instructions = readFileSync(path.join(ROOT, 'site', 'gpt', 'instructions.txt'), 'utf8')
     expect(instructions.length).toBeLessThanOrEqual(8000)
-    // The lines that matter most in a sandbox with no shell network.
-    expect(instructions).toMatch(/NEVER run npm install, npm, or npx/)
-    expect(instructions).toMatch(/downloadCvxBundle/)
+
+    // Properties, not prose. Each of these is a behaviour that went wrong in
+    // testing and cost a user their turn, so it is worth a tripwire — but pinning
+    // the sentence itself just makes the instructions unrewritable.
+    //
+    // 1. Steer away from npm/npx: it is slow, often unreachable, and never needed.
+    expect(instructions).toMatch(/do not try npm or npx|never run npm|not npm/i)
+    // 2. A concrete download URL, so acquisition is one command and not a search.
+    expect(instructions).toContain(
+      'https://github.com/hrtips/cvx/releases/latest/download/cvx.bundle.min.js.zip'
+    )
+    // 3. A fallback that ends with a human, so a broken sandbox is not a dead end.
+    expect(instructions).toMatch(/upload/i)
+    // 4. cd first — CVX writes into the working directory, and getting this wrong
+    //    scatters cv-content/ and the PDF wherever the shell happened to start.
     expect(instructions).toMatch(/CURRENT working directory/)
+    // 5. The step that makes a GPT better than a YAML handoff: it must look at the
+    //    PDF it rendered, not just report that a build succeeded.
+    expect(instructions).toMatch(/render its pages to images/i)
 
     // And the setup doc must not carry a second copy to drift from.
     const doc = readFileSync(path.join(ROOT, 'docs', 'custom-gpt.md'), 'utf8')
