@@ -1,0 +1,97 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CVX bundle delivery",
+    "description": "Delivers the current CVX standalone bundle as a file, and reports what the current release is. Both endpoints are static files with fixed bodies: they accept no input, carry no CV content, and nothing a user writes ever reaches them. They always describe the newest release, so a GPT using them needs no changes when CVX ships a new version.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://hrtips.github.io/cvx",
+      "description": "Static GitHub Pages origin — a JSON file, not a service."
+    }
+  ],
+  "paths": {
+    "/gpt/bundle.json": {
+      "get": {
+        "operationId": "downloadCvxBundle",
+        "summary": "Download the current CVX bundle as a file",
+        "description": "Call this FIRST, before promising a CV. It returns the current CVX release as a downloadable file (a zip containing one self-contained JavaScript file). The file becomes available to Code Interpreter; unzip it and run it with node. Always returns the newest release, so nothing here needs updating when CVX is released. Do not attempt npm or npx — this environment has no network for the shell, and the bundle needs no installation.",
+        "responses": {
+          "200": {
+            "description": "The bundle, as a file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "openaiFileResponse": {
+                      "type": "array",
+                      "description": "One entry: the zipped CVX bundle.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string", "description": "Filename, e.g. cvx.bundle.min.js.zip" },
+                          "mime_type": { "type": "string", "description": "application/zip" },
+                          "content": { "type": "string", "description": "base64-encoded file contents" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gpt/version.json": {
+      "get": {
+        "operationId": "getCvxRelease",
+        "summary": "Current CVX version and standalone bundle download URLs",
+        "description": "Call this to find out which CVX release is current — for example to tell whether the cvx bundle already present in /mnt/data is out of date, or to give the user a link to the newest one. Returns a few hundred bytes of JSON. It cannot deliver the bundle itself: the file is megabytes and an action response returns into the conversation, not onto the filesystem.",
+        "responses": {
+          "200": {
+            "description": "Release metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string",
+                      "description": "Current release, e.g. 1.9.2"
+                    },
+                    "node": {
+                      "type": "string",
+                      "description": "Minimum Node.js version, e.g. >=20"
+                    },
+                    "bundles": {
+                      "type": "object",
+                      "description": "Stable download URLs, one per variant. Always resolve to the newest release.",
+                      "properties": {
+                        "plain": { "type": "string" },
+                        "plainZip": { "type": "string" },
+                        "min": { "type": "string" },
+                        "minZip": { "type": "string" }
+                      }
+                    },
+                    "checksums": {
+                      "type": "string",
+                      "description": "URL of SHA256SUMS.txt covering every published artifact"
+                    },
+                    "release": { "type": "string", "description": "Human-readable release page" },
+                    "aiGuide": {
+                      "type": "string",
+                      "description": "Raw URL of the assistant-facing guide"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
