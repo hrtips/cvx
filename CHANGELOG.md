@@ -9,7 +9,7 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
-## Unreleased
+## 1.8.1 — 2026-08-17
 
 **A populated section that no layout slot renders is no longer dropped in
 silence.** The 1.8.0 dogfood found it on the shipped default: put a real
