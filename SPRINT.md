@@ -13,10 +13,17 @@ release.
 
 ## No sprint in flight
 
-Sprint 1 — "Honest, then loud" — shipped as **1.8.0** on 2026-08-17. What it
-did is in [CHANGELOG.md](CHANGELOG.md); why, in ARCHITECTURE.md §7.4 and §8.
-The next sprint starts by picking from §8's chain (I4 is next) or from the
-backlog below.
+Sprint 1 — "Honest, then loud" — shipped as **1.8.0** on 2026-08-17 (I1, I2,
+I3, and the `planIterations` deletion). **1.8.1** followed the same day with
+unplanned work: the P0 a dogfood of 1.8.0 found — a populated section that no
+layout slot renders was dropped from the designed PDF in silence — plus the
+`validate`-bypasses-`resolveDocument` fix that made it detectable, `spacerPt`,
+and five documentation corrections. What both releases did is in
+[CHANGELOG.md](CHANGELOG.md); why, in ARCHITECTURE.md §7.4 and §8.
+
+§8's chain resumes at **I4** (main-slot fixed-content pricing). Before pulling
+it, read the first item under "Found, unscheduled" — it is I4's prerequisite,
+not a nicety.
 
 ## Parked — ops backlog
 
@@ -45,14 +52,24 @@ them if that ever changes.
 
 ## Found, unscheduled
 
+- **No corpus fixture reaches the student-CV shape** — carried since I2 and
+  still true: `experience: []` with sections in a main slot. **This should lead
+  I4**, and the case for it is now three incidents deep rather than one. Two of
+  I2/I3's review blockers hid in exactly this shape, and 1.8.1's P0 lived in its
+  neighbour (a section with no slot at all). All three share one cause: a
+  plan-level claim published with no render-level instrument pointed at it — and
+  the harness's render oracle, which detects a column's ink directly, is that
+  instrument. It is already built; nothing points it at this shape.
+- **Neither dogfood defect was caught by an automated gate.** The 1.8.0 P0 was
+  found by the skill's content-fidelity check (`pdftotext`, normalize, look for
+  distinctive strings) after `validate --strict` and the build both reported
+  clean. That is twice now that driving a real CV found what the suite
+  structurally could not, which is worth weighing against any plan to test more
+  of the same things harder.
 - **The C0 fixture set has no layout-spacing axis** — D11's template `spacing:`
   block is exercised only by its own unit tests, so no corpus fixture varies it
   and no render-diff covers a scaled theme. Worth an axis when the per-CV design
   surface grows (ARCHITECTURE §7.4).
-- **No corpus fixture reaches the student-CV shape** — carried since I2 and
-  still true: `experience: []` with sections in a main slot is the shape two
-  blockers hid in, and the harness's render oracle is exactly the instrument
-  that would adjudicate it. Should lead the I4 work.
 - §7.4 also records **NOT DOING — replacing the greedy packer**: proven optimal
   in-repo and over 900 generated CVs, 0 counterexamples.
 
