@@ -137,22 +137,18 @@ jobs:
             console.log("bundle ok:", r.filename, r.bytes, "bytes,", r.diagnostics.totalPages, "pages")
           ' "$DIR"
 
-      # Both names are attached: the versioned one is what a user keeps and can
-      # still identify months later, the unversioned one is what keeps
-      # releases/latest/download/cvx.bundle.js a stable URL for the docs and for
-      # refreshing a Custom GPT Knowledge file.
-      #
-      # `cmp`, not `sha256sum --check`: the latter only re-verifies each file
-      # against its own recorded hash, which is trivially true seconds after
-      # writing it. What actually matters is that the two names hold the SAME
-      # bytes, because the stable URL would otherwise be able to serve something
-      # other than the release it is named after.
-      - name: Checksum, and prove the two names are one artifact
+      # SHA256SUMS.txt is written by build-standalone.js, not by `sha256sum`
+      # here: one implementation means the file is identical locally and in CI,
+      # and the build already refuses to finish unless every unversioned alias
+      # hashes equal to its versioned original and every zip round-trips. This
+      # step re-verifies the published set with coreutils — a different
+      # implementation than the one that wrote it, which is the only way the
+      # check is worth anything.
+      - name: Verify the artifact set
         run: |
           cd dist
-          cmp cvx-*.bundle.js cvx.bundle.js
-          sha256sum cvx-*.bundle.js cvx.bundle.js > SHA256SUMS.txt
-          cat SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+          ls -l
 
       # TAG via env, never inlined into the script: a ref interpolated straight
       # into `run` is a template-injection sink (zizmor).
@@ -202,9 +198,21 @@ jobs:
           fi
 
           # Assets are passed to `create`, not uploaded after: see note above.
+          # Nine files — the plain and minified bundles, each raw and zipped,
+          # each under a versioned and an unversioned name, plus the checksums.
+          # The unversioned ones are what make
+          # releases/latest/download/<name> a stable URL for every variant.
+          # Two globs cover all eight rather than four narrower ones that could
+          # each silently match nothing: dist/ holds only these bundles.
+          #   cvx-<v>.bundle.js      cvx-<v>.bundle.min.js      (+ .zip each)
+          #   cvx.bundle.js          cvx.bundle.min.js          (+ .zip each)
+          ASSETS=(dist/cvx*.js dist/cvx*.zip dist/SHA256SUMS.txt)
+          if [ "${#ASSETS[@]}" -ne 9 ]; then
+            echo "::error::expected 9 release assets, found ${#ASSETS[@]}: ${ASSETS[*]}"
+            exit 1
+          fi
           gh release create "$TAG" --repo "$REPO" --draft --verify-tag \
-            --title "CVX v$SUBJECT" --notes-file notes.md \
-            dist/cvx-*.bundle.js dist/cvx.bundle.js dist/SHA256SUMS.txt
+            --title "CVX v$SUBJECT" --notes-file notes.md "${ASSETS[@]}"
 
           # Publish only once every asset is attached, which is also the moment
           # the release becomes immutable.

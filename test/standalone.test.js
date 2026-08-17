@@ -16,6 +16,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { inflateRawSync } from 'node:zlib'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -86,25 +87,109 @@ beforeAll(() => {
   if (!existsSync(BUNDLE)) throw new Error(`build-standalone.js did not produce ${BUNDLE}`)
 }, 180_000)
 
-describe('the versioned artifact and its unversioned alias', () => {
-  it('ships both names, byte-identical', () => {
-    // The versioned name is what a user keeps and uploads; the alias is what
-    // keeps releases/latest/download/cvx.bundle.js a stable URL, which the docs
-    // and any Custom GPT Knowledge refresh depend on. If these ever diverge,
-    // that URL silently serves something other than the release it names.
-    const versioned = path.join(ROOT, 'dist', `cvx-${VERSION}.bundle.js`)
-    expect(existsSync(versioned)).toBe(true)
-    const sha = (/** @type {string} */ p) =>
-      createHash('sha256').update(readFileSync(p)).digest('hex')
-    expect(sha(versioned)).toBe(sha(BUNDLE))
+describe('the release artifact set', () => {
+  const DIST = path.join(ROOT, 'dist')
+  const sha = (/** @type {string} */ p) =>
+    createHash('sha256').update(readFileSync(p)).digest('hex')
+
+  it('ships all four variants, each under a versioned and an unversioned name', () => {
+    for (const name of [
+      `cvx-${VERSION}.bundle.js`,
+      `cvx-${VERSION}.bundle.js.zip`,
+      `cvx-${VERSION}.bundle.min.js`,
+      `cvx-${VERSION}.bundle.min.js.zip`,
+      'cvx.bundle.js',
+      'cvx.bundle.js.zip',
+      'cvx.bundle.min.js',
+      'cvx.bundle.min.js.zip',
+      'SHA256SUMS.txt'
+    ]) {
+      expect(existsSync(path.join(DIST, name)), `dist/${name} missing`).toBe(true)
+    }
   })
 
-  it('names its version in the file itself, not only in the filename', () => {
-    // A renamed or re-downloaded copy must still be identifiable, and `--version`
-    // requires actually running it — so the banner carries it in plain text.
-    const head = readFileSync(BUNDLE, 'utf8').slice(0, 400)
-    expect(head).toContain(`CVX ${VERSION}`)
+  it('keeps each unversioned .js alias byte-identical to its versioned original', () => {
+    // These back releases/latest/download/<name>, which the docs and any Custom
+    // GPT Knowledge refresh depend on. If they diverge, that URL silently serves
+    // something other than the release it is named after.
+    for (const suffix of ['bundle.js', 'bundle.min.js']) {
+      expect(sha(path.join(DIST, `cvx-${VERSION}.${suffix}`))).toBe(
+        sha(path.join(DIST, `cvx.${suffix}`))
+      )
+    }
   })
+
+  it('names its version inside every .js variant, not only in the filename', () => {
+    // A renamed or re-downloaded copy must still be identifiable, and `--version`
+    // requires actually running it — so the banner carries it in plain text, and
+    // survives minification.
+    for (const name of [`cvx-${VERSION}.bundle.js`, `cvx-${VERSION}.bundle.min.js`]) {
+      expect(readFileSync(path.join(DIST, name), 'utf8').slice(0, 400)).toContain(`CVX ${VERSION}`)
+    }
+  })
+
+  it('checksums every artifact, in a format sha256sum -c accepts', () => {
+    const lines = readFileSync(path.join(DIST, 'SHA256SUMS.txt'), 'utf8').trim().split('\n')
+    expect(lines).toHaveLength(8)
+    for (const line of lines) {
+      const [hash, name] = line.split(/\s{2}/)
+      expect(hash, `malformed line: ${line}`).toMatch(/^[0-9a-f]{64}$/)
+      expect(sha(path.join(DIST, name)), `${name} checksum is wrong`).toBe(hash)
+    }
+  })
+
+  it('produces zips that a real unzip implementation can read', () => {
+    // The ZIP writer in scripts/build-standalone.js is hand-rolled. Its own
+    // round-trip check shares a parser with the writer, so it cannot catch a
+    // misunderstanding of the format — this reads the archives back with Node's
+    // zlib via an independent header walk, and asserts the entry name too,
+    // because cvx.bundle.js.zip extracting to a differently-named file would
+    // break every documented command.
+    for (const base of [
+      `cvx-${VERSION}.bundle.js`,
+      `cvx-${VERSION}.bundle.min.js`,
+      'cvx.bundle.js',
+      'cvx.bundle.min.js'
+    ]) {
+      const archive = readFileSync(path.join(DIST, `${base}.zip`))
+      expect(archive.readUInt32LE(0), `${base}.zip has no local file header`).toBe(0x04034b50)
+      const nameLen = archive.readUInt16LE(26)
+      const start = 30 + nameLen + archive.readUInt16LE(28)
+      expect(archive.subarray(30, 30 + nameLen).toString('utf8')).toBe(base)
+      const inflated = inflateRawSync(archive.subarray(start, start + archive.readUInt32LE(18)))
+      expect(inflated.equals(readFileSync(path.join(DIST, base)))).toBe(true)
+    }
+  })
+})
+
+describe('the minified variant', () => {
+  it('renders a byte-identical PDF to the plain one', () => {
+    // Minification must be a size change and nothing else. Both are compared
+    // against the same pinned epoch so CreationDate, subset tags and object
+    // write order are fixed (src/pdf/reproducible.js).
+    const epoch = { SOURCE_DATE_EPOCH: '1700000000' }
+    const outputs = [`cvx-${VERSION}.bundle.js`, `cvx-${VERSION}.bundle.min.js`].map((name) => {
+      const dir = mkdtempSync(path.join(tmpdir(), 'cvx-min-'))
+      cpSync(path.join(ROOT, 'dist', name), path.join(dir, name))
+      const exec = (/** @type {string[]} */ args) =>
+        execFileSync('node', [`./${name}`, ...args], {
+          cwd: dir,
+          encoding: 'utf8',
+          env: { ...SCRUBBED, ...epoch }
+        })
+      exec(['init'])
+      const built = JSON.parse(exec(['build', '--json']))
+      return { dir, built }
+    })
+
+    for (const { built } of outputs) expect(built.ok).toBe(true)
+    const [plain, min] = outputs.map(({ dir, built }) =>
+      createHash('sha256')
+        .update(readFileSync(path.join(dir, built.filename)))
+        .digest('hex')
+    )
+    expect(min).toBe(plain)
+  }, 180_000)
 })
 
 describe('standalone bundle — runs from an empty directory', () => {
