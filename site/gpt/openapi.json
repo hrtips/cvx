@@ -16,7 +16,7 @@
       "get": {
         "operationId": "downloadCvxBundle",
         "summary": "Download the current CVX bundle as a file",
-        "description": "Call this FIRST, before promising a CV. It returns the current CVX release as a downloadable file (a zip containing one self-contained JavaScript file). The file becomes available to Code Interpreter; unzip it and run it with node. Always returns the newest release, so nothing here needs updating when CVX is released. Do not attempt npm or npx — this environment has no network for the shell, and the bundle needs no installation.",
+        "description": "Call before promising a CV. Returns the current CVX release as a downloadable file: a zip holding one self-contained JavaScript file. Unzip it, then run it with node. Needs no installation. Always serves the newest release, so nothing here changes when CVX ships.",
         "responses": {
           "200": {
             "description": "The bundle, as a file",
@@ -49,7 +49,7 @@
       "get": {
         "operationId": "getCvxRelease",
         "summary": "Current CVX version and standalone bundle download URLs",
-        "description": "Call this to find out which CVX release is current — for example to tell whether the cvx bundle already present in /mnt/data is out of date, or to give the user a link to the newest one. Returns a few hundred bytes of JSON. It cannot deliver the bundle itself: the file is megabytes and an action response returns into the conversation, not onto the filesystem.",
+        "description": "Reports the current CVX version, the minimum Node version, and stable download URLs. Use it to check whether a bundle you already have is out of date, or to give the user a link. Under 1 KB. It does not deliver the bundle itself; use downloadCvxBundle for that.",
         "responses": {
           "200": {
             "description": "Release metadata",
