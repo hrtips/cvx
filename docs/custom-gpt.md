@@ -112,10 +112,9 @@ smallest models do it badly.
 
 That last field is not optional if you ever want the GPT to be anything other than
 private: **a GPT with a custom action cannot be shared or listed without a
-privacy-policy URL.** The page it points at is
-[site/privacy.html](../site/privacy.html), and it can be short and truthful here
-because the endpoints are static files — they accept no input, so no CV content can
-reach them even in principle.
+privacy-policy URL.** It points at [site/privacy.html](../site/privacy.html), the
+project's own privacy statement — deliberately general rather than written around
+this integration, since it has to hold for the CLI and the npm package too.
 
 You should see two operations appear:
 

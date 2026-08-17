@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Privacy — CVX</title>
-<meta name="description" content="What the CVX GPT action does and does not collect. The endpoints are static files: they accept no input, and no CV content is ever sent to them." />
+<meta name="description" content="CVX collects nothing. It runs on your machine, has no accounts and no telemetry, and makes no network calls while it works." />
 <link rel="icon" href="./icon.png" />
 <style>
   html, body { margin: 0; padding: 0; background: #FBFAF8; color: #1B1B1B; }
@@ -38,55 +38,46 @@
 <h1>Privacy</h1>
 <p class="updated">CVX · last updated 18 August 2026</p>
 
-<p class="lede">CVX is a command-line tool that renders CV PDFs on your own machine.
-It has no accounts, no telemetry, and makes no network calls. This page covers the
-one part of the project that is reachable over the internet: the two endpoints a
-ChatGPT Custom GPT calls to fetch CVX.</p>
+<p class="lede">CVX collects nothing. It is a command-line tool that turns YAML files
+into CV PDFs on the machine it runs on. There are no accounts, no telemetry, no
+cookies and no analytics, and it makes no network calls while it works.</p>
 
-<h2>What the endpoints are</h2>
-<ul>
-  <li><code>/gpt/bundle.json</code> — returns the current CVX release as a file.</li>
-  <li><code>/gpt/version.json</code> — returns the current version number and download links.</li>
-</ul>
-<p>Both are <strong>static files</strong> served by GitHub Pages. They have fixed
-contents, accept no query parameters and no request body, and there is no
-application behind them. A request cannot send them anything.</p>
+<h2>Your CV stays where you put it</h2>
+<p>Your content lives in a folder of plain text files that you own. CVX reads them,
+renders a PDF beside them, and stops. It does not upload, sync, or transmit them
+anywhere, and it has nowhere to transmit them to: everything it needs to render —
+schema, templates, fonts — ships with the program.</p>
+<p>The project operates no server, no database and no logging. There is nothing for
+us to see, keep or delete.</p>
 
-<h2>What we collect</h2>
-<p><strong>Nothing.</strong> We operate no server, no database, no logging and no
-analytics. There is no account to create and no cookie set by these endpoints.</p>
-<p>Because the files are hosted on GitHub Pages, GitHub receives the requests and
-may record standard web-server information such as IP address and user agent under
-its own
-<a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">privacy
-statement</a>. We do not have access to those records and do not process them.</p>
+<h2>Getting the software</h2>
+<p>Downloading CVX is an ordinary download, handled by whoever hosts it: the
+<a href="https://docs.npmjs.com/policies/privacy">npm registry</a> if you install
+the package, or <a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">GitHub</a>
+if you fetch a release file or load this website. Those hosts receive the request
+and may record standard web-server information such as IP address and user agent
+under their own policies. We do not have access to those records and do not process
+them.</p>
+<p>Any machine-readable files this site serves are <strong>static files with fixed
+contents</strong>. They accept no query parameters and no request body, and there is
+no application behind them, so a request cannot send them anything.</p>
 
-<h2>Your CV never reaches us</h2>
-<p>This is the part worth being precise about. When you use a Custom GPT built on
-CVX:</p>
-<ul>
-  <li>The GPT calls the endpoints above <em>to download the CVX program</em>. That
-      request contains no CV content — it carries no input at all.</li>
-  <li>Your CV is written and rendered <strong>inside ChatGPT's own sandbox</strong>,
-      by the downloaded program. It is not transmitted to us at any point.</li>
-  <li>CVX itself makes zero network calls while it runs. Its schema, templates and
-      fonts are embedded in the downloaded file.</li>
-</ul>
-<p>Your conversation, your uploads and the files produced in that sandbox are
-handled by OpenAI under
-<a href="https://openai.com/policies/privacy-policy">OpenAI's privacy policy</a> and
-terms, not by this project. If you would rather nothing left your machine at all,
-run CVX locally instead — <code>npx @hrtips/cvx</code> — where no part of it
-touches the network.</p>
+<h2>If you run CVX through someone else's service</h2>
+<p>CVX can be driven by an AI assistant, or run inside a hosted sandbox or CI
+runner. In that case the assistant or platform — not this project — receives
+whatever you give it, and handles it under its own privacy policy and terms. That is
+worth checking before pasting a CV into any hosted tool.</p>
+<p>If you want your data to stay on your own machine, run CVX locally
+(<code>npx @hrtips/cvx</code>, or the standalone file from a release). Nothing about
+it touches the network.</p>
 
 <h2>Children</h2>
-<p>CVX is a developer tool for producing CVs and is not directed at children under 13.</p>
+<p>CVX is a tool for producing CVs and is not directed at children under 13.</p>
 
 <h2>Changes</h2>
-<p>Any change to this page is a commit in the public repository, so its full history
-is visible in
-<a href="https://github.com/hrtips/cvx/commits/main/site/privacy.html">the file's
-git log</a>.</p>
+<p>Every change to this page is a public commit, so its full history is visible in
+<a href="https://github.com/hrtips/cvx/commits/main/site/privacy.html">the file's git
+log</a>.</p>
 
 <h2>Contact</h2>
 <p>Open an issue at
