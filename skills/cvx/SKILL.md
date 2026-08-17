@@ -12,7 +12,24 @@ metadata:
 
 CVX renders a folder of plain YAML files (`cv-content/`) into a pixel-perfect CV PDF. Everything runs locally: no accounts, no network calls, and the user's data never leaves their machine. The YAML is the durable asset — the user keeps and re-edits it for every future application.
 
-## The loop
+## Run order
+
+Work through these in sequence. The sections below are the detail for each — read them when you get there, not up front.
+
+| # | Do | Detail |
+|---|---|---|
+| 0 | **Get CVX running.** MCP tools if connected; else `npx`; else the bundle. Never hand off before trying all three. | [Getting CVX](#getting-cvx) |
+| 1 | **Ask for source content _and_ the brief in ONE message**, then wait. Never invent facts. | [Ask about shape](#ask-about-shape-before-you-draft--once-with-examples) |
+| 2 | **Scaffold, then replace every example value** with the user's real content. | [Getting CVX](#getting-cvx) |
+| 3 | **Validate after every edit** — `validate --strict --json` — and fix what it names. | [Getting CVX](#getting-cvx) |
+| 4 | **Review the content, batch 3–5 gap questions, then show a pre-build preview** and get an OK. | [Review, then brainstorm](#review-then-brainstorm--before-the-final-build) |
+| 5 | **Build both variants** — designed and `--ats`. | [Getting CVX](#getting-cvx) |
+| 6 | **Open the PDF and look at every page.** Iterate on what you see, not on numbers alone. | [Reading the layout](#reading-the-layout) |
+| 7 | **Deliver both PDFs and the `cv-content/` folder** — the YAML is what the user keeps, and an ephemeral sandbox loses it otherwise. | — |
+
+Two things go wrong most often, and both are avoidable: guessing at setup instead of running the block in step 0, and reporting a successful build without ever looking at the PDF. Step 6 is what makes you more useful than a YAML generator.
+
+## Getting CVX
 
 If the CVX MCP server is connected, use its tools: `get_schema` → `init_cv` → edit YAML → `validate_cv` → `plan_layout` (optional dry run — see below) → `build_pdf` (pass the workspace folder as `dir`, absolute path). Otherwise use the CLI:
 
