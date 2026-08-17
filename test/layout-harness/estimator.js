@@ -15,4 +15,4 @@
 // this file changing, and layout.js's own char-width estimator retires.
 // ─────────────────────────────────────────────────────────────────────────
 
-export { deriveMetrics, entryH, lineCount, summaryH } from '../../src/pdf/layout.js'
+export { bulletWidth, deriveMetrics, entryH, lineCount, summaryH } from '../../src/pdf/layout.js'

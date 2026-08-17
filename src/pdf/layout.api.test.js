@@ -38,6 +38,13 @@ const LAYOUT_JS = path.join(HERE, 'layout.js')
 const PUBLIC_API = [
   'bodyHeight',
   'contactRows',
+  // I1: the one list the main-slot-unmeasured fact, the schema caveat and the
+  // docs all derive from — public so they cannot drift from the packer.
+  'MEASURED_MAIN_KEYS',
+  // D2: the one list the packer's sidebar drop and validateContent's
+  // `slot-not-renderable` error both derive from — public so a silent
+  // content-loss gap cannot open between them.
+  'SIDEBAR_SECTION_KEYS',
   'isContinuedSlice',
   'isIdentityKey',
   'overflowWarnings',
@@ -170,10 +177,18 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 25 names the module docblock claims', () => {
-    expect(exported).toHaveLength(25)
-    expect(PUBLIC_API).toHaveLength(8)
-    expect(internal).toHaveLength(17)
+  it('exports exactly the 28 names the module docblock claims', () => {
+    // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
+    // main-column harness the same way deriveMetrics is for the sidebar's.
+    // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
+    // D2 promoted SIDEBAR_SECTION_KEYS from harness-only to public (that one
+    // moved across the partition rather than being added). P2 then added
+    // `entryParts` as the 28th export, @internal: it is the reporting
+    // breakdown of `entryH`, callable only with a harness-only Metrics object,
+    // and its numbers reach consumers through the plan, not through an import.
+    expect(exported).toHaveLength(28)
+    expect(PUBLIC_API).toHaveLength(10)
+    expect(internal).toHaveLength(18)
   })
 
   it("the module docblock's harness roll-call matches the @internal tags", () => {
@@ -206,12 +221,15 @@ describe('layout.js public API', () => {
         'isIdentityKey',
         'overflowWarnings',
         'planTwoColumn',
-        'sectionTitleLabel'
+        'sectionTitleLabel',
+        // D2: validateContent.js refuses a sidebar slot key the packer would
+        // silently drop, and reads the packer's own registry to do it.
+        'SIDEBAR_SECTION_KEYS'
       ].sort()
     )
   })
 
-  it('the one public name with no shipped importer is the plan-shape API, and is callable with public types', () => {
+  it('the public names with no shipped importer are the declared contracts, and are usable with public types', () => {
     // `sidebarFlowKeys` is public because the sidebar flow it defines is what
     // C6's `order`/`buckets` levers are specified over, and it takes a
     // NormalizedLayout and returns strings — no unpromised type in its
@@ -219,10 +237,24 @@ describe('layout.js public API', () => {
     // it cannot be called without `deriveSidebarMetrics`, which is @internal.
     // The plan already carries `page.identity`, so C6 needs the keys, not the
     // height.) Recorded so the next reader does not "clean this up".
+    //
+    // `MEASURED_MAIN_KEYS` (I1) joined it for the same reason and with the
+    // same shape: a DECLARED CONTRACT rather than a helper. It states which
+    // main-flow sections the packer prices, and the schema's caveat, the docs
+    // and the `main-slot-unmeasured` fact are all defined against it. Nothing
+    // ships an import because the fact is computed at its definition site —
+    // that is the point: one list, no copies (ARCHITECTURE §4's mirror rule
+    // applied to a constant). It is frozen and made of plain strings, so a
+    // caller reading it needs no unpromised type either.
     const imported = new Set(shippedImportersOfLayout().flatMap((i) => i.names))
-    expect(PUBLIC_API.filter((n) => !imported.has(n))).toEqual(['sidebarFlowKeys'])
+    expect(PUBLIC_API.filter((n) => !imported.has(n))).toEqual([
+      'MEASURED_MAIN_KEYS',
+      'sidebarFlowKeys'
+    ])
     expect(typeof layout.sidebarFlowKeys).toBe('function')
     expect(layout.sidebarFlowKeys({ first: { sidebar: ['education'] } })).toEqual(['education'])
+    expect(Object.isFrozen(layout.MEASURED_MAIN_KEYS)).toBe(true)
+    expect([...layout.MEASURED_MAIN_KEYS]).toEqual(['summary', 'experience'])
   })
 
   it('no public function needs an @internal type to call it', () => {
@@ -281,6 +313,10 @@ describe('LayoutPlanPage carries each fact once (C4 collapse)', () => {
         [
           'emptyColumn',
           'identity',
+          // §3.8: why the next block did not start on this page — one per
+          // column, null when it did or the flow ended.
+          'mainBlockedBy',
+          'sidebarBlockedBy',
           'mainBlocks',
           'mainFill',
           'overflowPt',

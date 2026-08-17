@@ -76,13 +76,7 @@ function independentItemIncrement(slice, content) {
  */
 export function realSidebarPlan(content, layout = TWO_COLUMN_LAYOUT) {
   const measure = harnessMeasurer()
-  const plan = planTwoColumn({
-    content,
-    layout,
-    config: content.config,
-    theme: tealTheme,
-    measure
-  })
+  const plan = planTwoColumn({ content, layout, theme: tealTheme, measure })
   const sm = deriveSidebarMetrics(tealTheme)
 
   const photo = Boolean(content.profilePhoto)

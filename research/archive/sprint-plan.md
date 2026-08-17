@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # CVX sprint plan — consolidated
 
 *2026-07-24. Folds together market research, the PM roadmap, BA use cases, and the reconciliation + red-team + pre-mortem passes. Those four inputs are now in `research/archive/` — they predate everything below and are kept only for the reasoning.*
@@ -31,10 +37,10 @@ with quality); **C5 is closed** as a consequence. Only C6b (levers) and C7
 **The quality gates are real now, which they were not before.** The per-file
 coverage gate had been checked against the *aggregate* since the hostile-build
 track — a project-wide average wearing the name of a per-file rule. Fixed in
-v1.7.2, with zero exceptions; `docs/hostile-baseline.md` is the *before* snapshot
+v1.7.2, with zero exceptions; `hostile-baseline.md` is the *before* snapshot
 and is marked as such.
 
-**Quality track (not previously in this plan — recorded now):** a hostile-build hardening sprint ran Phases 0–7 and merged via PR #1 (`fcdb7a2`). Baseline in `docs/hostile-baseline.md`. Delivered: per-file **90%** coverage gate on shipped runtime code (209 → 345 tests), `tsc --noEmit` with `checkJs` + full `strict` at **0 errors**, lint gate (biome + oxlint), package-correctness gates (knip/publint/attw), security hardening, and CI wiring. **These are now standing gates on every commit** — factor them into every future chunk's "done."
+**Quality track (not previously in this plan — recorded now):** a hostile-build hardening sprint ran Phases 0–7 and merged via PR #1 (`fcdb7a2`). Baseline in `hostile-baseline.md`. Delivered: per-file **90%** coverage gate on shipped runtime code (209 → 345 tests), `tsc --noEmit` with `checkJs` + full `strict` at **0 errors**, lint gate (biome + oxlint), package-correctness gates (knip/publint/attw), security hardening, and CI wiring. **These are now standing gates on every commit** — factor them into every future chunk's "done."
 
 **▶ Active track: the layout engine sprint** (`sprint-layout-engine.md`). C0 ✅, C1 ⛔ (premise disproven, folded into C3), C2 ✅, **C3 is next and unblocked**.
 

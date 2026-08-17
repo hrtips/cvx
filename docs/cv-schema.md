@@ -190,11 +190,9 @@ Leadership: [Executive Leadership, Team Building]
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `schemaVersion` | integer | `1` | Content schema major version — content files never break within a major |
+| `schemaVersion` | integer | `1` | Content schema major version — new keys may appear within a major; inert keys can be removed (the CHANGELOG names them) |
 | `theme` | `teal` \| `coral` \| `mono` | `teal` | Colour scheme (`mono` is black-and-white, ATS-optimised) |
 | `layout` | `two-column` \| `single-column` \| custom layout filename | `two-column` | Page structure |
-| `page1ExperienceCount` | integer | auto | Experience entries on page 1 — entry N+1 starts page 2. If the count doesn't fit, `validate`/`build` warn and the overflow spills onto extra physical pages (nothing is clipped — the CV just gains unplanned pages); automatic packing (omit the key) never overflows |
-| `page1SplitBullets` | integer | off | Show only N bullets of page 1's last entry; the rest continue on page 2 |
 | `atsKeywords.enabled` | boolean | `true` | Master switch for keyword metadata |
 | `atsKeywords.autoDerive` | boolean | `true` | Also derive keywords from competencies + job titles |
 | `atsKeywords.max` | integer | all | Cap on embedded keywords (body-derived terms kept first) |
@@ -238,6 +236,8 @@ pages:
 
 Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees` (sidebar); `summary`, `experience`, `experience:continued`, `header-ats` (main); `spacer: N` (N points of vertical space, either slot).
 
+The lists above say where each section is *normally* placed, not where it is *allowed*: any section key is legal in either slot. One caveat if you move one into `main` — the planner measures only `summary` and `experience` there, so a section you place in a main slot renders correctly but is not counted in the page count or the overflow figures. The build says so with the `main-slot-unmeasured` fact, and compares the finished PDF's sheet count against the plan (`physical-pages-exceed-plan`) so an unmeasured spill cannot pass silently.
+
 ---
 
 ## Checklist for generating a complete cv-content/
@@ -247,5 +247,5 @@ Valid section keys: `identity-photo`, `identity-compact`, `contact`, `achievemen
 3. `experience.yaml` — every role, most recent first, with quantified truthful bullets.
 4. `education.yaml`, `certifications.yaml`, `publications.yaml`, `languages.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
 5. `keywords.yaml` — only truthful terms not already covered by competencies/titles.
-6. `config.yaml` — usually just `theme` + `layout`; add pagination keys only if page 1 overflows.
+6. `config.yaml` — usually just `theme` + `layout`. Pagination is automatic (the old page-1 keys were removed).
 7. Ask for the photo in your **first** message to the user (it can't be generated) — but never block on it; the CV renders cleanly without one. If you ran `init`, replace or delete the scaffolded example photo at `images/profile.jpg` (it's Bruce Wayne's) before building. Then run `npx @hrtips/cvx build`.

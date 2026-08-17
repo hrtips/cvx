@@ -26,6 +26,22 @@ You drive; the user only supplies facts and runs at most one command. The schema
 - **Never invent facts.** Every entry must be truthful to the user's input; ask for anything missing (dates, metrics). AI-embellished CVs fail interviews and background checks, and ATS parsers cross-check keywords against the CV body.
 - **Flag conflicts, don't silently resolve them.** If the source contradicts itself (e.g. the headline says one current title and the summary another), surface it — pick the better-supported value for the draft, but tell the user what you chose and why they should confirm.
 
+### 1b. Ask how it should read — once, with examples
+
+Take a brief before you draft, the way a designer would. Fold it into the same first message as the source request, or ask right after — one batched question, with examples, so it is answerable by someone who has never thought about page layout:
+
+> *"Before I draft: roughly how long should this be — one page, two, or as long as it needs? Anything to lead with or play down (recent roles, education, publications)? And is this aimed at a particular job — paste the ad and I'll angle the wording at it."*
+
+Ask once. What comes back is **scope, not permission**: with a brief, tightening prose or trimming a section is work you were asked to do, rather than a decision to clear every time. Without one you will either over-ask or guess.
+
+**The brief is the conversation, not a file.** There is no `preferences:` block and no brief file to write or keep in sync. Anything meant to outlast the session belongs in the user's notes or your client's memory, not in `cv-content/`.
+
+### 1c. Keep your own history — CVX has none
+
+CVX is stateless: no undo, no snapshots, no memory of the previous build, and the same question always gets the same answer. Every bit of continuity across iterations is yours to hold, so keep a short running list of what you changed, why, and what it did to the render.
+
+That list is what lets you **backtrack** when an edit makes the page worse (you are the only thing that remembers the previous wording), **not re-litigate** a sentence the user has restored — that is direction, so leave it — and **report honestly at the end** on the whole session rather than the last step. Nothing in CVX bounds the loop either: stop when the page looks right and the user is satisfied, not at a fixed pass count, and never by iterating on numbers when you cannot see the render.
+
 ### 2. Pick your execution path (by your own capabilities)
 
 1. **You have CVX MCP tools or the cvx skill** → use them: `get_schema` → `init_cv` → edit → `validate_cv` → `build_pdf`.
@@ -99,7 +115,7 @@ My details:
 <paste your old CV / LinkedIn text / notes here — or point the agent at a file, e.g. "read ~/Downloads/old-cv.pdf">
 ```
 
-The scaffolded `cv-content/README.md` ships the full schema, so the agent needs no internet access and no further instructions. It will edit the YAML, build, and hand you `<your-name>.pdf`. Iterate in plain language: *"tighten the bullets for the 2019 role"*, *"make it fit two pages"* (the agent can tune `page1ExperienceCount` in `config.yaml`), *"switch to the coral theme"*.
+The scaffolded `cv-content/README.md` ships the full schema, so the agent needs no internet access and no further instructions. It will edit the YAML, build, and hand you `<your-name>.pdf`. Iterate in plain language: *"tighten the bullets for the 2019 role"*, *"this page looks thin — fix it"*, *"switch to the coral theme"*. Length is a content conversation, not a setting: there is no config key that makes a CV shorter (see *Reading the layout* below).
 
 Finish by dropping your photo at `cv-content/images/profile.jpg` (square, 400×400px+) and rebuilding.
 
@@ -228,24 +244,27 @@ Useful follow-up prompts once the first PDF renders:
 
 - *"Rewrite the experience bullets to emphasise leadership / data engineering / customer impact."* (retargeting for a specific job ad — paste the ad)
 - *"It overflows page 2 — trim the two oldest roles to 2 bullets each."*
-- *"Set page1ExperienceCount: 2 and page1SplitBullets: 3 in config.yaml"* (page-1 layout control)
+- *"Open the PDF and tell me what looks wrong on page 2."*
 - *"Generate keywords.yaml for this job description, using only skills I actually list."*
 - *"Produce the ATS variant too"* → `npx @hrtips/cvx build --ats` for job portals.
 
 ## Reading the layout
 
-An assistant can't see the PDF. It doesn't have to: the MCP `plan_layout` tool (a dry run — no PDF written) and the `diagnostics` block in `build --json` / `build_pdf` report how the CV paginated.
+**Open the PDF and look at it.** `build_pdf` returns an absolute `path`, and most assistant clients render PDFs natively. Do that first: the defects that matter most — a stranded heading, a page that ends early, a column left near-empty — appear in no diagnostic field at all. A client that genuinely cannot open a PDF should build once and hand off, not iterate on numbers alone.
 
-Per page: how full each column is (`main.fill` / `sidebar.fill` — `used / budget`), which roles landed there (with company and period, so two same-titled roles stay apart), which sidebar sections and which of their items, and `overflowPt`. Plus `diagnostics.warnings`, the entries that mean something is wrong — each with a `code` to match on (`overflow`, `page1-no-experience`) rather than wording — and `notices`, a separate plain-text list of notes about the run.
+Measurements complement looking, they don't replace it. The MCP `plan_layout` tool (a dry run — no PDF written) and the `diagnostics` block in `build --json` / `build_pdf` report how the CV paginated.
+
+Per page: how full each column is (`main.fill` / `sidebar.fill` — occupancy, `(fixed + used) / capacity`), why the next block could not start there (`blockedBy`, with `shortByPt` — what an edit would need to free), which roles landed there (with company and period, so two same-titled roles stay apart), which sidebar sections and which of their items, and `overflowPt`. Plus `diagnostics.warnings`, the named conditions — each with a `code` to match on (`overflow` and `page1-no-experience` are defects; `page1-ends-early` is a priced fact that fires on healthy CVs too, carrying the `shortByPt` that turns "make page 1 fuller" into an exact edit; `main-slot-unmeasured` is a fact saying the layout puts a section the planner does not measure in a main column, so these numbers exclude it; `experience-empty` is a fact naming a CV with no work-history entries at all (a student CV), carrying how much of page 1 the summary occupies; `main-column-empty` is a fact naming a multi-page CV whose wide column renders nothing on any page; and `physical-pages-exceed-plan` is a build-only defect meaning the finished PDF has more sheets than the plan numbered — a dry run can never report it, so a clean plan is not proof of a clean PDF) rather than wording — and `notices`, a separate plain-text list of notes about the run.
 
 Five things worth knowing before you act on any of it:
 
 - **It describes the designed variant only.** The ATS/single-column PDF is auto-flowed by react-pdf and never packed, so it has no plan and its sheet count can differ. There is no dry run for it.
 - **`totalPages` is planned pages, not sheets.** A page that overflows spills onto an extra physical sheet the numbering can't count — check `totals.overflowPt` before quoting a page count.
-- **`fill` is a ratio, not a gauge.** Normally 0–1, and above 1 exactly when the page is over budget (measured: `main.fill: 2.098` on the example CV with `page1ExperienceCount: 3`). A value over 1 always comes with `overflowPt` and a warning.
+- **`fill` is column occupancy, and it is not a progress signal.** `(fixedPt + usedPt) / capacityPt` (`diagnostics.version: 4`) — the same measurement on every page, so page 1 and page 2 compare honestly. Above 1 exactly when the page is over budget, always alongside `overflowPt` and a warning. Never steer an edit by it: shortening content LOWERS fill until a block moves up, then it jumps (measured: six of eight shortening edits on a real CV lowered it before one worked). The number that moves monotonically with your edit is `blockedBy.shortByPt`.
+- **Each main-column entry now prices itself.** `heightPt` (the placed piece), `headPt` (the indivisible part before the first bullet) broken into `head.rolePt`/`metaPt`/`locationPt`/`descriptionPt`/`progressionPt`, and `bulletsPt` per bullet. Compare `blockedBy.shortByPt` against those terms and the edit falls out by subtraction rather than by rebuilding: a role blocked by 53.64pt whose `progressionPt` is 63.9 gets most of the way there on the table alone, and its 35.15pt description would not have been enough. (The table also splits at a row boundary now, so a blocked role may simply start with fewer rows instead of moving.)
 - **Ranges are 0-based and end-exclusive.** `range: [6, 8)` of `of: 8` is the last two items; `items` already carries the count. Experience entries decompose the same way (`bulletRange` / `bullets` / `ofBullets`).
-- **`emptyColumn` is a diagnostic, not a target** — and it means "no packed blocks in that column", not "blank": page 1 can report `emptyColumn: 'main'` and still carry the summary. A final page whose sidebar outlasts the experience list is normal. CVX was measured against a packer tuned to eliminate those, and the result was worse CVs — sections fragmented across five pages, headings with a single bullet under them. Report the number; don't optimise it. The exception is page 1 with no roles on it, which is a real defect and arrives as its own `page1-no-experience` warning.
-- **There are no layout levers, so nothing changes between two `plan_layout` calls.** The layout follows the content. If the CV is longer than you want, that is a content decision — and it is the user's, not the assistant's: **never drop content to fit; surface the trade-off** (*"we could drop publications, or trim the two oldest roles to 2 bullets — which would you prefer?"*) and let them choose. Don't promise a page count for an edit you haven't planned: on the shipped example CV, dropping publications entirely still renders 3 pages, because the sidebar flow, not the experience list, is what needs the third one. Make the edit, then re-plan. CVX renders 100% of the YAML and never clips or hides text to save a page.
+- **`emptyColumn` is a diagnostic, not a target** — it means **no ink in that column**. A page 1 carrying a summary is not reported empty (it was, before `version: 4`'s lineage, which is why older text explains the difference); chrome — the identity block and page badge — never counts as content. A final page whose sidebar outlasts the experience list is normal. CVX was measured against a packer tuned to eliminate those, and the result was worse CVs — sections fragmented across five pages, headings with a single bullet under them. Report the number; don't optimise it. The exception is page 1 with no roles on it, which is a real defect and arrives as its own `page1-no-experience` warning.
+- **`plan_layout` is idempotent, so nothing changes between two calls.** The pagination follows the content. With a full experience list the pagination follows the content *and the template's spacing*: the two columns are independent flows, `summary` renders only from `first.main`, and themes are colour-only with identical geometry — but `cv-content/layouts/*.yaml` accepts a `spacing:` block (`entryGap` / `bulletGap` / `sectionGap`, multipliers of the theme's vertical whitespace, legible range 0.6–1.5, out-of-range is a validation error). `entryGap` is the strongest lever on page count and the one to try before proposing any cut: measured on a real CV, `entryGap: 0.8` turned 3 pages into 2 with no word changed. Horizontal spacing stays unexposed — it would change wrap widths and therefore every measurement. (The exception is an empty or very short experience list, where moving sections between columns is the strongest lever there is and costs no content edits — see the student-layout note in SKILL.md.) When the CV is longer than the user wants: **never drop content to fit** — surface the trade-off (*"we could drop publications, or trim the two oldest roles to 2 bullets — which would you prefer?"*) and let them choose what goes. Once they've chosen, making the edit is your job; report what you changed as you change it. Don't promise a page count for an edit you haven't planned: cuts don't map to pages the way they look like they should, because sidebar and main are independent flows and the page count is the longer of them — so removing main-column text can leave the total untouched. Make the edit, then re-plan. CVX renders 100% of the YAML and never clips or hides text to save a page.
 
 ## For AI assistants reading this
 

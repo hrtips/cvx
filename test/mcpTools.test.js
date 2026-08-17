@@ -1,7 +1,7 @@
 // MCP tool layer: same behavior as the CLI's JSON envelopes, driven as
 // plain functions with an explicit workspace dir.
 
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -90,9 +90,15 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
 
     // The build reports how it paginated, so an assistant does not need a
     // second call to tell the user what it just produced.
-    expect(build.diagnostics.totalPages).toBe(3)
-    expect(build.diagnostics.pages).toHaveLength(3)
-    expect(build.diagnostics.warnings).toEqual([])
+    expect(build.diagnostics.totalPages).toBe(2)
+    expect(build.diagnostics.pages).toHaveLength(2)
+    // Since S4 the healthy scaffold carries exactly ONE named condition:
+    // page1-ends-early — page 1's roles stop 71pt short of taking any piece of
+    // the next one, and the summary is the lever. Not a defect (overflow is
+    // absent); a priced fact. Its firing on a well-packed 2-page CV is by
+    // design (§3.8's predicate has no judgement threshold).
+    expect(build.diagnostics.warnings.map((w) => w.code)).toEqual(['page1-ends-early'])
+    expect(build.diagnostics.warnings[0].shortByPt).toBeGreaterThan(0)
     // ONE field named `warnings` in this envelope, and it is the structured one
     // inside `diagnostics`. The run's plain-text notes are `notices` (C6a review
     // blocker 4: the two used to sit side by side carrying the same sentence).
@@ -110,12 +116,12 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(existsSync(path.join(dir, 'bruce-wayne.pdf'))).toBe(false)
     expect(plan.theme).toBe('teal')
     expect(plan.layout).toBe('two-column')
-    expect(plan.diagnostics.totalPages).toBe(3)
+    expect(plan.diagnostics.totalPages).toBe(2)
 
     // Every page reports both columns, 1-based. This CV fits, so every fill is
     // in (0,1] — but that is a fact about THIS content, not a property of the
-    // field (see the overflow test below, where it reads 2.098).
-    expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2, 3])
+    // field (see the overflow test below, where it reads 2.033).
+    expect(plan.diagnostics.pages.map((p) => p.page)).toEqual([1, 2])
     for (const page of plan.diagnostics.pages) {
       for (const col of [page.main, page.sidebar]) {
         if (col.fill === null) continue
@@ -124,17 +130,22 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
         expect(col.usedPt).toBeGreaterThan(0)
       }
     }
-    // The scaffold's known shape: one role on page 1, and page 3 is the tail of
-    // the sidebar flow (an empty main column — the deliberate G1 residual).
+    // The scaffold's known shape: one role on page 1, and NO stranded tail page.
+    // This used to assert the opposite — `pages[2].emptyColumn === 'main'` and
+    // `emptyColumnPages === 1` — pinning the demo's own worst defect as expected
+    // behaviour: a third sheet holding nothing but the tail of the sidebar flow
+    // beside a completely empty main column. The scaffold was trimmed to two
+    // pages (referees dropped from the layout, education 4→3, certifications
+    // 2→1), so the assertion is now that the defect is absent.
     expect(plan.diagnostics.pages[0].main.entries).toHaveLength(1)
-    expect(plan.diagnostics.pages[2].emptyColumn).toBe('main')
-    expect(plan.diagnostics.totals.emptyColumnPages).toBe(1)
+    expect(plan.diagnostics.pages.every((p) => p.emptyColumn === null)).toBe(true)
+    expect(plan.diagnostics.totals.emptyColumnPages).toBe(0)
     expect(plan.diagnostics.totals.overflowPages).toBe(0)
-    // No lever set: the pagination is the content's, not the config's.
-    expect(plan.diagnostics.leversUsed).toEqual({
-      page1ExperienceCount: null,
-      page1SplitBullets: null
-    })
+    // No leversUsed field any more: the page-1 levers were REMOVED (maintainer
+    // ruling) and pagination is always the content's. version: 2 is the flag
+    // consumers key on for this shape.
+    expect(plan.diagnostics.version).toBe(4)
+    expect(plan.diagnostics).not.toHaveProperty('leversUsed')
     // The answer describes the designed variant; the ATS variant is not packed
     // at all, so it has no plan and can have a different page count.
     expect(plan.variant).toBe('designed')
@@ -149,13 +160,22 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     // tests. This is the fixture that kills it.
     const dir = scratch()
     await initCv({ dir })
-    const cfg = path.join(dir, 'cv-content', 'config.yaml')
-    writeFileSync(cfg, `${readFileSync(cfg, 'utf8')}\npage1ExperienceCount: 3\n`)
+    // The old forced-overflow lever is gone, so overflow needs a real shape:
+    // a summary taller than the whole main column — fixed page-1 content the
+    // packer cannot paginate (the same edge-summary-exceeds-page class the
+    // corpus pins). 40 long bullets ≈ 1600pt against a ~682pt column.
+    const sum = path.join(dir, 'cv-content', 'summary.yaml')
+    const line =
+      '- Led the delivery of a multi-year, multi-team programme across several regions and functions with measurable outcomes.'
+    writeFileSync(sum, `${Array.from({ length: 40 }, () => line).join('\n')}\n`)
 
     const plan = await planLayout({ dir })
     const page1 = plan.diagnostics.pages[0]
     expect(page1.main.fill).toBeGreaterThan(1)
-    expect(page1.main.fill).toBeCloseTo(2.098, 3)
+    // 2.13: forty summary bullets are ~1450pt of fixed content in a ~682pt
+    // column — (fixed + used) / capacity under v2. Above 1 is the fact under
+    // test; the magnitude is pinned so a denominator change cannot hide.
+    expect(page1.main.fill).toBeCloseTo(2.13, 3)
     // `> 1` and `overflowPt > 0` are the same fact seen twice; neither may be
     // reported without the other.
     expect(page1.overflowPt).toBeGreaterThan(0)
@@ -163,11 +183,15 @@ describe('init_cv → validate_cv → build_pdf loop', () => {
     expect(plan.diagnostics.warnings[0]).toMatchObject({
       code: 'overflow',
       page: 1,
-      forcedByConfig: true
+      // permanently false since the forcing levers were removed; kept on the
+      // shape so consumers that match on it keep working
+      forcedByConfig: false
     })
     expect(plan.diagnostics.totals.overflowPages).toBe(1)
-    // ...and the lever that caused it is named in the answer, not only in prose.
-    expect(plan.diagnostics.leversUsed.page1ExperienceCount).toBe(3)
+    // ...and the cause is named in the message: the summary, the one block no
+    // pagination can help with.
+    expect(plan.diagnostics.warnings[0].message).toMatch(/summary alone is taller/)
+    expect(plan.diagnostics.warnings[0].forcedByConfig).toBe(false)
   }, 30_000)
 
   it('plan_layout on a missing workspace fails like every other tool', async () => {

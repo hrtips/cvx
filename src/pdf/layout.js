@@ -57,7 +57,7 @@
 //   `CVDocument.mainSlotKeys` + `registry.renderSlot('summary')` (which today
 //   renders every bullet and would need a per-page slice, like the sidebar),
 //   the "Experience" title (fixed page-1 content that must move with the
-//   summary if the summary spills), `page1ExperienceCount`'s meaning, and four
+//   summary if the summary spills), and four
 //   harness modules (blocks.js, structuralFacts.js, contentOracle.js, the
 //   mirror test). It also changes the layout YAML's meaning a second time:
 //   after C3a made `pages.*.sidebar` mean ORDER rather than PAGE, this would do
@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 25 names. Only nine of them are API. The rest are
+// This module exports 28 names. Only ten of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -87,7 +87,8 @@
 //   diagnostics and C7's docs are built on. Changing one of these is a
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
-//     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel
+//     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -102,9 +103,11 @@
 //   carries `@internal` in its own docblock, and `layout.api.test.js` proves
 //   the two lists agree AND that no shipped module imports one of them:
 //     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
-//     summaryH, entryH, packBlocks, packExperiences, packSidebar, identityH,
+//     bulletWidth,
+//     summaryH, entryH, entryParts, packBlocks, packExperiences, packSidebar,
+//     identityH,
 //     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
-//     SIDEBAR_SECTION_KEYS, CONTINUED_SUFFIX, assertShrinks
+//     CONTINUED_SUFFIX, assertShrinks
 //
 // `packBlocks`/`packExperiences`/`packSidebar` are internal on purpose despite
 // being the engine's heart: they are reachable through `planTwoColumn`, and
@@ -143,7 +146,12 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
 
   const mainW = g.pageWidth * (1 - g.sidebarFraction)
   const innerW = mainW - g.mainPad.left - g.mainPad.right
-  const bulletW = innerW - sp.bulletIndent
+  // NOTE: there is deliberately no `bulletW` here. The bullet column's width is
+  // `bulletWidth(m, measure)` — the dash's real advance plus BulletList's
+  // marginRight — and keeping a second, slightly-wider answer derived from
+  // `spacing.bulletIndent` is how the model under-counted wrapped bullet lines
+  // (design-layout-fidelity.md §3.4). `bulletIndent` survives only inside
+  // bulletWidth's isomorphic browser fallback.
 
   return {
     // Page geometry
@@ -160,12 +168,13 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
     // mainColumnBudget().
     cornerH: ch.cornerHeight,
     innerW,
-    bulletW,
     // Typography
     sectionTitleSize: ty.sectionTitle.size,
     sectionTitleLeading: ty.sectionTitle.leading,
     roleSize: ty.role.size,
     roleLeading: ty.role.leading,
+    roleWeight: ty.role.weight,
+    captionSize: ty.caption.size,
     bodySize: ty.body.size,
     bodyLeading: ty.body.leading,
     metaSize: ty.meta.size,
@@ -186,6 +195,7 @@ export function deriveMetrics(/** @type {import('./types.js').Theme | undefined}
     progMt: sp.progMt,
     progMb: sp.progMb,
     progPy: sp.progPy,
+    progPl: sp.progPl,
     dividerHeight: ch.dividerHeight,
     dividerMargin: ch.dividerMargin,
     spacer: sp.spacer,
@@ -357,6 +367,32 @@ const BODY_STYLE = { weight: 400, italic: false }
 // 'italic'` — independent of the theme object, so this mirrors that
 // component fact rather than deriving from theme data that doesn't exist.
 const DESC_STYLE = { weight: 400, italic: true }
+// ExpItem renders "{role} (cont'd)" on a continuation; the model measures the
+// COMPOSED string. DECISION, not oversight (design §3.3): the suffix renders
+// at meta size but is measured at the ROLE size — ~20% wider — because that is
+// the safe side of a wrap boundary; an exact mirror would need a mixed-size
+// line the measurer cannot express.
+const CONTINUED_ROLE_SUFFIX = "(cont'd)"
+// BulletList.jsx draws an en dash at the body size in semibold with a literal
+// 5pt marginRight; the dash column is therefore its ADVANCE + 5, not the
+// theme's `bulletIndent` guess. Mirrors a component fact, like BODY_STYLE.
+const BULLET_DASH = '\u2013'
+const BULLET_DASH_STYLE = { weight: 600, italic: false }
+const BULLET_DASH_MR = 5
+/**
+ * The bullet column's wrap width: innerW minus the dash column BulletList
+ * actually draws (dash advance + its literal 5pt marginRight).
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ */
+export function bulletWidth(
+  /** @type {Metrics} */ m,
+  /** @type {import('./types.js').Measurer | undefined} */ measure
+) {
+  const dash = measure?.widthOf
+    ? measure.widthOf(BULLET_DASH, m.bodySize, BULLET_DASH_STYLE)
+    : BULLET_DASH.length * m.bodySize * m.cw
+  return m.innerW - dash - BULLET_DASH_MR
+}
 
 /**
  * Measured height of the whole summary block (title + bullet list).
@@ -368,15 +404,148 @@ export function summaryH(
   /** @type {Metrics} */ m,
   /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
+  // Nothing renders for an empty summary — `SummarySection` returns null on
+  // `!summary?.length` — so nothing is charged. Mirroring that (§4: the model
+  // mirrors the render) is what makes an experience-less, summary-less CV
+  // report an honestly blank main column instead of one holding a phantom
+  // title. Every fixture and the shipped scaffold have a summary, so this
+  // changes no existing packing decision; the baseline is unmoved.
+  if (summary.length === 0) return 0
   let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
     const txt = typeof b === 'string' ? b : b.text
     h +=
-      countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+      countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
       lh(m.bodySize, m.bodyLeading)
   }
   h += (summary.length - 1) * m.summaryBulletGap
   return quantize(h)
+}
+
+/**
+ * The progression rows one piece renders — `[startProg, endProg)`, defaulting
+ * to the whole table (D7). Both kinds of piece can carry rows: a head takes a
+ * prefix, its continuation takes the rest.
+ *
+ * @param {import('./types.js').ExperienceEntry} e
+ * @returns {import('./types.js').ProgressionStep[]}
+ */
+function progressionSlice(e) {
+  const all = e.progression ?? []
+  return all.slice(e.startProg ?? 0, e.endProg ?? all.length)
+}
+
+/**
+ * The COMPONENTS of one entry's measured height, in render order — the same
+ * arithmetic `entryH` sums, exposed as its terms.
+ *
+ * P2/D4: `entryH` computes these and immediately collapses them to one number,
+ * so `smallestPiecePt` arrived as an opaque total and nothing anywhere said
+ * which term dominated it. On real CVs `description` + `progression` are
+ * 52-60% of an entry's head, which is why the one sentence explaining the
+ * blockage pointed readers at the summary instead.
+ *
+ * REPORTING ONLY — `entryH` remains the authoritative height and its body is
+ * deliberately NOT refactored to sum this. Summing the same terms in a
+ * different association order moved 240 of 4320 swept entry shapes by 0.01pt
+ * (float addition is not associative; every case was the progression +
+ * description combination). At a knife edge that is a different packing
+ * decision and a dead baseline, for a feature that only publishes numbers. So
+ * the two are kept separate and pinned together by a test asserting they agree
+ * within one quantum — see `layout.entryParts.test.js`.
+ *
+ * `headPt` is the indivisible part: everything a page-leading piece must carry
+ * before its first bullet. `bulletsPt` is per-bullet, in slice order.
+ *
+ * @internal exported for the C0 harness only — not API (see the module docblock).
+ * @returns {{ rolePt: number, metaPt: number, locationPt: number, descriptionPt: number,
+ *   progressionPt: number, bulletsPt: number[], bulletGapPt: number, entryMbPt: number,
+ *   headPt: number, totalPt: number }}
+ */
+export function entryParts(
+  /** @type {import('./types.js').ExperienceEntry} */ e,
+  /** @type {Metrics} */ m,
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
+) {
+  const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
+  const bulletsPt = visible.map(
+    (b) =>
+      countLines(
+        measure,
+        typeof b === 'string' ? b : b.text,
+        m.bodySize,
+        bulletWidth(m, measure),
+        m.cw,
+        BODY_STYLE
+      ) * lh(m.bodySize, m.bodyLeading)
+  )
+  // A continuation piece drops company/period/location/description/progression
+  // entirely and re-renders the role line with its "(cont'd)" suffix.
+  const rolePt = e.isContinuation
+    ? rowH(measure, `${e.role} ${CONTINUED_ROLE_SUFFIX}`, m.roleSize, m.innerW, m.cw, {
+        weight: m.roleWeight,
+        leading: m.roleLeading
+      })
+    : rowH(measure, e.role, m.roleSize, m.innerW, m.cw, {
+        weight: m.roleWeight,
+        leading: m.roleLeading
+      })
+  let metaPt = 0
+  let locationPt = 0
+  let descriptionPt = 0
+  let progressionPt = 0
+  if (!e.isContinuation) {
+    metaPt =
+      m.entryMetaMt +
+      Math.max(
+        rowH(measure, e.company ?? '', m.bodySize, m.innerW, m.cw, {}),
+        rowH(measure, e.period ?? '', m.metaSize, m.innerW, m.cw, {})
+      )
+    if (e.location)
+      locationPt = m.locationMb + rowH(measure, e.location, m.metaSize, m.innerW, m.cw, {})
+    if (e.description) {
+      const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
+      descriptionPt = m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
+    }
+  }
+  // D7: the promotion table is a SLICE now, on both kinds of piece. A
+  // continuation used to carry no progression at all; it can now carry the
+  // rows its head did not take, which is what lets a role start on a part-full
+  // page instead of waiting for room for the whole table.
+  const progRows = progressionSlice(e)
+  if (progRows.length > 0) {
+    const pw = m.innerW - m.progPl - m.sectionBorderWidth
+    progressionPt =
+      m.progMt +
+      m.progMb +
+      progRows.reduce(
+        (acc, p) =>
+          acc +
+          m.progPy * 2 +
+          Math.max(
+            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+          ),
+        0
+      )
+  }
+  // `descMt` is the bullet list's own margin-top, charged once when any bullet
+  // is visible — it belongs to the bullets, not the head.
+  const listMt = bulletsPt.length > 0 ? m.descMt : 0
+  const bulletGapPt = bulletsPt.length > 0 ? (bulletsPt.length - 1) * m.bulletGap : 0
+  const headPt = rolePt + metaPt + locationPt + descriptionPt + progressionPt
+  return {
+    rolePt,
+    metaPt,
+    locationPt,
+    descriptionPt,
+    progressionPt,
+    bulletsPt,
+    bulletGapPt,
+    entryMbPt: m.entryMb,
+    headPt,
+    totalPt: headPt + listMt + bulletsPt.reduce((a, b) => a + b, 0) + bulletGapPt + m.entryMb
+  }
 }
 
 /**
@@ -391,33 +560,70 @@ export function entryH(
   /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
 ) {
   if (e.isContinuation) {
-    let h = lh(m.roleSize, m.roleLeading)
+    let h = rowH(measure, `${e.role} ${CONTINUED_ROLE_SUFFIX}`, m.roleSize, m.innerW, m.cw, {
+      weight: m.roleWeight,
+      leading: m.roleLeading
+    })
+    // D7: a continuation may now carry the progression rows its head did not
+    // take. Charged in exactly the order ExpItem draws them — table, then
+    // bullets — so the mirror between model and render holds.
+    const contProg = progressionSlice(e)
+    if (contProg.length > 0) {
+      h += m.progMt + m.progMb
+      const pw = m.innerW - m.progPl - m.sectionBorderWidth
+      for (const p of contProg) {
+        h +=
+          m.progPy * 2 +
+          Math.max(
+            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+          )
+      }
+    }
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
     if (visible.length > 0) {
       h += m.descMt
       for (const b of visible) {
         const txt = typeof b === 'string' ? b : b.text
         h +=
-          countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+          countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
           lh(m.bodySize, m.bodyLeading)
       }
       h += (visible.length - 1) * m.bulletGap
     }
-    h += m.entryMb * (15 / 11) // 11.25pt scaled from entryMb
+    h += m.entryMb
     return quantize(h)
   }
 
   let h = 0
-  h += lh(m.roleSize, m.roleLeading)
-  h += m.entryMetaMt + lh(m.bodySize, m.bodyLeading)
-  if (e.location) h += m.locationMb + lh(m.metaSize, m.metaLeading)
+  h += rowH(measure, e.role, m.roleSize, m.innerW, m.cw, {
+    weight: m.roleWeight,
+    leading: m.roleLeading
+  })
+  h +=
+    m.entryMetaMt +
+    Math.max(
+      rowH(measure, e.company ?? '', m.bodySize, m.innerW, m.cw, {}),
+      rowH(measure, e.period ?? '', m.metaSize, m.innerW, m.cw, {})
+    )
+  if (e.location) h += m.locationMb + rowH(measure, e.location, m.metaSize, m.innerW, m.cw, {})
   if (e.description) {
     const dl = countLines(measure, e.description, m.descSize, m.innerW, m.cw, DESC_STYLE)
     h += m.descMt + dl * lh(m.descSize, m.descLeading) + m.descMb
   }
-  if (e.progression?.length) {
+  // D7: the rows THIS piece renders, not necessarily the whole table.
+  const headProg = progressionSlice(e)
+  if (headProg.length > 0) {
     h += m.progMt + m.progMb
-    h += e.progression.length * (m.progPy * 2 + lh(m.metaSize, 1.4))
+    const pw = m.innerW - m.progPl - m.sectionBorderWidth
+    for (const p of headProg) {
+      h +=
+        m.progPy * 2 +
+        Math.max(
+          rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+          rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+        )
+    }
   }
   const visibleBullets = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   if (visibleBullets.length > 0) {
@@ -425,12 +631,12 @@ export function entryH(
     for (const b of visibleBullets) {
       const txt = typeof b === 'string' ? b : b.text
       h +=
-        countLines(measure, txt, m.bodySize, m.bulletW, m.cw, BODY_STYLE) *
+        countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
         lh(m.bodySize, m.bodyLeading)
     }
     h += (visibleBullets.length - 1) * m.bulletGap
   }
-  h += m.entryMb * (15 / 11) // 11.25pt
+  h += m.entryMb
   return quantize(h)
 }
 
@@ -438,7 +644,13 @@ export function entryH(
 
 /**
  * @template {{ height: number, gapBefore?: number }} B
- * @typedef {{ blocks: B[], used: number, budget: number }} PackedPage
+ * @typedef {{ blocks: B[], used: number, budget: number, blockedBy: BlockDecline | null }} PackedPage
+ */
+
+/**
+ * §3.8's decline record: why the next block did not start on a page. See
+ * declineOf().
+ * @typedef {{ index: number, smallestPiecePt: number, residualPt: number, gapBeforePt: number }} BlockDecline
  */
 
 /**
@@ -584,6 +796,12 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
   let deferred = false
   const maxPages = maxPagesFor(flow)
 
+  /** Flow index the current `carry` was cut from — kept so a decline of a
+   * carried tail names the right block (review R-b: `i` has already advanced
+   * past it, and both budget functions being two-valued is what keeps the
+   * wrong-index path unreachable TODAY; a third budget — P3's per-page
+   * geometry is the plausible route — would make it live). */
+  let carryIndex = -1
   while (carry !== null || i < flow.length) {
     if (pages.length >= maxPages) {
       // Never truncate: dropping the remainder would be a silent Invariant-0
@@ -619,7 +837,17 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
       // which is exact for the two budget functions this engine has (page 0,
       // then a constant) and provably terminating for any other.
       if (!deferred && canPlaceOn(lead, budgetFn(pages.length + 1))) {
-        pages.push({ blocks: [], used: 0, budget: quantize(budget) })
+        // The page ends EMPTY, and packBlocks knows exactly why: the lead's
+        // smallest legal piece is taller than this page's whole budget. That
+        // reason used to be thrown away here — recording it is what lets the
+        // diagnostics say "short by Xpt" instead of nothing (§3.8's blockedBy;
+        // the post-mortem's T7 is this line staying silent).
+        pages.push({
+          blocks: [],
+          used: 0,
+          budget: quantize(budget),
+          blockedBy: declineOf(lead, carry !== null ? carryIndex : i, quantize(budget), 0)
+        })
         deferred = true
         continue
       }
@@ -633,12 +861,15 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
     else i++
     deferred = false
 
+    /** @type {ReturnType<typeof declineOf> | null} */
+    let blockedBy = null
     /** @type {B[]} */
     const blocks = [leadCut ? leadCut.head : lead]
     let used = blocks[0].height
     if (leadCut) {
       assertCarryShrinks(lead, leadCut.tail, i - 1)
       carry = leadCut.tail
+      carryIndex = i - 1
     }
 
     while (carry === null && i < flow.length) {
@@ -653,16 +884,48 @@ export function packBlocks(flow, budgetFn, policy = 'frontload') {
       // Rule 4: the block does not fit whole — pour as much of it as fits into
       // the page's remaining room instead of leaving that room empty.
       const cut = b.split?.(quantize(budget - used - gap), false) ?? null
-      if (cut === null) break
+      if (cut === null) {
+        // The decline that ends most pages: block b could not start here, not
+        // even cut to its smallest legal piece. Record why (§3.8). A page that
+        // ends via a SPLIT instead (cut !== null, carry set) records null —
+        // the next block DID start here, as a head.
+        blockedBy = declineOf(b, i, quantize(budget - used), gap)
+        break
+      }
       assertCarryShrinks(b, cut.tail, i)
       blocks.push(cut.head)
       used += gap + cut.head.height
       carry = cut.tail
+      carryIndex = i
       i++
     }
-    pages.push({ blocks, used: quantize(used), budget: quantize(budget) })
+    pages.push({ blocks, used: quantize(used), budget: quantize(budget), blockedBy })
   }
   return pages
+}
+
+/**
+ * Why a page ended without the next block starting on it: the price of the
+ * page break, recorded at the moment packBlocks declines the block. Data, not
+ * a warning — it is true at nearly every page boundary and carries no
+ * judgement. `smallestPiecePt` is the block's minimum legal piece (head +
+ * one item), or its whole height when it has no legal cut; `residualPt` is
+ * the room that was left BEFORE the gap the block would have charged.
+ *
+ * @template {{ height: number, gapBefore?: number, split?: SplitFn<B> }} B
+ * @param {B} block
+ * @param {number} index   the block's flow index
+ * @param {number} residualPt
+ * @param {number} gapBeforePt
+ */
+function declineOf(block, index, residualPt, gapBeforePt) {
+  const min = block.split?.(0, true) ?? null
+  return {
+    index,
+    smallestPiecePt: quantize(min ? min.head.height : block.height),
+    residualPt,
+    gapBeforePt
+  }
 }
 
 /**
@@ -796,22 +1059,54 @@ function largestFittingPrefix(n, heightAt, room, forceMinimum) {
 // near-blank extra physical page.
 
 /** Usable height for experience entries on page 1 (summary + spacer + section title sit above them). */
-function mainFirstBudget(/** @type {Metrics} */ m, /** @type {number} */ sumH) {
+function mainFirstBudget(
+  /** @type {Metrics} */ m,
+  /** @type {number} */ sumH,
+  /** @type {number} */ spacerPt
+) {
   return (
     m.bodyH -
     m.cornerH -
     m.mainPad.top -
     m.mainPad.bottom -
     sumH -
-    m.spacer -
+    spacerPt -
     calcTitleH(m) -
     m.safety
   )
 }
 
 /** Usable height for experience entries on a continuation page (only the "Experience (continued)" title sits above them). */
-function mainContBudget(/** @type {Metrics} */ m) {
-  return m.bodyH - m.cornerH - m.contPad.top - m.contPad.bottom - calcTitleH(m) - m.safety
+function mainContBudget(/** @type {Metrics} */ m, /** @type {number} */ spacerPt = 0) {
+  return (
+    m.bodyH - m.cornerH - m.contPad.top - m.contPad.bottom - calcTitleH(m) - m.safety - spacerPt
+  )
+}
+
+/**
+ * The spacer height a page-kind's `main` slot actually DECLARES, in points (D5).
+ *
+ * The budgets used to subtract `theme.spacing.spacer` — a constant 27 — whether
+ * or not the layout had a spacer slot and whatever value it carried, so
+ * `spacer: 0`, `spacer: 200`, two spacers and no spacer at all produced
+ * byte-identical plans while the renderer honoured the declared value. Two
+ * consequences, both measured: 27pt of page 1 was unusable even with no spacer
+ * present (deleting one did not return it — demonstrated on a CV whose
+ * `shortByPt` was 23.36, below the phantom), and a continuation-page spacer was
+ * charged nothing at all, so `spacer: 200` there spilled a fourth sheet against
+ * a three-page plan.
+ *
+ * @param {import('./types.js').NormalizedLayout | undefined} layout
+ * @param {'first' | 'continuation' | 'last'} kind
+ */
+function declaredMainSpacerPt(layout, kind) {
+  let total = 0
+  for (const slot of layout?.[kind]?.main ?? []) {
+    if (typeof slot !== 'string' || !slot.startsWith('spacer:')) continue
+    const v = Number.parseFloat(slot.slice('spacer:'.length))
+    if (Number.isFinite(v)) total += v
+  }
+  return total
 }
 
 /**
@@ -850,53 +1145,48 @@ const PAGE1_OVERFLOW_WARN_THRESHOLD = 15
  * After C3b's rule 1b, a page that merely *cannot start* an over-tall block
  * ends early instead of overflowing, so a non-zero `overflowPt` now means
  * something genuinely irreducible: a single block — one summary, one bullet,
- * one description, one sidebar item — is taller than a whole page, or the
- * user's own `page1ExperienceCount` forces more onto page 1 than fits. Those
- * are the only two shapes this can report, and the message says which.
+ * one description, one sidebar item — is taller than a whole page. (A third,
+ * config-forced shape existed until the page1ExperienceCount lever was
+ * removed.) The message says which shape it is.
  *
- * Threshold is `PAGE1_OVERFLOW_WARN_THRESHOLD`, the same honest backstop the
- * lever estimate uses: the budgets already subtract `spacing.safety`, so a
+ * Threshold is `PAGE1_OVERFLOW_WARN_THRESHOLD`: the budgets already subtract `spacing.safety`, so a
  * sub-point overrun is measurement noise eating the margin, not a page break.
  *
  * @param {import('./types.js').LayoutPlan | undefined} plan
- * @param {import('./types.js').CVConfig} [config]
  * @returns {{ page: number, overflowPt: number, forcedByConfig: boolean, message: string }[]}
  */
-export function overflowWarnings(plan, config = {}) {
+export function overflowWarnings(plan) {
   const out = []
   for (const page of plan?.pages ?? []) {
     if (page.overflowPt <= PAGE1_OVERFLOW_WARN_THRESHOLD) continue
     const over = Math.round(page.overflowPt)
-    const forcedByConfig = page.index === 0 && config.page1ExperienceCount != null
-    const lever =
-      `page1ExperienceCount: ${config.page1ExperienceCount}` +
-      (config.page1SplitBullets != null
-        ? ` (+ page1SplitBullets: ${config.page1SplitBullets})`
-        : '')
-    // Which of the three shapes is it? A negative main budget means the FIXED
+    // Which of the two shapes is it? A negative main budget means the FIXED
     // content the packer subtracts before packing anything (the summary, the
     // spacer, the section title) is already taller than the column — no
     // pagination of the experience list can help, because the experience list
     // is not what overflowed.
+    //
+    // (There used to be a third, config-forced shape here. The
+    // page1ExperienceCount / page1SplitBullets levers were REMOVED — measured
+    // anti-lever, see design-cvx-as-instrument.md §7 and
+    // design-layout-fidelity.md §3.10's Review outcome — so automatic packing,
+    // which never overflows by itself, is the only packing there is.
+    // `forcedByConfig` stays on the shape, always false, so consumers that
+    // match on it keep working; documented deprecated in types.d.ts.)
     const fixedTooTall = (page.mainFill?.budget ?? 0) < 0
     out.push({
       page: page.index + 1,
       overflowPt: page.overflowPt,
-      forcedByConfig,
-      message: forcedByConfig
-        ? `page 1 is ~${over}pt over budget: ${lever} forces more onto it than fits. ` +
-          `The surplus flows onto an extra physical sheet the page numbering does not count. ` +
-          `Reduce page1ExperienceCount, set or lower page1SplitBullets, or remove both for ` +
-          `automatic pagination.`
-        : fixedTooTall
-          ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
-            `is placed: the summary alone is taller than the main column, so it flows onto an ` +
-            `extra physical sheet the page numbering does not count. Shorten the summary — the ` +
-            `packer cannot paginate it (it is fixed page-1 content, not a packed block).`
-          : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
-            `than a whole page and cannot be split any further, so it flows onto an extra ` +
-            `physical sheet the page numbering does not count. Shorten the longest single item ` +
-            `on that page (one bullet, one description, or one sidebar entry).`
+      forcedByConfig: false,
+      message: fixedTooTall
+        ? `page ${page.index + 1} is ~${over}pt over budget before a single experience entry ` +
+          `is placed: the summary alone is taller than the main column, so it flows onto an ` +
+          `extra physical sheet the page numbering does not count. The summary is fixed page-1 ` +
+          `content rather than a packed block, so no pagination can move it.`
+        : `page ${page.index + 1} is ~${over}pt over budget — a single block on it is taller ` +
+          `than a whole page and cannot be split any further, so it flows onto an extra ` +
+          `physical sheet the page numbering does not count. The block is one item (a bullet, ` +
+          `a description or a sidebar entry), and item boundaries are the only legal cuts.`
     })
   }
   return out
@@ -937,30 +1227,92 @@ function experienceBlock(entry, m, measure, gapBefore) {
     height,
     gapBefore,
     split: (room, forceMinimum) => {
+      // D7 `prog-split`. The cut axis is the entry's ATOMS in document order:
+      // the progression rows this piece holds, then its bullets. Before, only
+      // bullets were atoms, so the whole promotion table was welded into the
+      // indivisible head — a 12-row table made the head arbitrarily tall with
+      // no upper bound, and a role carrying one was far harder to start on a
+      // part-full page than its bullet count suggested.
+      //
+      // The anti-orphan rule is unchanged and is what makes this safe: the
+      // search range `[1, n-1]` inside `largestFittingPrefix` keeps at least
+      // one atom on each side, so a head that cuts inside the table still
+      // carries the heading PLUS at least one progression row. That is why
+      // this variant never orphans a bare heading, where deferring the table
+      // wholesale (or the description with it) does.
+      const prog = entry.progression ?? []
+      const pStart = entry.startProg ?? 0
+      const pEnd = entry.endProg ?? prog.length
+      const nProg = Math.max(0, pEnd - pStart)
+
       const bullets = entry.bullets ?? []
-      const start = entry.startBullet ?? 0
-      const end = entry.endBullet ?? bullets.length
-      const headAt = (/** @type {number} */ k) =>
-        entryH({ ...entry, startBullet: start, endBullet: start + k }, m, measure)
-      const k = largestFittingPrefix(end - start, headAt, room, forceMinimum)
+      const bStart = entry.startBullet ?? 0
+      const bEnd = entry.endBullet ?? bullets.length
+      const nBullets = Math.max(0, bEnd - bStart)
+
+      const n = nProg + nBullets
+      /** The piece holding the first `k` atoms: table rows first, then bullets. */
+      const pieceAt = (/** @type {number} */ k) => ({
+        ...entry,
+        startProg: pStart,
+        endProg: pStart + Math.min(k, nProg),
+        startBullet: bStart,
+        endBullet: bStart + Math.max(0, k - nProg)
+      })
+      const headAt = (/** @type {number} */ k) => entryH(pieceAt(k), m, measure)
+      const k = largestFittingPrefix(n, headAt, room, forceMinimum)
       if (k === 0) return null
       // The head keeps the entry's own kind (a continuation stays a
       // continuation), so a long entry can be cut more than once.
-      const head = experienceBlock(
-        { ...entry, startBullet: start, endBullet: start + k },
-        m,
-        measure,
-        gapBefore
-      )
+      const head = experienceBlock(pieceAt(k), m, measure, gapBefore)
       const tail = experienceBlock(
-        { ...entry, isContinuation: true, startBullet: start + k, endBullet: end },
+        {
+          ...entry,
+          isContinuation: true,
+          startProg: pStart + Math.min(k, nProg),
+          endProg: pEnd,
+          startBullet: bStart + Math.max(0, k - nProg),
+          endBullet: bEnd
+        },
         m,
         measure,
         gapBefore
       )
-      assertShrinks(`experience entry "${entry.role}"`, end - start, end - start - k, tail, height)
+      assertShrinks(`experience entry "${entry.role}"`, n, n - k, tail, height)
       return { head, tail }
     }
+  }
+}
+
+/**
+ * The measurement a placed piece carries out of the packer (P2).
+ *
+ * `heightPt` is the packer's own authoritative figure for this piece; the
+ * remaining terms are `entryParts`' reporting breakdown of it, so a consumer
+ * can price an edit ("this bullet costs 43pt", "this progression table costs
+ * 63.9pt of an indivisible head") by subtraction instead of by rebuilding.
+ *
+ * @param {ExperienceBlock} b
+ * @param {Metrics} m
+ * @param {import('./types.js').Measurer | undefined} measure
+ */
+function measuredOf(b, m, measure) {
+  const p = entryParts(b.entry, m, measure)
+  return {
+    heightPt: quantize(b.height),
+    gapBeforePt: quantize(b.gapBefore),
+    // The indivisible page-leading part: a piece cannot start a page without
+    // all of this PLUS its first bullet (see `experienceBlock().split`).
+    headPt: quantize(p.headPt),
+    head: {
+      rolePt: quantize(p.rolePt),
+      metaPt: quantize(p.metaPt),
+      locationPt: quantize(p.locationPt),
+      descriptionPt: quantize(p.descriptionPt),
+      progressionPt: quantize(p.progressionPt)
+    },
+    bulletsPt: p.bulletsPt.map(quantize),
+    bulletGapPt: quantize(p.bulletGapPt)
   }
 }
 
@@ -985,7 +1337,7 @@ function experienceBlocks(entries, m, measure) {
  *   page1Experiences: import('./types.js').ExperienceEntry[],
  *   continuationChunks: import('./types.js').ExperienceEntry[][],
  *   totalPages: number,
- *   pageMetrics: { used: number, budget: number }[],
+ *   pageMetrics: { used: number, budget: number, capacity: number, blockedBy: (BlockDecline & { entry: import('./types.js').ExperienceEntry | null }) | null }[],
  * }}
  *   `pageMetrics[i]` is page `i`'s packed experience height and its budget —
  *   the per-page fill signal the C0 harness's front-load / over-budget
@@ -996,80 +1348,103 @@ function experienceBlocks(entries, m, measure) {
 export function packExperiences(
   /** @type {import('./types.js').ExperienceEntry[]} */ experience,
   /** @type {import('./types.js').Summary} */ summary,
-  /** @type {import('./types.js').CVConfig} */ config = {},
   /** @type {import('./types.js').Theme | undefined} */ theme = undefined,
-  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined
+  /** @type {import('./types.js').Measurer | undefined} */ measure = undefined,
+  /**
+   * What the LAYOUT declares for page 1's main column (D2/D5). Omitted, the
+   * pre-fix constants apply, which is what the harness callers want; the
+   * planner passes the real figures.
+   * @type {{ firstSpacerPt?: number, contSpacerPt?: number, summaryInFirstMain?: boolean }}
+   */ slots = {}
 ) {
   const m = deriveMetrics(theme)
-  const { page1ExperienceCount, page1SplitBullets } = config
-  const BC = mainContBudget(m)
+  const spacer1 = slots.firstSpacerPt ?? m.spacer
+  const BC = mainContBudget(m, slots.contSpacerPt ?? 0)
+  // ── Automatic front-load bin-packing ─────────────────────────────────────
+  // D2: only charge the summary to page 1 when the layout actually puts it
+  // there. It used to be charged unconditionally, so a `first.main` without
+  // `summary` reserved its whole height (298.8pt on the scaffold) for content
+  // that is never drawn.
+  const sumH = slots.summaryInFirstMain === false ? 0 : summaryH(summary, m, measure)
+  const B1 = mainFirstBudget(m, sumH, spacer1)
+  const packed = packBlocks(experienceBlocks(experience, m, measure), (i) => (i === 0 ? B1 : BC))
 
-  // ── Config-driven explicit split ─────────────────────────────────────────
-  if (page1ExperienceCount != null) {
-    const count = page1ExperienceCount
-    const splitAt = page1SplitBullets ?? null
-
-    const fullOnPage1 = experience.slice(0, count - 1)
-    const splitEntry = experience[count - 1]
-    const afterPage1 = experience.slice(count)
-
-    let page1Experiences
-    /** @type {import('./types.js').ExperienceEntry[]} */
-    let continuationHead = []
-
-    if (!splitEntry) {
-      page1Experiences = fullOnPage1
-    } else if (splitAt != null && splitAt < (splitEntry.bullets?.length ?? 0)) {
-      page1Experiences = [...fullOnPage1, { ...splitEntry, endBullet: splitAt }]
-      continuationHead = [{ ...splitEntry, isContinuation: true, startBullet: splitAt }]
-    } else {
-      page1Experiences = [...fullOnPage1, splitEntry]
-    }
-
-    const packed = packBlocks(
-      experienceBlocks([...continuationHead, ...afterPage1], m, measure),
-      () => BC
-    )
-    // The forced page-1 set's height goes through packBlocks too, with an
-    // unbounded budget so nothing can break out of the page: same rule-3 gap
-    // accounting as every other page, one implementation. (Hand-rolling a
-    // `reduce` here duplicated the "gapBefore only for non-first" rule, which
-    // is exactly the kind of second copy that drifts.)
-    const forcedUsed =
-      page1Experiences.length === 0
-        ? 0
-        : packBlocks(
-            experienceBlocks(page1Experiences, m, measure),
-            () => Number.POSITIVE_INFINITY
-          )[0].used
+  // I2 — THE DEGENERATE INPUT MUST STILL HAVE A ROW.
+  //
+  // `packBlocks([])` returns zero pages, which is right for a flow with no
+  // blocks — but page 1 is not empty when there is a summary on it, and the
+  // caller has no other way to learn that. Publishing zero pages here deleted
+  // the page-1 metrics row, and with it: every `main.*` diagnostic (they read
+  // null), the `overflowPt` sum (nothing to add), and the reachability of
+  // `overflowWarnings`' own fixedTooTall branch — which is keyed on
+  // `mainFill.budget < 0` and so could never fire on the one shape where the
+  // summary alone overflows the column. A 30-bullet summary with no experience
+  // rendered three sheets with `warnings: []`. The row IS the fix; the
+  // warnings that follow are the machinery that already existed.
+  //
+  // The budget deliberately differs from `mainFirstBudget`: that charges the
+  // "EXPERIENCE" section title, and `ExperienceSection` returns null for an
+  // empty list, so no such title is drawn. Charging it would over-state the
+  // fixed content by a title's height — the model mirrors the render (§4).
+  if (packed.length === 0 && sumH > 0) {
+    const capacity = quantize(mainColumnCapacity(m, m.mainPad))
     return {
-      page1Experiences,
-      continuationChunks: packed.map((p) => p.blocks.map((b) => b.entry)),
-      totalPages: 1 + packed.length,
+      page1Experiences: [],
+      continuationChunks: [],
+      totalPages: 1,
       pageMetrics: [
-        // Page 1 is dictated by the config, not packed, so its budget is
-        // reported for reference only — it is legitimately exceeded here (and
-        // render.js warns when it is; see overflowWarnings()).
         {
-          used: forcedUsed,
-          budget: quantize(mainFirstBudget(m, summaryH(summary ?? [], m, measure)))
-        },
-        ...packed.map(({ used, budget }) => ({ used, budget }))
+          used: 0,
+          budget: quantize(capacity - sumH - spacer1),
+          capacity,
+          // Nothing was blocked: there is no next entry to name.
+          blockedBy: null
+        }
       ]
     }
   }
 
-  // ── Automatic front-load bin-packing ─────────────────────────────────────
-  const B1 = mainFirstBudget(m, summaryH(summary, m, measure))
-  const packed = packBlocks(experienceBlocks(experience, m, measure), (i) => (i === 0 ? B1 : BC))
-  const pages = packed.map((p) => p.blocks.map((b) => b.entry))
+  // P2: carry each placed piece's measured geometry out with it. `packBlocks`
+  // computed `b.height` and this line used to drop it on the floor, which is
+  // why an assistant could see `shortByPt` (how much to free) but nothing at
+  // all about what any candidate edit was WORTH — so pricing one meant editing
+  // the YAML and rebuilding. `measured` is additive: the renderer reads
+  // role/company/bullets off these objects and ignores it.
+  const pages = packed.map((p) =>
+    p.blocks.map((b) => ({ ...b.entry, measured: measuredOf(b, m, measure) }))
+  )
 
   return {
     page1Experiences: pages[0] ?? [],
     continuationChunks: pages.slice(1),
     totalPages: pages.length,
-    pageMetrics: packed.map(({ used, budget }) => ({ used, budget }))
+    // `capacity` is the WHOLE column this page offers (§3.9): what remains
+    // after the physical frame (pads, badge, safety) but before any fixed
+    // content. `capacity − budget` is therefore the page's fixed content —
+    // summary + spacer + section title on page 1, the title alone on
+    // continuation pages — which is what makes fills comparable across pages.
+    // `blockedBy` names the entry that could not start on this page (§3.8).
+    pageMetrics: packed.map(({ used, budget, blockedBy }, i) => ({
+      used,
+      budget,
+      capacity: quantize(
+        i === 0 ? mainColumnCapacity(m, m.mainPad) : mainColumnCapacity(m, m.contPad)
+      ),
+      blockedBy: blockedBy ? { ...blockedBy, entry: experience[blockedBy.index] ?? null } : null
+    }))
   }
+}
+
+/**
+ * The whole main column on one page, before any content — fixed or packed —
+ * is charged: body box minus the page-number badge, this page kind's paddings,
+ * and the safety backstop. Denominator of the §3.9 comparable fill.
+ *
+ * @param {Metrics} m
+ * @param {{ top: number, bottom: number }} pad
+ */
+function mainColumnCapacity(m, pad) {
+  return m.bodyH - m.cornerH - pad.top - pad.bottom - m.safety
 }
 
 // ── Sidebar measurement (C3, design doc §5's `measureSidebarBlock` sibling) ─
@@ -1656,11 +2031,82 @@ export function sidebarItemCount(
 }
 
 /**
- * Every sidebar slot key the packer knows how to measure and slice, in registry order.
+ * Every sidebar slot key the packer knows how to measure and slice, in registry
+ * order.
  *
- * @internal exported for the C0 harness only — not API (see the module docblock).
+ * Public for the same reason `MEASURED_MAIN_KEYS` is: it is the ONE list. The
+ * packer drops any sidebar slot key absent from it, and `validateContent.js`
+ * turns exactly that condition into the `slot-not-renderable` error — so a
+ * hand-copied second list in the validator is the drift shape that would let
+ * the two disagree, and the disagreement is silent content loss (D2: `summary`
+ * in a sidebar slot deleted the section from the PDF while `validate --strict`
+ * reported ok). Whatever the packer cannot render, the validator must refuse.
  */
 export const SIDEBAR_SECTION_KEYS = Object.keys(SIDEBAR_SECTIONS)
+
+/**
+ * The main-flow section keys this packer actually measures — the whole of what
+ * `packExperiences` prices. Exported because it is the ONE list: the
+ * `main-slot-unmeasured` fact, the schema's caveat and the docs all derive
+ * from it, so the day I4/I6 widen the packer they cannot fall out of step with
+ * what the instrument claims (a hand-copied second list is the drift shape
+ * that let a reordered component pass a 455-test suite — see ARCHITECTURE §4).
+ *
+ * Public, but NOT a permanent surface: §8's I4/I6 make the packer measure
+ * main-slot sections, at which point this constant and the fact derived from
+ * it both disappear. Removing it then is not a breaking change — it is the
+ * scaffolding for a gap coming down, and it is recorded here so a future
+ * reader does not treat the public tag as a promise to keep it forever.
+ */
+export const MEASURED_MAIN_KEYS = Object.freeze(['summary', 'experience'])
+
+/**
+ * The section a slot entry names. Resolved layouts normalise every slot to a
+ * `key` or `key:arg` STRING — `{spacer: 27}` in the YAML arrives here as
+ * `'spacer:27'`, and a continuation marker as `'experience:continued'` — so
+ * the section is the part before the colon. (Discovered by measurement while
+ * building I1: comparing whole slot strings reported the shipped default
+ * layout's own spacer as an unmeasured section.)
+ *
+ * @param {unknown} slot
+ * @returns {string}
+ */
+const slotKey = (slot) => String(slot ?? '').split(':')[0]
+
+/**
+ * Which sections a layout puts in a `main` slot that {@link MEASURED_MAIN_KEYS}
+ * does not cover — deduplicated, in first-seen order, across every page kind
+ * (a section unmeasured on continuation pages is just as unpriced as one on
+ * page 1). Spacers are vertical space charged by the budget arithmetic, not
+ * sections, so they are never reported.
+ *
+ * @param {{ first?: { main?: unknown[] }, continuation?: { main?: unknown[] }, last?: { main?: unknown[] } }} layout
+ * @returns {string[]}
+ */
+function unmeasuredMainKeys(layout) {
+  const seen = new Set()
+  for (const kind of /** @type {const} */ (['first', 'continuation', 'last'])) {
+    for (const slot of layout?.[kind]?.main ?? []) {
+      const key = slotKey(slot)
+      if (!key) continue
+      // D5: spacers ARE measured now — `declaredMainSpacerPt` charges what the
+      // layout declares, on page 1 and on continuation pages. Before that they
+      // were skipped here with the comment "charged by the budget arithmetic",
+      // which was false: the arithmetic charged a theme constant, not the slot.
+      if (key === 'spacer') continue
+      // D6: which keys are measured is a fact about the SLOT, not the key.
+      // `summary` is priced by `mainFirstBudget` and therefore measured in
+      // `first.main` only — put it in `continuation.main` and nothing measures
+      // it, yet the flat key list said it was measured everywhere, so the one
+      // case this warning exists for was the one case it stayed silent on
+      // (verified: it produced a 4th sheet against a 3-page plan in silence,
+      // while `achievements` in the same slot fired the warning correctly).
+      if (key === 'summary' ? kind === 'first' : MEASURED_MAIN_KEYS.includes(key)) continue
+      seen.add(key)
+    }
+  }
+  return [...seen]
+}
 
 /**
  * Measured height of a contiguous slice of one sidebar section — items
@@ -1895,7 +2341,7 @@ function sidebarBlock(ctx, start, end) {
  * @param {import('./types.js').NormalizedLayout | undefined} layout
  * @param {import('./types.js').Theme} [theme]
  * @param {import('./types.js').Measurer} [measure]
- * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number }[], totalPages: number }}
+ * @returns {{ pages: import('./types.js').SidebarSlice[][], pageMetrics: { used: number, budget: number, capacity: number, blockedBy: (BlockDecline & { key: string | null }) | null }[], totalPages: number }}
  *   `pages[i]` is page `i`'s ordered slices. A section that fits whole is a
  *   single slice spanning `[0, itemCount)`; a slice with `start > 0` is a
  *   continuation (`isContinuedSlice`).
@@ -1954,7 +2400,15 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
         gapBefore: i === 0 ? 0 : gapBefore
       }))
     ),
-    pageMetrics: packed.map(({ used, budget }) => ({ used, budget })),
+    // Same §3.9 decomposition as the main column: sidebar capacity is the
+    // column minus pads and safety; `capacity − budget` is this page's
+    // identity block. `blockedBy` carries the section key (§3.8).
+    pageMetrics: packed.map(({ used, budget, blockedBy }) => ({
+      used,
+      budget,
+      capacity: quantize(sm.bodyH - sm.padTop - sm.padBottom - sm.safety),
+      blockedBy: blockedBy ? { ...blockedBy, key: flow[blockedBy.index]?.key ?? null } : null
+    })),
     totalPages: packed.length
   }
 }
@@ -1975,7 +2429,6 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
  *   defaults to the built-in two-column layout. Defaulting (rather than
  *   treating "no layout" as "no sidebar sections") is the safe direction: an
  *   empty flow would silently plan a sidebar with nothing in it.
- * @param {import('./types.js').CVConfig} [args.config]
  * @param {import('./types.js').Theme} [args.theme]
  * @param {import('./types.js').Measurer} [args.measure]
  * @returns {import('./types.js').LayoutPlan}
@@ -1983,17 +2436,24 @@ export function packSidebar(keys, data, layout, theme = undefined, measure = und
 export function planTwoColumn({
   content,
   layout = TWO_COLUMN_LAYOUT,
-  config = {},
   theme = undefined,
   measure = undefined
 }) {
-  const main = packExperiences(
-    content.experience ?? [],
-    content.summary ?? [],
-    config,
-    theme,
-    measure
-  )
+  const main = packExperiences(content.experience ?? [], content.summary ?? [], theme, measure, {
+    firstSpacerPt: declaredMainSpacerPt(layout, 'first'),
+    contSpacerPt: declaredMainSpacerPt(layout, 'continuation'),
+    summaryInFirstMain: (layout?.first?.main ?? []).some((k) => slotKey(k) === 'summary')
+  })
+  // Does the summary put ink on page 1? `SummarySection` renders null for an
+  // empty list, so an empty summary is not "fixed content that is there" —
+  // this is the one fixed main-column block that can make a page non-empty
+  // without a packed block (see `mainEmpty` below).
+  // D2: ...and only if the layout actually puts it on page 1. A `first.main`
+  // without `summary` renders no summary there, so it cannot be what makes
+  // page 1 non-empty.
+  const summaryRenders =
+    (content.summary ?? []).length > 0 &&
+    (layout?.first?.main ?? []).some((k) => slotKey(k) === 'summary')
   const sidebar = packSidebar(sidebarFlowKeys(layout), content, layout, theme, measure)
 
   // At least one page always exists, even for a CV with no experience at all.
@@ -2002,6 +2462,18 @@ export function planTwoColumn({
 
   return {
     totalPages,
+    /**
+     * Sections this layout puts in a `main` slot that the packer above did not
+     * measure — it prices the summary and the experience flow, nothing else
+     * (see this module's PACKED vs FIXED note). The renderer still draws them,
+     * so `totalPages` and `overflowPt` are describing less than the page holds
+     * whenever this is non-empty; `layoutDiagnostics` turns it into the
+     * `main-slot-unmeasured` fact so the blindness is stated rather than
+     * inferred. Empty for every layout whose main slots hold only measured
+     * keys, which is every shipped layout. Retired by §8's I4/I6, when the
+     * planner starts measuring these and the array is empty by construction.
+     */
+    unmeasuredMainKeys: unmeasuredMainKeys(layout),
     mainPageCount: main.totalPages,
     sidebarPageCount: sidebar.totalPages,
     pages: Array.from({ length: totalPages }, (_, index) => {
@@ -2015,11 +2487,43 @@ export function planTwoColumn({
       // order" is `page.sidebarSlices.map(s => s.key)` — derived at the point
       // of use, never stored.
       const sidebarSlices = sidebar.pages[index] ?? []
-      const mainFill = main.pageMetrics[index] ?? null
-      const sidebarFill = sidebar.pageMetrics[index] ?? null
+      // pageMetrics rows carry the fill numbers AND the §3.8 decline record;
+      // the plan publishes them as two fields — ColumnFill stays a pure number
+      // bag, and blockedBy is page data a diagnostics reader keys on directly.
+      const mainRow = main.pageMetrics[index] ?? null
+      const sidebarRow = sidebar.pageMetrics[index] ?? null
+      const fillOf = (
+        /** @type {{ used: number, budget: number, capacity: number } | null} */ r
+      ) => (r ? { used: r.used, budget: r.budget, capacity: r.capacity } : null)
+      const mainFill = fillOf(mainRow)
+      const sidebarFill = fillOf(sidebarRow)
       const over = (/** @type {{used: number, budget: number} | null} */ f) =>
         f ? Math.max(0, quantize(f.used - f.budget)) : 0
-      const mainEmpty = mainBlocks.length === 0
+      // I2 — "empty" means NO INK IN THE COLUMN, not "no packed blocks".
+      //
+      // The old test was `mainBlocks.length === 0`, which reported page 1 of
+      // every experience-less CV as an empty main column while the reader was
+      // looking at a full summary on it. A student CV is the ordinary case of
+      // that, not an edge case. Fixed content is content: the summary occupies
+      // the column exactly as much as an experience entry does.
+      //
+      // The test is what RENDERS, never the budget's fixed term. A first cut
+      // of I2 used `capacity - budget <= 0` for "no fixed content" and it was
+      // dead code: that term is strictly positive on every page that has a row
+      // (page 1 charges the summary and the spacer; a continuation charges its
+      // title), so the predicate silently collapsed to `mainRow === null` and
+      // reported a page that draws nothing as non-empty. Two of the things it
+      // charges are not ink: the spacer is blank space, and the section title
+      // is drawn only when entries accompany it (ExperienceSection returns
+      // null for an empty list). So the summary is the only fixed content that
+      // can make a main column non-empty, and it renders on page 1 alone.
+      //
+      // Chrome is NOT content, deliberately: the identity block and the page
+      // badge appear on every page by construction, so counting them would
+      // make `emptyColumn` unreachable and delete the G1 residual signal that
+      // C4 measured as the honest description of a last page whose sidebar
+      // outlasted the experience list.
+      const mainEmpty = mainBlocks.length === 0 && !(index === 0 && summaryRenders)
       const sidebarEmpty = sidebarSlices.length === 0
       return {
         index,
@@ -2029,11 +2533,14 @@ export function planTwoColumn({
         sidebarSlices,
         mainFill,
         sidebarFill,
+        /** Why the NEXT main block did not start on this page; null when it did, or this is the flow's last page (§3.8). */
+        mainBlockedBy: mainRow?.blockedBy ?? null,
+        sidebarBlockedBy: sidebarRow?.blockedBy ?? null,
         /**
          * How far past its budget this page's content reaches, in pt. Non-zero
          * only where Invariant 0 forced an over-tall block onto a page (see
-         * packBlocks' rule 1) or where a config-forced page-1 split exceeds what
-         * fits; react-pdf then FLOWS that surplus onto extra physical sheets.
+         * packBlocks' rule 1c) — the one genuinely irreducible shape; the
+         * config-forced split that could also cause it was removed in S5; react-pdf then FLOWS that surplus onto extra physical sheets.
          */
         overflowPt: quantize(over(mainFill) + over(sidebarFill)),
         /** Which column (if any) has no content on this page — the G1 residual signal. */

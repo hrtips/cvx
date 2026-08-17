@@ -126,7 +126,7 @@ function namedEdgeCaseFixtures() {
     {
       id: 'edge-oversized-section',
       description:
-        'single oversized section: certifications has ~60 items, everything else at "one" — does an individual sidebar section this large ever clip, or only waste pages? (untested territory per C0\'s own analysis — see research/c0-baseline.md)',
+        'single oversized section: certifications has ~60 items, everything else at "one" — does an individual sidebar section this large ever clip, or only waste pages? (untested territory per C0\'s own analysis — see research/archive/c0-baseline.md)',
       sections: {
         certifications: 'one',
         publications: 'one',
@@ -271,10 +271,144 @@ function namedEdgeCaseFixtures() {
       oversizedSection: 'certifications',
       oversizedItemPageTall: true
     },
+    // ── S2a: the four head shapes the corpus could not express ──────────────
+    //
+    // `grep -rn progression test/` found nothing and no fixture set `location`,
+    // so two of `entryH()`'s six head terms — and every wrapped-head shape —
+    // were unreachable from the curated corpus
+    // (research/archive/design-layout-fidelity.md §5.2). These four are ADDITIVE: they
+    // introduce no pairwise factor and touch no existing spec, so `baseline.json`
+    // gains four keys and no existing row moves.
+    //
+    // S2b (the three new PAIRWISE factors — location, progression, headLength)
+    // is DEFERRED, and deliberately: adding a factor changes every pairwise
+    // fixture's content, so every baseline row would be rewritten, and that
+    // regeneration has to be its own commit or S3's baseline diff stops being
+    // interpretable (§5.2). S2a plus the main-column harness's own shape corpus
+    // (mainMeasureDiff.js) already reach every term S3 corrects. The deferral is
+    // also recorded in `buildFixturePlan()`'s `meta.deferred`, where a reader
+    // counting axes will look for it.
+    //
+    // `textLength: 'short'` throughout: the axis under test is the HEAD, and
+    // short single-line bullets keep each entry's measured height attributable
+    // to its head rows rather than to a bullet that wrapped one way in the model
+    // and another in the render.
+    {
+      id: 'edge-progression-entries',
+      description:
+        "every experience entry carries a 4-step progression block — the shape `entryH()` mis-measures worst (+1.60pt per row on top of the +6.70pt base, i.e. the motivating CV's +13.10pt entry), and the one no fixture could express before: `progression` appeared nowhere in test/.",
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryProgression: 4
+    },
+    {
+      id: 'edge-located-entries',
+      description:
+        'every experience entry carries a short single-line `location` — the +2.40pt location term (§3.2). No fixture set `location` at all before this one, so the row was modelled and never rendered under test.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryLocation: 'short'
+    },
+    {
+      id: 'edge-wrapping-heads',
+      description:
+        'a role AND a company that each wrap to two rendered lines on every entry — both currently UNDER-measured (§3.3: the model charges one role line and one meta row regardless), so this fixture is on the unsafe side of the mirror, where an error overflows a page rather than wasting space.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      wrappingRole: true,
+      wrappingCompany: true
+    },
+    {
+      id: 'edge-wrapping-location',
+      description:
+        'a `location` long enough to wrap to two rendered lines on every entry — the third under-measuring head shape (§3.3), and the one whose net entry delta is nearly zero today (+2.40 phantom location minus 9.60 unmodelled second line) purely by coincidence.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'short',
+      volume: 'multi-page',
+      entryLocation: 'wrapping'
+    },
+    // ── S5: the F3 regression fixture (design-layout-fidelity.md §5.5) ──────
+    //
+    // The post-mortem's F3 shape, synthesized: page 1 ends with room to spare
+    // because the NEXT entry's smallest legal piece (its head plus one bullet)
+    // does not fit what is left. That is the stall §3.8's `blockedBy` and the
+    // `page1-ends-early` warning exist to name, and until this fixture the
+    // corpus could only express its DEGENERATE case (`edge-summary-crosses-
+    // cliff`, where page 1 gets no entry at all and the warning is
+    // `page1-no-experience`). The two are mutually exclusive by construction,
+    // so both shapes need their own fixture or one of the two code paths is
+    // never executed on real content.
+    //
+    // The numbers are chosen, not stumbled into (all measured with the real
+    // fontkit measurer — test/layoutOptimality.test.js re-derives them, and
+    // test/planLayout.test.js asserts the arithmetic identity):
+    //   summary       5 'long' bullets  -> summaryH 273.90pt (§5.5 asks for
+    //                                      270-290: big enough to squeeze page
+    //                                      1's budget to 356.09pt, small enough
+    //                                      that an entry still fits under it)
+    //   entry 0       2 bullets         -> 172.27pt, ~48% of page 1's budget
+    //                                      ("roughly half", so the page is
+    //                                      visibly not full when it ends)
+    //   entry 1       4 progression     -> smallest legal piece 191.18pt vs
+    //                 steps                150.07pt left after the 33.75pt
+    //                                      entry divider: short by 41.11pt
+    //   entries 2-3   default            -> enough content for the flow to keep
+    //                                      going, so page 1 ending early is a
+    //                                      DECISION and not simply the last page
+    //
+    // Deliberately NOT asserted anywhere: the page count. 3 pages is the
+    // correct output for this content, so pinning it would pin a content fact
+    // that any legitimate future fidelity improvement may move — and it would
+    // have passed on the pre-S3 engine too, i.e. it is exactly the assertion
+    // that would not have caught the defect (§5.5).
+    {
+      id: 'edge-page1-blocked',
+      description:
+        'page 1 ends EARLY with one entry on it: the second entry carries a 4-step progression, and its smallest legal piece (head + 1 ATOM — one progression row — 109.87pt) is taller than the 74.32pt left, of which the 33.75pt entry divider eats half. Short by 69.30pt. The F3 shape from the post-mortem, and the only fixture that reaches the `page1-ends-early` warning — `edge-summary-crosses-cliff` reaches its degenerate twin (`page1-no-experience`, zero entries on page 1) instead. RE-CALIBRATED at D7 `prog-split`: the smallest piece used to be head + the WHOLE 4-row table + 1 bullet (191.18pt against 150.07pt), and once the table became splittable the entry fit on page 1 and this fixture stopped demonstrating anything. The summary carries two more bullets to restore the block — the fixture tests the packer declining, not any particular arithmetic, and the arithmetic had to move when the cut axis did.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'long',
+      volume: 'multi-page',
+      experienceCount: 4,
+      summaryBullets: 7,
+      entryShapes: [{ bullets: 2 }, { progression: 4 }]
+    },
     {
       id: 'edge-forced-split-config',
       description:
-        "config-driven page1ExperienceCount + page1SplitBullets (mirrors the shipped scaffold's own config.yaml) — a distinct packExperiences() branch with no budget check of its own.",
+        'LEGACY config keys page1ExperienceCount + page1SplitBullets present in config.yaml — REMOVED (maintainer ruling, design-layout-fidelity.md Review outcome #1), so the engine must IGNORE them and paginate automatically: this fixture proves a legacy workspace builds, plans and renders identically to one without the keys. (It exercised the config-forced packExperiences() branch until that branch was deleted.)',
       sections: {
         certifications: 'one',
         publications: 'one',
@@ -326,13 +460,29 @@ export function buildFixturePlan() {
       riskScenarioCount: risks.length,
       namedEdgeCaseCount: edgeCases.length,
       totalFixtures: fixtures.length,
+      /**
+       * Axes that are deliberately NOT on the pairwise sweep, recorded here
+       * rather than left silently absent (design-layout-fidelity.md §5.2's
+       * instruction, verbatim: "if it is deferred, say so in the fixture plan's
+       * meta rather than leaving the axes silently absent").
+       */
+      deferred: {
+        pairwiseFactors: {
+          location: ['absent', 'short', 'wrapping'],
+          progression: ['absent', 'one', 'four'],
+          headLength: ['short', 'wrapping']
+        },
+        slice: 'S2b',
+        reason:
+          "Adding these three factors grows the greedy cover from 18 rows to 19 (188 required pairs -> 377) — but it also changes EVERY pairwise fixture's content, so every baseline.json row is rewritten. That regeneration must be its own commit with no engine change in it, or S3's baseline diff becomes uninterpretable. S2a's four named edge fixtures (edge-progression-entries, edge-located-entries, edge-wrapping-heads, edge-wrapping-location) plus the main-column render diff's own shape corpus (test/layout-harness/mainMeasureDiff.js) already reach every term S3 corrects, so S2b blocks nothing."
+      },
       variantAxisNote:
         "\"variant: designed|ats\" from the sprint's cartesian is not multiplied into the fixture count — every fixture is rendered through both variants via scaffold.js's buildAll() (two separate CLI processes — see that file's docblock for why not the batched `cvx build --all`), so variant coverage is complete without doubling the fixture list."
     }
   }
 }
 
-/** Human-readable one-paragraph-per-topic log of the fixture plan (used by the oracle test's console output and research/c0-baseline.md). */
+/** Human-readable one-paragraph-per-topic log of the fixture plan (used by the oracle test's console output and research/archive/c0-baseline.md). */
 export function describeFixturePlan(meta) {
   const lines = []
   lines.push(

@@ -6,13 +6,11 @@
 
 template: two-column
 
-geometry:
-  size: A4
-  topBar: 30
-  sidebarFraction: 0.37
-  mainPadding:     [27, 33, 54, 30]     # top, right, bottom, left
-  contPadding:     [24, 33, 54, 30]
-  sidebarPadding:  [13.5, 16.5, 21, 24] # top, right, bottom, left
+# NOTE: there is deliberately no `geometry:` block here. Page size, sidebar
+# width and padding come from the theme and are not settable per CV yet. This
+# file used to carry a geometry block whose six keys CVX ignored entirely — so
+# editing `sidebarFraction` did nothing, silently, with no validation error.
+# It was removed rather than left in place looking like a control.
 
 pages:
   first:
@@ -39,6 +37,9 @@ pages:
   last:
     sidebar:
       - identity-compact
-      - referees
+      # `referees` is deliberately omitted here. It costs ~231pt — a whole extra
+      # page for this CV — and modern guidance treats a referees section, even
+      # "References available upon request", as filler. Add `- referees` back to
+      # render it; the ATS layout still includes it.
     main:
       - experience:continued

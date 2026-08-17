@@ -68,9 +68,15 @@ function normalizePage(/** @type {import('./types.js').RawLayoutPage | null | un
  */
 export function normalizeLayout(/** @type {import('./types.js').RawLayout} */ parsed) {
   const result =
-    /** @type {{ template: string, first?: import('./types.js').LayoutPage | null, continuation?: import('./types.js').LayoutPage | null, last?: import('./types.js').LayoutPage | null }} */ ({
+    /** @type {{ template: string, spacing?: import('./types.js').LayoutSpacing, first?: import('./types.js').LayoutPage | null, continuation?: import('./types.js').LayoutPage | null, last?: import('./types.js').LayoutPage | null }} */ ({
       template: parsed.template ?? 'two-column'
     })
+
+  // D11: template-declared spacing rides through untouched — `resolveDocument`
+  // applies it to the theme. Carried explicitly rather than by spreading
+  // `parsed`, because this object is a whitelist: a key that is not plumbed
+  // here does not exist, however valid it looks in the YAML.
+  if (parsed.spacing && typeof parsed.spacing === 'object') result.spacing = parsed.spacing
 
   const pages = parsed.pages ?? parsed
   if (pages.first) result.first = normalizePage(pages.first)

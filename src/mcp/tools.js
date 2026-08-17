@@ -13,13 +13,15 @@
  * author-a-CV loop: it answers "how will this paginate?" without writing a PDF,
  * so an assistant can tell the user which roles land on page 1, and whether
  * anything overflows, before it builds. The surface stayed at four for four
- * releases on purpose; this one earns its place by being the only way to see
- * the layout at all without rasterizing a PDF the model cannot look at.
+ * releases on purpose; this one earns its place by pricing a layout before a
+ * build, which is a different question from how the page looks — the caller
+ * answers that by opening the PDF `build_pdf` returns.
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { layoutDiagnostics } from '../pdf/layoutDiagnostics.js'
+import { attachPhysicalWarnings } from '../pdf/physicalPagesWarning.js'
 import { planCV, renderCV } from '../pdf/render.js'
 import { scaffoldContent } from '../pdf/scaffold.js'
 import { discoverThemes } from '../pdf/themes/index.js'
@@ -38,7 +40,7 @@ function resolveFontsDir() {
 
 /**
  * The model-facing docs that ship INSIDE the package (package.json "files"
- * lists them by path; docs/hostile-baseline.md is an internal quality record
+ * lists them by path; research/archive/hostile-baseline.md is an internal quality record
  * and deliberately stays out).
  *
  * Why they are reachable through `get_schema` and not just as a path: an MCP
@@ -168,7 +170,7 @@ export async function buildPdf(
 ) {
   /** @type {string[]} */
   const notices = []
-  const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
+  const { buffer, filename, themeName, layoutName, plan } = await renderCV({
     contentDir: contentDirOf(dir),
     fontsDir: resolveFontsDir(),
     ats,
@@ -176,10 +178,18 @@ export async function buildPdf(
   })
   const path = join(workspace(dir), filename)
   writeFileSync(path, buffer)
-  // A build is progress: it clears the "you have asked the same question five
-  // times" counter, so a plan → build → plan sequence does not open with an
-  // accusation of looping. See trackPlanIteration.
-  planIterations.delete(workspace(dir))
+  // I1 (INV-4): sheets produced vs pages numbered. Merged into the envelope
+  // here because the count is a fact about bytes — layoutDiagnostics stays a
+  // pure function of the plan (see physicalPagesWarning.js). `plan_layout`
+  // renders nothing and therefore can never carry this code: a clean dry run
+  // does not clear this defect class, and the tool descriptions say so.
+  const { diagnostics, added } = attachPhysicalWarnings({
+    diagnostics: ats ? null : layoutDiagnostics(plan),
+    buffer,
+    plan,
+    ats
+  })
+  for (const w of added) notices.push(w.message)
   return {
     ok: true,
     filename,
@@ -200,81 +210,19 @@ export async function buildPdf(
     // (C6a) — so an assistant that just built does not need a second call to
     // see how the CV paginated. `null` for the ATS/single-column variant, which
     // react-pdf auto-flows and CVX never packs.
-    diagnostics: layoutDiagnostics(plan, config)
-  }
-}
-
-/**
- * How many times in a row `plan_layout` will answer for one workspace before it
- * starts saying "nothing has changed, stop".
- *
- * The sprint requires an iteration cap (design doc §7.4 / G-c: "cap the agent's
- * plan_layout iterations"), and it is worth being precise about what it guards
- * against HERE, where there are no levers yet: `plan_layout` is a pure function
- * of the content directory, so calling it twice without editing anything cannot
- * produce a different answer. A loop is therefore never progress — it is an
- * agent burning tokens against a number it cannot move, which is exactly the
- * §12-question-5 failure ("could it burn many plan_layout calls?"). The cap
- * does not refuse to answer: refusing would break a legitimate re-read (e.g.
- * showing the user the plan again), and an agent that cannot get an answer
- * tends to retry harder. It reports, in the response, that the layout is
- * identical to last time and what the only faithful next move is.
- */
-const PLAN_ITERATION_CAP = 5
-
-/**
- * Consecutive `plan_layout` calls per workspace that returned the same layout.
- * Process-scoped (one MCP server per client session), and reset in the two cases
- * that mean the agent is not looping: the answer changed (an edit actually moved
- * the layout), or `build_pdf` ran (it acted on the answer). Without the second
- * reset, five plans followed by a build left the NEXT plan still saying
- * "capReached — stop planning and act" at an agent that had just done exactly
- * that.
- *
- * @type {Map<string, { fingerprint: string, count: number }>}
- */
-const planIterations = new Map()
-
-/** Bound the map so a long-lived server that sees many workspaces cannot grow without limit. */
-const MAX_TRACKED_WORKSPACES = 32
-
-/** @param {string} dir @param {string} fingerprint */
-function trackPlanIteration(dir, fingerprint) {
-  const prev = planIterations.get(dir)
-  const count = prev?.fingerprint === fingerprint ? prev.count + 1 : 1
-  if (!planIterations.has(dir) && planIterations.size >= MAX_TRACKED_WORKSPACES) {
-    planIterations.clear()
-  }
-  planIterations.set(dir, { fingerprint, count })
-  return {
-    count,
-    cap: PLAN_ITERATION_CAP,
-    /** Did this call return the same layout as the previous one for this workspace? */
-    unchanged: count > 1,
-    capReached: count >= PLAN_ITERATION_CAP
+    diagnostics
   }
 }
 
 export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
   /** @type {string[]} */
   const notices = []
-  const { themeName, layoutName, isSingleColumn, config, plan } = await planCV({
+  const { themeName, layoutName, isSingleColumn, plan } = await planCV({
     contentDir: contentDirOf(dir),
     fontsDir: resolveFontsDir(),
     warn: (msg) => notices.push(msg)
   })
-  const diagnostics = layoutDiagnostics(plan, config)
-  const iteration = trackPlanIteration(workspace(dir), JSON.stringify(diagnostics))
-
-  if (iteration.capReached) {
-    notices.push(
-      `plan_layout has returned the identical layout ${iteration.count} times for this workspace — ` +
-        `nothing you have done since the first call changed it. Stop planning and act: build the ` +
-        `PDF, or put the trade-off to the user (shorter bullets, one fewer role, a section they ` +
-        `choose to cut) and let them pick — their call, not yours. CVX has no layout levers: the ` +
-        `layout follows the content. Never drop content to fit.`
-    )
-  }
+  const diagnostics = layoutDiagnostics(plan)
 
   return {
     ok: true,
@@ -297,7 +245,6 @@ export async function planLayout(/** @type {{ dir?: string }} */ { dir } = {}) {
         `writes without ats: true. The ATS variant is a single column react-pdf flows on its ` +
         `own; CVX never packs it, so it has no plan and its page count can differ from ` +
         `totalPages. Build it to find out; there is no dry run for it.`,
-    iteration,
     // See buildPdf for why this is not called `warnings`.
     notices
   }
@@ -378,7 +325,7 @@ export const TOOLS = [
     name: 'build_pdf',
     title: 'Render cv-content/ to a PDF',
     description:
-      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong. Returns the same layout diagnostics as plan_layout (page count, per-page column fills, which roles and sections landed on which page, overflow warnings) for the PDF it just wrote, so you can report the result without a second call. Two separate lists come back: `diagnostics.warnings` is the structured list of layout defects, each with a `code` (`overflow`, `page1-no-experience`) — match on the code, never the wording; `notices` is plain-text notes about the run. Note that `diagnostics` describes the designed two-column pagination and is null for ats: true.',
+      'Renders cv-content/ to a pixel-perfect CV PDF in the workspace folder, named after the person (e.g. jane-doe.pdf). Set ats: true for the ATS-safe single-column variant (machine-friendly, no colours; produces <name>-ats.pdf). Run validate_cv first — a build with invalid content can fail or render wrong. Returns the same layout diagnostics as plan_layout (page count, per-page column fills, which roles and sections landed on which page, overflow warnings) for the PDF it just wrote, so you can report the result without a second call. Two separate lists come back: `diagnostics.warnings` is the structured list of named conditions, each with a `code` and a `kind` — match on those, never the wording. kind: "defect" means wrong, act on it (`overflow`, `page1-no-experience`); kind: "fact" means true and priced, act only if the user wants what it prices (`page1-ends-early`: page 1 has roles but the next could not start there — its `shortByPt` is what an edit would need to free, and it fires on well-packed CVs too; `main-slot-unmeasured`: the layout puts a section other than the summary/experience in a main slot, where the planner does not measure it, so the page count and overflow figures exclude it; `experience-empty`: this CV has no experience entries at all — a student or first-job CV — carrying `fixedPt`, how much of page 1 its summary occupies; `main-column-empty`: a multi-page CV whose wide column renders nothing on ANY page, carrying `pages`). ONE defect exists only here and never in plan_layout, because only a build produces sheets to count: `physical-pages-exceed-plan` — the PDF has MORE sheets than the plan numbered, so content the planner never measured reached the page and react-pdf flowed it onto sheets the page badges do not count. A clean dry run does NOT clear it; if you see it, open the PDF and look at the last pages. `notices` is plain-text notes about the run. Note that `diagnostics` describes the designed two-column pagination and is null for ats: true.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -402,7 +349,7 @@ export const TOOLS = [
     name: 'plan_layout',
     title: 'See how the CV will paginate — without rendering a PDF',
     description:
-      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill ratios (used/budget, normally 0..1, and ABOVE 1 exactly when that page is over budget — see overflowPt), the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items), overflow in points, and which column holds no packed blocks. totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: CVX has NO layout levers — the layout is a function of the content, so calling this twice without editing cv-content/ returns exactly the same answer. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). The one exception has its own warning code: page1-no-experience means page 1 carries no roles at all, which IS worth raising with the user. CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide — never drop content on their behalf.',
+      'Dry run: packs cv-content/ and returns the pagination plan and layout diagnostics WITHOUT writing a PDF. Use it before build_pdf to tell the user which roles land on page 1, how many pages the CV takes, and whether anything overflows — the pre-build preview, with real numbers instead of a guess. It answers for the DESIGNED two-column variant only: the ATS variant is a single column react-pdf flows on its own, CVX never packs it, and its page count can differ — there is no dry run for it, so build it to find out. Returns per page: column fill as OCCUPANCY — (fixedPt + usedPt) / capacityPt, the same measurement on every page so pages compare honestly (diagnostics.version: 4; ABOVE 1 exactly when the page is over budget — see overflowPt); per-column blockedBy — why the next role/section could NOT start on that page, whose shortByPt is the one number that falls monotonically as the content above it is shortened — and note the blocked entry has a SECOND lever of its own: shrinking its description or progression rows shrinks the piece that has to fit (fill is a description, never a progress signal: shortening content LOWERS fill until a block moves up, then it jumps); the experience entries and sidebar sections placed there (item and bullet ranges are 0-based and end-exclusive: [6,8) of 8 is the last TWO items); overflow in points; what each placed piece COSTS — heightPt, the INDIVISIBLE headPt a piece must carry before its first bullet (broken out as head.rolePt/metaPt/locationPt/descriptionPt/progressionPt) and per-bullet bulletsPt, so you can price an edit by subtraction instead of rebuilding; and which column holds no ink (emptyColumn — a page 1 carrying a summary is NOT empty). totalPages counts PLANNED pages; an overflowing page spills onto an extra physical sheet the numbering does not count, so check totals.overflowPt before quoting a page count. IMPORTANT, and it is not a bug: this tool is IDEMPOTENT — pagination is a function of the content, so calling it twice without editing cv-content/ returns exactly the same answer. With a full experience list there are effectively no layout levers either; the exception is an empty or very short experience list, where moving sections between columns is the strongest lever there is and costs no content edits. emptyColumn/emptyColumnPages are DIAGNOSTICS, NOT TARGETS: a page whose sidebar outlasts the experience list is normal, and packing to remove one measurably produces worse CVs (thin, fragmented pages). warnings carry a code and a kind — "defect" (overflow; page1-no-experience, page 1 carrying no roles at all, worth raising) versus "fact" (page1-ends-early: a priced page-break that fires on well-packed CVs too, mention it only when the user wants page 1 fuller; main-slot-unmeasured: this layout puts a section other than the summary/experience in a main slot, which renders but is NOT measured, so the numbers below exclude it; experience-empty: the CV has no experience entries at all, so the experience-related codes cannot fire; main-column-empty: every page carries only its sidebar, which is different from the ordinary residual of a sidebar outlasting a short experience list). A DRY RUN CANNOT SEE PAPER: build_pdf can additionally return `physical-pages-exceed-plan` — more sheets in the PDF than the plan numbered — and this tool never can, because it renders nothing. A clean plan is not proof of a clean PDF; build, then look. CVX renders 100% of the YAML and never drops, clips, or hides text to fit; if the user wants fewer pages, surface the trade-off (shorter bullets, fewer roles, a section they agree to cut) and let them decide what goes — never drop content on your own initiative to hit a page count. Once they have chosen, making the edit is your job. These numbers price the layout — they do not tell you whether the page looks right. Open the PDF that build_pdf returns and look at it.',
     inputSchema: {
       type: 'object',
       properties: {

@@ -56,6 +56,8 @@ const planOf = (pages) => ({
     sidebarSlices: [],
     mainFill: null,
     sidebarFill: null,
+    mainBlockedBy: null,
+    sidebarBlockedBy: null,
     overflowPt: 0,
     emptyColumn: null,
     ...p
@@ -63,26 +65,42 @@ const planOf = (pages) => ({
 })
 
 describe('layoutDiagnostics — fills', () => {
-  it('reports used/budget as a 0..1 ratio, per column, per page', () => {
+  it('reports COLUMN OCCUPANCY as a 0..1 ratio, per column, per page (v2)', () => {
+    // v2 (§3.9): fill = (fixed + used) / capacity, where fixed = capacity −
+    // budget. With no fixed content (capacity == budget) it degenerates to the
+    // old used/budget; with fixed content the two DIFFER, and that difference
+    // is the point — v1's page-1 number was not comparable to page 2's.
     const d = layoutDiagnostics(
       planOf([
         {
-          mainFill: { used: 300, budget: 600 },
-          sidebarFill: { used: 450, budget: 600 },
+          mainFill: { used: 300, budget: 600, capacity: 600 },
+          sidebarFill: { used: 300, budget: 600, capacity: 800 },
           mainBlocks: [{ role: 'Engineer', bullets: ['a', 'b'] }],
           sidebarSlices: [slice('education', 0, 2, 2, 450)]
         }
       ])
     )
-    expect(d?.pages[0].main.fill).toBe(0.5)
+    expect(d?.version).toBe(4)
+    expect(d?.pages[0].main.fill).toBe(0.5) // (0 + 300) / 600
     expect(d?.pages[0].main.usedPt).toBe(300)
     expect(d?.pages[0].main.budgetPt).toBe(600)
-    expect(d?.pages[0].sidebar.fill).toBe(0.75)
+    expect(d?.pages[0].main.capacityPt).toBe(600)
+    expect(d?.pages[0].main.fixedPt).toBe(0)
+    // 200pt of identity block above 300pt of packed content in an 800pt column:
+    // v1 said 0.5 (300/600) and invited comparison with main's 0.5, which
+    // described a different thing. v2 says 0.625 of the column is occupied.
+    expect(d?.pages[0].sidebar.fill).toBe(0.625)
+    expect(d?.pages[0].sidebar.fixedPt).toBe(200)
   })
 
   it('rounds a ratio to 3dp and points to 2dp — deterministic, not float noise', () => {
     const d = layoutDiagnostics(
-      planOf([{ mainFill: { used: 1 / 3, budget: 1 }, sidebarFill: { used: 2.005, budget: 3 } }])
+      planOf([
+        {
+          mainFill: { used: 1 / 3, budget: 1, capacity: 1 },
+          sidebarFill: { used: 2.005, budget: 3, capacity: 3 }
+        }
+      ])
     )
     expect(d?.pages[0].main.fill).toBe(0.333)
     expect(d?.pages[0].sidebar.fill).toBe(0.668)
@@ -96,26 +114,42 @@ describe('layoutDiagnostics — fills', () => {
     // which is a different (and wrong) claim from "this flow ended".
     const d = layoutDiagnostics(
       planOf([
-        { mainFill: { used: 10, budget: 20 }, sidebarFill: { used: 10, budget: 20 } },
-        { mainFill: null, sidebarFill: { used: 5, budget: 20 }, emptyColumn: 'main' }
+        {
+          mainFill: { used: 10, budget: 20, capacity: 20 },
+          sidebarFill: { used: 10, budget: 20, capacity: 20 }
+        },
+        {
+          mainFill: null,
+          sidebarFill: { used: 5, budget: 20, capacity: 20 },
+          emptyColumn: 'main'
+        }
       ])
     )
     expect(d?.pages[1].main).toEqual({
       fill: null,
       usedPt: null,
       budgetPt: null,
+      capacityPt: null,
+      fixedPt: null,
+      blockedBy: null,
       entries: []
     })
     expect(d?.pages[1].emptyColumn).toBe('main')
   })
 
-  it('reports fill: null (not a negative ratio) when the budget itself is negative', () => {
+  it('reports fill ABOVE 1 (not null) when the fixed content alone exceeds the column', () => {
     // `edge-summary-exceeds-page`: the summary alone is taller than the main
-    // column, so the experience budget goes negative. used/budget would be a
-    // plausible-looking negative number; the honest answer is "no fill" plus
-    // the overflow warning.
-    const d = layoutDiagnostics(planOf([{ mainFill: { used: 100, budget: -50 }, overflowPt: 150 }]))
-    expect(d?.pages[0].main.fill).toBe(null)
+    // column, so the experience budget goes negative. v1 refused a ratio here
+    // (used/budget would be a plausible-looking NEGATIVE number). Under v2 an
+    // honest ratio exists — the content genuinely exceeds the column — so it is
+    // a number above 1, and `null` keeps its one remaining meaning: "this flow
+    // ended on an earlier page" (§3.9's deliberate semantic change).
+    const d = layoutDiagnostics(
+      planOf([{ mainFill: { used: 100, budget: -50, capacity: 200 }, overflowPt: 150 }])
+    )
+    // fixed = 200 − (−50) = 250; (250 + 100) / 200 = 1.75
+    expect(d?.pages[0].main.fill).toBe(1.75)
+    expect(d?.pages[0].main.fixedPt).toBe(250)
     expect(d?.pages[0].main.budgetPt).toBe(-50)
     expect(d?.pages[0].overflowPt).toBe(150)
   })
@@ -217,7 +251,7 @@ describe('layoutDiagnostics — totals and warnings', () => {
     const d = layoutDiagnostics(
       planOf([
         {
-          mainFill: { used: 700, budget: 600 },
+          mainFill: { used: 700, budget: 600, capacity: 600 },
           overflowPt: 100,
           mainBlocks: [{ role: 'A', bullets: ['x'] }],
           sidebarSlices: [slice('education', 0, 2, 4, 300)]
@@ -225,12 +259,12 @@ describe('layoutDiagnostics — totals and warnings', () => {
         {
           emptyColumn: 'main',
           sidebarSlices: [slice('education', 2, 4, 4, 200)],
-          sidebarFill: { used: 200, budget: 600 }
+          sidebarFill: { used: 200, budget: 600, capacity: 600 }
         },
         {
           emptyColumn: 'sidebar',
           mainBlocks: [{ role: 'A', bullets: ['x', 'y'], isContinuation: true, startBullet: 1 }],
-          mainFill: { used: 100, budget: 600 }
+          mainFill: { used: 100, budget: 600, capacity: 600 }
         }
       ])
     )
@@ -260,18 +294,18 @@ describe('layoutDiagnostics — totals and warnings', () => {
     expect(loud?.warnings[0].message).toMatch(/extra physical sheet/)
   })
 
-  it('attributes a page-1 overflow to the user`s own lever when config set one', () => {
-    const d = layoutDiagnostics(planOf([{ overflowPt: 87.46 }]), {
-      page1ExperienceCount: 3,
-      page1SplitBullets: 2
-    })
-    expect(d?.warnings[0].forcedByConfig).toBe(true)
-    expect(d?.warnings[0].message).toMatch(/page1ExperienceCount: 3/)
-    expect(d?.warnings[0].message).toMatch(/page1SplitBullets: 2/)
+  it('never attributes an overflow to config — the levers that could force one were removed', () => {
+    // forcedByConfig survives on the shape, permanently false (deprecated in
+    // types.d.ts), so consumers that match on it keep working.
+    const d = layoutDiagnostics(planOf([{ overflowPt: 87.46 }]))
+    expect(d?.warnings[0].forcedByConfig).toBe(false)
+    expect(d?.warnings[0].message).not.toMatch(/page1ExperienceCount|page1SplitBullets/)
   })
 
   it('names the summary when the FIXED page-1 content is what overflowed', () => {
-    const d = layoutDiagnostics(planOf([{ overflowPt: 474, mainFill: { used: 100, budget: -20 } }]))
+    const d = layoutDiagnostics(
+      planOf([{ overflowPt: 474, mainFill: { used: 100, budget: -20, capacity: 500 } }])
+    )
     expect(d?.warnings[0].message).toMatch(/summary alone is taller/)
   })
 
@@ -281,14 +315,16 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // value means the reader's first page shows no work history (C3b rule 1b —
     // fixed page-1 content left less room than the smallest legal entry piece).
     // Nothing else distinguished them: overflowPt is 0 because the packer did
-    // the right thing, and fill is 0, not null.
+    // the right thing, and fill reports the fixed content that DID land (the
+    // summary block that crowded the roles out) — 518.41 of 600 = 0.864 under
+    // v2, not null.
     const d = layoutDiagnostics(
       planOf([
-        { mainFill: { used: 0, budget: 81.59 }, emptyColumn: 'main' },
+        { mainFill: { used: 0, budget: 81.59, capacity: 600 }, emptyColumn: 'main' },
         { mainBlocks: [{ role: 'First Role', bullets: ['a'] }] }
       ])
     )
-    expect(d?.pages[0].main.fill).toBe(0)
+    expect(d?.pages[0].main.fill).toBe(0.864)
     expect(d?.pages[0].overflowPt).toBe(0)
     expect(d?.warnings).toHaveLength(1)
     expect(d?.warnings[0]).toMatchObject({ code: 'page1-no-experience', page: 1 })
@@ -311,7 +347,11 @@ describe('layoutDiagnostics — totals and warnings', () => {
     // only code — a second code silently inflated it. Both fire here.
     const d = layoutDiagnostics(
       planOf([
-        { overflowPt: 438.21, mainFill: { used: 0, budget: 50 }, emptyColumn: 'main' },
+        {
+          overflowPt: 438.21,
+          mainFill: { used: 0, budget: 50, capacity: 600 },
+          emptyColumn: 'main'
+        },
         { mainBlocks: [{ role: 'Later Role', bullets: ['a'] }] }
       ])
     )
@@ -319,14 +359,14 @@ describe('layoutDiagnostics — totals and warnings', () => {
     expect(d?.totals.overflowPages).toBe(1)
   })
 
-  it('reports which packing levers the config set, so a forced layout is legible', () => {
-    expect(layoutDiagnostics(planOf([{}]))?.leversUsed).toEqual({
-      page1ExperienceCount: null,
-      page1SplitBullets: null
-    })
-    expect(
-      layoutDiagnostics(planOf([{}]), { page1ExperienceCount: 3, page1SplitBullets: 2 })?.leversUsed
-    ).toEqual({ page1ExperienceCount: 3, page1SplitBullets: 2 })
+  it('carries no leversUsed field and takes no config — the page-1 levers were removed', () => {
+    // Maintainer ruling (design-layout-fidelity.md Review outcome #1): the
+    // levers are gone, so diagnostics are a pure function of the plan alone.
+    // version: 2 is the shape flag consumers key on.
+    const d = layoutDiagnostics(planOf([{}]))
+    expect(d?.version).toBe(4)
+    expect(d).not.toHaveProperty('leversUsed')
+    expect(layoutDiagnostics.length).toBe(1)
   })
 })
 
@@ -369,8 +409,11 @@ describe('layoutDiagnostics — against a real plan', () => {
     // main/sidebar transposed. Both leave the shape valid and every number
     // plausible, which is why this compares the WHOLE per-page projection in
     // one equality rather than spot-checking a field.
+    // v2 fill recomputed from the plan's own numbers: (fixed + used) / capacity.
     const round3 = (/** @type {import('./types.js').ColumnFill | null} */ f) =>
-      f && f.budget > 0 ? Math.round((f.used / f.budget) * 1000) / 1000 : null
+      f && f.capacity > 0
+        ? Math.round(((f.capacity - f.budget + f.used) / f.capacity) * 1000) / 1000
+        : null
     const fromPlan = plan.pages.map((p) => ({
       main: round3(p.mainFill),
       sidebar: round3(p.sidebarFill),
@@ -414,5 +457,122 @@ describe('layoutDiagnostics — against a real plan', () => {
       })
       .filter((r) => Math.abs(Number(r.usedPt) - r.sumOfSlices) >= 0.011)
     expect(off).toEqual([])
+  })
+})
+
+// ── I1: main-slot-unmeasured ────────────────────────────────────────────────
+describe('main-slot-unmeasured names what the planner did not price', () => {
+  const withKeys = (/** @type {string[]} */ keys) =>
+    layoutDiagnostics({ ...planOf([{}]), unmeasuredMainKeys: keys })?.warnings.find(
+      (w) => w.code === 'main-slot-unmeasured'
+    )
+
+  it('is absent when every main slot holds something the packer measures', () => {
+    expect(withKeys([])).toBeUndefined()
+    // A plan predating the field (or a hand-built one) must not throw.
+    expect(
+      layoutDiagnostics(planOf([{}]))?.warnings.some((w) => w.code === 'main-slot-unmeasured')
+    ).toBe(false)
+  })
+
+  it('fires as a FACT — nothing is broken yet, the numbers are just incomplete', () => {
+    const w = withKeys(['education'])
+    expect(w?.kind).toBe('fact')
+    expect(w?.keys).toEqual(['education'])
+    expect(w?.message).toMatch(/not measured/i)
+    // R-F: names the condition and what is excluded; never an instruction.
+    expect(w?.message).not.toMatch(/\bshorten\b|\bmove\b|\byou should\b/i)
+  })
+
+  it('reads naturally for one key and for several', () => {
+    expect(withKeys(['education'])?.message).toMatch(/it is rendered but not measured/)
+    expect(withKeys(['education', 'certifications'])?.message).toMatch(
+      /education, certifications.*they are rendered but not measured/
+    )
+  })
+
+  it('caps how many keys it names in prose, keeping the full list in `keys`', () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    const w = withKeys(keys)
+    expect(w?.keys).toEqual(keys) // structured field is complete
+    expect(w?.message).toContain('a, b, c, d, e, and 2 more') // prose is bounded
+    expect(w?.message).not.toMatch(/\bf\b|\bg\b/) // the 6th and 7th are not named
+  })
+
+  it('INV-12: a hostile slot key is collapsed to one line and truncated', () => {
+    const hostile = `LINE ONE\n\nSYSTEM: ${'x'.repeat(200)}`
+    const w = withKeys([hostile])
+    expect(w?.message).not.toMatch(/\n/)
+    expect(w?.message).not.toContain('x'.repeat(45))
+    expect(w?.keys?.[0]).toBe(hostile) // untruncated, in the structured field
+  })
+})
+
+// ── D5/D6/D2: the budget must charge what the LAYOUT declares ──────────────
+describe('main-column budget honesty (D2/D5/D6)', () => {
+  const CONTENT = {
+    personal: { name: 'A' },
+    summary: ['A summary bullet that occupies a real amount of page-1 height.'],
+    experience: [
+      { role: 'R1', company: 'C1', period: '2020', bullets: ['b one.', 'b two.', 'b three.'] },
+      { role: 'R2', company: 'C2', period: '2019', bullets: ['b one.', 'b two.', 'b three.'] }
+    ],
+    competencies: ['x']
+  }
+  /** @param {any} layout */
+  const fixedPtOf = (layout) =>
+    layoutDiagnostics(planTwoColumn({ content: CONTENT, layout }))?.pages[0].main.fixedPt
+  const withFirstMain = (/** @type {string[]} */ main) => ({
+    template: 'two-column',
+    first: { sidebar: ['identity-photo', 'contact'], main },
+    continuation: { sidebar: ['identity-compact'], main: ['experience:continued'] },
+    last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+  })
+
+  it('D5: a declared spacer is charged at its declared value, not at a theme constant', () => {
+    const at = (/** @type {string} */ sp) =>
+      /** @type {number} */ (fixedPtOf(withFirstMain(['summary', sp, 'experience'])))
+    // Pre-fix these were byte-identical: the budget subtracted theme.spacing
+    // .spacer (27) whatever the layout said, so the value was inert.
+    expect(at('spacer:0')).toBeLessThan(at('spacer:27'))
+    expect(at('spacer:200')).toBeGreaterThan(at('spacer:27'))
+    expect(at('spacer:200') - at('spacer:0')).toBeCloseTo(200, 5)
+  })
+
+  it('D5: no spacer slot charges no spacer — the phantom 27pt is returned', () => {
+    const none = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'experience'])))
+    const zero = /** @type {number} */ (
+      fixedPtOf(withFirstMain(['summary', 'spacer:0', 'experience']))
+    )
+    expect(none).toBe(zero)
+    // ...and it really is 27pt less than the shipped default, so deleting the
+    // spacer is now a lever instead of a no-op.
+    const dflt = /** @type {number} */ (
+      fixedPtOf(withFirstMain(['summary', 'spacer:27', 'experience']))
+    )
+    expect(dflt - none).toBeCloseTo(27, 5)
+  })
+
+  it('D2: a first.main without `summary` does not reserve the summary height', () => {
+    const withS = /** @type {number} */ (fixedPtOf(withFirstMain(['summary', 'experience'])))
+    const noS = /** @type {number} */ (fixedPtOf(withFirstMain(['experience'])))
+    expect(noS).toBeLessThan(withS)
+  })
+
+  it('D6: `summary` in continuation.main is named unmeasured; in first.main it is not', () => {
+    const codes = (/** @type {any} */ layout) =>
+      layoutDiagnostics(planTwoColumn({ content: CONTENT, layout }))?.warnings.find(
+        (w) => w.code === 'main-slot-unmeasured'
+      )
+    // Measured where it is priced...
+    expect(codes(withFirstMain(['summary', 'experience']))).toBeUndefined()
+    // ...and NOT measured anywhere else, which the flat key list used to miss.
+    const moved = {
+      template: 'two-column',
+      first: { sidebar: ['identity-photo', 'contact'], main: ['experience'] },
+      continuation: { sidebar: ['identity-compact'], main: ['summary', 'experience:continued'] },
+      last: { sidebar: ['identity-compact'], main: ['experience:continued'] }
+    }
+    expect(codes(moved)?.keys).toEqual(['summary'])
   })
 })

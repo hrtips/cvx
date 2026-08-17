@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # CVX Dogfooding Report
 
 ## LinkedIn PDF → CVX YAML → PDF
@@ -5,7 +11,7 @@
 **Date:** 26 July 2026  
 **Project:** [hrtips/cvx](https://github.com/hrtips/cvx)  
 **Input:** `Profile.pdf`, a three-page LinkedIn export  
-**Generated source:** `ramith-jayasinghe-cvx-source.zip`  
+**Generated source:** `profile-owner-cvx-source.zip`  
 **Final outcome:** CVX source generated; PDF generation did not complete in the assistant environment.
 
 ---
@@ -18,8 +24,8 @@ The assistant produced nine CVX YAML files and packaged them as a reusable sourc
 
 The assistant did not produce either requested PDF:
 
-- `ramith-jayasinghe.pdf`
-- `ramith-jayasinghe-ats.pdf`
+- `profile-owner.pdf`
+- `profile-owner-ats.pdf`
 
 Two separate problems caused this result.
 
@@ -377,7 +383,7 @@ The source package is usable as a draft, but it needs review.
 ### 8.1 Files generated
 
 ```text
-ramith-cvx/
+cv-workspace/
 ├── README.md
 ├── REVIEW-NOTES.md
 ├── build.sh
@@ -531,7 +537,7 @@ The publication titles are not shown as a section.
 The profile contains:
 
 ```text
-medium.com/@ramithj
+medium.com/@profile-handle
 ```
 
 `personal.yaml` does not include it.
@@ -545,9 +551,9 @@ Example:
 ```yaml
 links:
   - label: LinkedIn
-    href: https://www.linkedin.com/in/ramithj
+    href: https://www.linkedin.com/in/profile-handle
   - label: Writing
-    href: https://medium.com/@ramithj
+    href: https://medium.com/@profile-handle
 ```
 
 ### 8.10 Schema headers were omitted
@@ -607,8 +613,8 @@ This is the lowest-effort route.
 ### Commands
 
 ```bash
-unzip ramith-jayasinghe-cvx-source.zip
-cd ramith-cvx
+unzip profile-owner-cvx-source.zip
+cd cv-workspace
 
 npx -y @hrtips/cvx@1.3.0 validate --strict
 npx -y @hrtips/cvx@1.3.0 build
@@ -618,8 +624,8 @@ npx -y @hrtips/cvx@1.3.0 build --ats
 Expected output:
 
 ```text
-ramith-jayasinghe.pdf
-ramith-jayasinghe-ats.pdf
+profile-owner.pdf
+profile-owner-ats.pdf
 ```
 
 Add an optional photograph before building:
@@ -633,9 +639,9 @@ CVX recommends a square image of at least 400 × 400 pixels.[^3]
 ### Verification
 
 ```bash
-test -s ramith-jayasinghe.pdf
-test -s ramith-jayasinghe-ats.pdf
-ls -lh ramith-jayasinghe*.pdf
+test -s profile-owner.pdf
+test -s profile-owner-ats.pdf
+ls -lh profile-owner*.pdf
 ```
 
 ---
@@ -648,7 +654,7 @@ Create `package.json`:
 
 ```json
 {
-  "name": "ramith-jayasinghe-cv",
+  "name": "profile-owner-cv",
   "private": true,
   "scripts": {
     "validate": "cvx validate --strict",
@@ -719,10 +725,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ramith-jayasinghe-cv
+          name: profile-owner-cv
           path: |
-            ramith-jayasinghe.pdf
-            ramith-jayasinghe-ats.pdf
+            profile-owner.pdf
+            profile-owner-ats.pdf
             cv-content/**
 ```
 
@@ -1121,7 +1127,7 @@ Embed the CVX version into:
 {
   "outputs": [
     {
-      "path": "ramith-jayasinghe.pdf",
+      "path": "profile-owner.pdf",
       "sha256": "..."
     }
   ]
@@ -1175,7 +1181,7 @@ npx -y "${CVX_PACKAGE}" validate --strict
 npx -y "${CVX_PACKAGE}" build
 npx -y "${CVX_PACKAGE}" build --ats
 
-for output in ramith-jayasinghe.pdf ramith-jayasinghe-ats.pdf; do
+for output in profile-owner.pdf profile-owner-ats.pdf; do
   if [ ! -s "$output" ]; then
     echo "Expected output was not created: ${output}" >&2
     exit 3
@@ -1183,7 +1189,7 @@ for output in ramith-jayasinghe.pdf ramith-jayasinghe-ats.pdf; do
 done
 
 echo "Created:"
-ls -lh ramith-jayasinghe.pdf ramith-jayasinghe-ats.pdf
+ls -lh profile-owner.pdf profile-owner-ats.pdf
 ```
 
 For stronger reproducibility, replace `npx` with a locked local dependency.

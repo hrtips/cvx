@@ -21,7 +21,7 @@
 //                below).
 //
 // `measured` should track `rendered` far more closely than `estimated` does
-// — that gap closing is C2's acceptance evidence (research/c0-baseline.md
+// — that gap closing is C2's acceptance evidence (research/archive/c0-baseline.md
 // records the before/after numbers).
 //
 // Why "render + rasterize" and not a direct @react-pdf/textkit
@@ -48,7 +48,7 @@ import { createElement } from 'react'
 import { registerFonts } from '../../src/pdf/fonts.js'
 import { createMeasurer } from '../../src/pdf/measure.js'
 import { tealTheme } from '../../src/pdf/themes/teal.js'
-import { deriveMetrics, lineCount } from './estimator.js'
+import { bulletWidth, deriveMetrics, lineCount } from './estimator.js'
 import { countInkBands, parsePGM } from './pgm.js'
 import { mkFixtureDir, pdftoppmGray, ROOT } from './scaffold.js'
 import { LONG_URL, NON_LATIN_PHRASES, sentencesFor } from './textPool.js'
@@ -144,13 +144,15 @@ export function measuredLineCount(text, fontSize, maxWidth, opts = {}) {
 }
 
 const BODY_SIZE = tealTheme.typography.body.size // 9pt — same as an experience bullet
-// Real layout.js widths (via deriveMetrics — the exact function
-// packExperiences() itself calls), not hand-picked round numbers: bulletW is
-// what an experience/summary bullet actually wraps against; innerW is what
-// the entry description and role actually wrap against (review round 2,
-// SHOULD #5 — the canary/corpus used to test against an arbitrary 200pt that
-// no real call site ever passes).
-const { bulletW: BULLET_WIDTH, innerW: INNER_WIDTH } = deriveMetrics(tealTheme)
+// Real layout.js widths, not hand-picked round numbers: BULLET_WIDTH is what
+// an experience/summary bullet actually wraps against — since S3 that is
+// bulletWidth(m, measure) (the dash's real advance + BulletList's 5pt
+// marginRight; design-layout-fidelity.md §3.4), NOT the old
+// innerW − bulletIndent, which was 1.12pt too wide and could under-count a
+// wrapped line. innerW is what the entry description and role wrap against.
+const METRICS = deriveMetrics(tealTheme)
+const INNER_WIDTH = METRICS.innerW
+const BULLET_WIDTH = bulletWidth(METRICS, createMeasurer(path.join(ROOT, 'src', 'fonts')))
 // The sidebar isn't packed/measured by layout.js at all today (it's a fixed
 // per-page-kind section list — see blocks.js/sidebarPlan.js), so there is no
 // "real call site" width to import here the way bulletW/innerW are. This is

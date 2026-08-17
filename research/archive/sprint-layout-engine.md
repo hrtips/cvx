@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # Sprint: Layout Engine — faithful two-column packing
 
 *2026-07-27. Implements `layout-packing-design.md` (the state-of-the-art unified packer) under the constraints hardened by the-fool (pre-mortem + red-team). Companion evidence: `layout-packing-research.md`. This is a **standalone sprint** — its own track, gated behind v1.5 shipping.*

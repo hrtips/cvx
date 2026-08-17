@@ -66,10 +66,65 @@ export interface ExperienceEntry {
   bullets?: BulletItem[]
   /** Set by packExperiences() on a continuation slice. */
   isContinuation?: boolean
+  /**
+   * First progression-row index rendered on this slice (D7 `prog-split`).
+   * Absent means 0. A page-leading piece may carry only part of the promotion
+   * table, with the rest continuing overleaf — before this the whole table was
+   * welded into the indivisible head, which made an entry carrying one far
+   * harder to start on a part-full page than its bullet count suggested.
+   */
+  startProg?: number
+  /** One-past-the-last progression-row index rendered on this slice. */
+  endProg?: number
   /** First bullet index rendered on this slice. */
   startBullet?: number
   /** One-past-the-last bullet index rendered on this slice. */
   endBullet?: number
+  /**
+   * What this placed piece COSTS, attached by `packExperiences` (P2, diagnostics
+   * v4). Absent on a raw content entry — it exists only on the copies the
+   * packer emits, which is what `layoutDiagnostics` spreads onto each published
+   * entry so a consumer can price an edit by subtraction instead of rebuilding.
+   */
+  measured?: EntryMeasurement
+}
+
+/** The published cost of one placed experience piece (P2, diagnostics v4). */
+export interface EntryMeasurement {
+  /** The packer's own height for this piece. */
+  heightPt: number
+  /** The entry divider charged above it. */
+  gapBeforePt: number
+  /**
+   * The INDIVISIBLE part: everything the piece must carry before its first
+   * bullet, so a piece cannot start a page unless `headPt` plus one bullet fit.
+   */
+  headPt: number
+  head: {
+    rolePt: number
+    metaPt: number
+    locationPt: number
+    descriptionPt: number
+    progressionPt: number
+  }
+  /** Height of each bullet of this slice, in order. */
+  bulletsPt: number[]
+  /** Total inter-bullet gap charged on this slice. */
+  bulletGapPt: number
+}
+
+/**
+ * Template-declared vertical spacing, as multipliers of the theme's values
+ * (D11). Applied to the theme by `resolveDocument`, so the planner and the
+ * renderer cannot disagree about it.
+ */
+export interface LayoutSpacing {
+  /** Space between experience entries. The strongest single lever on page count. */
+  entryGap?: number
+  /** Space between bullet items. */
+  bulletGap?: number
+  /** Space around section boundaries. */
+  sectionGap?: number
 }
 
 /** One education entry (schema: educationEntry). */
@@ -134,9 +189,6 @@ export interface CVConfig {
   schemaVersion?: number
   theme?: string
   layout?: string
-  /** null is the in-memory "unset" the renderer normalises to. */
-  page1ExperienceCount?: number | null
-  page1SplitBullets?: number | null
   atsKeywords?: AtsKeywords
 }
 
@@ -202,6 +254,8 @@ export interface RawLayout {
   first?: RawLayoutPage
   continuation?: RawLayoutPage
   last?: RawLayoutPage
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   geometry?: unknown
 }
 
@@ -214,6 +268,8 @@ export interface LayoutPage {
 /** A layout after normalizeLayout(): string slot keys, flat page kinds. */
 export interface NormalizedLayout {
   template?: string
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   first?: LayoutPage
   continuation?: LayoutPage
   last?: LayoutPage
@@ -231,6 +287,8 @@ export interface ResolvedLayoutPage {
 }
 export interface ResolvedLayout {
   template?: string
+  /** D11: template-declared vertical spacing multipliers. */
+  spacing?: LayoutSpacing
   first: ResolvedLayoutPage
   continuation: ResolvedLayoutPage
   last: ResolvedLayoutPage
@@ -272,6 +330,34 @@ export interface Measurer {
 export interface ColumnFill {
   used: number
   budget: number
+  /**
+   * The whole column this page offers, before ANY content — fixed or packed —
+   * is charged: body box minus badge (main only), pads, and the safety
+   * backstop. `capacity − budget` is the page's fixed content (summary +
+   * spacer + section title on the main column's page 1; the identity block in
+   * the sidebar), which is what makes v2 fills comparable across pages (§3.9).
+   */
+  capacity: number
+}
+
+/**
+ * Why the next block did NOT start on a page: the price of that page break,
+ * recorded by packBlocks at the decline (§3.8). Data, not judgement — it is
+ * true at nearly every break. `null` on a flow's last page and on any page
+ * where the next block did start (whole, or split).
+ */
+export interface BlockedBy {
+  /** Flow index of the block that could not start here. */
+  index: number
+  /** The block's smallest legal piece (head + one item), or its whole height when it has no legal cut. */
+  smallestPiecePt: number
+  /** Room left on the page before the gap the block would have charged. */
+  residualPt: number
+  gapBeforePt: number
+  /** Main column: the declined entry (packExperiences). */
+  entry?: ExperienceEntry | null
+  /** Sidebar: the declined section's key (packSidebar). */
+  key?: string | null
 }
 
 /**
@@ -348,6 +434,9 @@ export interface LayoutPlanPage {
   sidebarSlices: SidebarSlice[]
   mainFill: ColumnFill | null
   sidebarFill: ColumnFill | null
+  /** Why the next main block did not start on this page (§3.8). `null` when it did, or this is the flow's last page. */
+  mainBlockedBy: BlockedBy | null
+  sidebarBlockedBy: BlockedBy | null
   /** pt past budget on this page across both columns; 0 unless Invariant 0 forced an over-tall block. */
   overflowPt: number
   emptyColumn: 'main' | 'sidebar' | 'both' | null
@@ -356,6 +445,13 @@ export interface LayoutPlanPage {
 /** The two-flow pagination plan (layout.js planTwoColumn). */
 export interface LayoutPlan {
   totalPages: number
+  /**
+   * Sections a `main` slot names that the packer does not measure (I1). Empty
+   * for every shipped layout; non-empty means `totalPages` and `overflowPt`
+   * describe less ink than the pages carry, which `layoutDiagnostics` states
+   * as the `main-slot-unmeasured` fact. Retired by I4/I6.
+   */
+  unmeasuredMainKeys?: string[]
   /** Pages the main flow alone needed. */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
@@ -372,36 +468,63 @@ export interface LayoutPlan {
 /** One column of one page, as diagnostics report it (layoutDiagnostics.js). */
 export interface ColumnDiagnostics {
   /**
-   * `used / budget`, rounded to 3dp.
+   * COLUMN OCCUPANCY, v2 (§3.9): `(fixedPt + usedPt) / capacityPt`, rounded
+   * to 3dp — the same measurement on every page, so page 1 and page 2 can be
+   * compared. (v1 divided by the residual `budget`, which made page 1 read
+   * 0.595 while the column was ~0.80 occupied; `LayoutDiagnostics.version`
+   * is how a consumer knows which semantics it is reading.)
    *
-   * 0..1 NORMALLY — but it is a ratio, not a percentage-full gauge, and it goes
-   * ABOVE 1 exactly when the page is over budget: the surplus is real content
-   * that react-pdf flows onto an extra physical sheet. Measured on the shipped
-   * scaffold with `page1ExperienceCount: 3`, page 1 reports `main.fill: 2.098`
-   * with `overflowPt: 420.46`. Never clamp it — `> 1` and `overflowPt > 0` are
-   * the same fact seen twice, and hiding one of them hides the defect.
+   * It goes ABOVE 1 exactly when the page is over budget — the surplus is real
+   * content react-pdf flows onto an extra physical sheet. The invariant
+   * survives the redefinition: fill > 1 ⟺ fixed + used > capacity ⟺
+   * used > budget ⟺ overflowPt > 0. Never clamp it. A fixed block taller than
+   * the whole column (an over-tall summary) is a number above 1 too, not null.
    *
-   * `null` in two cases, both meaning "there is no ratio to report": this flow
-   * ended on an earlier page (the column is structurally empty — see
-   * `LayoutPageDiagnostics.emptyColumn`), or the budget is <= 0 because the
-   * page's FIXED content (an over-tall summary) is already taller than the
-   * column, which `warnings` reports by name.
+   * `null` means exactly one thing: this flow ended on an earlier page (see
+   * `LayoutPageDiagnostics.emptyColumn`).
+   *
+   * FILL DESCRIBES A PAGE; IT IS NOT A PROGRESS SIGNAL. Shortening content
+   * LOWERS it until a block moves up, then it jumps — measured on a real CV,
+   * six of eight shortening edits lowered it before one crossed the threshold.
+   * The number that moves monotonically with an edit is `blockedBy.shortByPt`.
    */
   fill: number | null
   /**
    * Content height on this page, pt. `null` when the flow ended earlier.
    *
-   * How this number is obtained differs by column, and the difference matters
-   * if you are comparing it against a rendered PDF: the sidebar's is MEASURED
-   * (real fontkit metrics, and `test/planLayout.test.js` holds it to within
-   * 0.01pt of the render), while the main column's is MODELLED from layout.js's
-   * entry-height formula and runs a few pt per entry above what renders. The
-   * model is what the packer paginates with, so it is the honest description of
-   * the plan — just not a measurement of the page.
+   * Both columns' numbers are verified against a real rendered PDF to within
+   * 0.01pt — the sidebar by `layoutSidebarMeasureDiff.test.js` (since C3a),
+   * the main column by `layoutMainMeasureDiff.test.js` (since S3, which
+   * corrected an entry model that previously ran 6.7–13.1pt per entry above
+   * the render and under-counted wrapped head rows). What the packer
+   * paginates with and what the page shows are the same number.
    */
   usedPt: number | null
-  /** Usable height for this column on this page, pt. `null` when the flow ended earlier. */
+  /** Usable height for this column's PACKED content on this page, pt. `null` when the flow ended earlier. */
   budgetPt: number | null
+  /** The whole column on this page, pt (§3.9) — the fill's denominator. `null` when the flow ended earlier. */
+  capacityPt: number | null
+  /** `capacityPt − budgetPt`: this page's fixed content, pt. `null` when the flow ended earlier. */
+  fixedPt: number | null
+  /**
+   * Why the next block did not start on this page (§3.8): identity, its
+   * smallest legal piece, the room that was left, and `shortByPt` — the ONE
+   * number that falls monotonically as the user shortens what is above.
+   * `null` when the next block did start, or this is the flow's last page.
+   * Never aggregated across pages, deliberately (risk R1).
+   */
+  blockedBy: {
+    /** Main column: the declined entry's role. Sidebar: null (see `key`). */
+    role: string | null
+    /** Sidebar only: the declined section's key. */
+    key?: string | null
+    entryIndex: number
+    residualPt: number
+    gapBeforePt: number
+    smallestPiecePt: number
+    /** `smallestPiecePt − (residualPt − gapBeforePt)`: what would have to be freed for the block to start here. */
+    shortByPt: number
+  } | null
 }
 
 /** The main column's diagnostics: the experience entries placed on this page. */
@@ -462,15 +585,21 @@ export interface LayoutPageDiagnostics {
    */
   overflowPt: number
   /**
-   * Which column the packer placed no FLOW BLOCKS in on this page — experience
-   * entries for `main`, section slices for `sidebar`.
+   * Which column has NO INK on this page (v3).
    *
-   * NOT "which column is blank". Page 1 also carries fixed content that is not
-   * a packed block (the summary in the main column; the identity/photo block in
-   * the sidebar), and that content still renders on a page this field calls
-   * empty. `edge-summary-crosses-cliff` is the shape that makes the difference
-   * visible: page 1 reports `emptyColumn: 'main'` with `main.fill: 0` while the
-   * page holds the whole summary.
+   * Content is content, whether or not the packer placed it: a page 1 carrying
+   * a summary is not empty, even though the summary is fixed content rather
+   * than a flow block. Before v3 this field meant "no flow blocks", so that
+   * page reported `emptyColumn: 'main'` and every doc had to explain why an
+   * "empty" column was full — `edge-summary-crosses-cliff` was the shape that
+   * made the discrepancy visible, and it now reports `null`.
+   *
+   * Two things deliberately do NOT count as ink. Chrome — the identity block
+   * and the page badge — appears on every page by construction, so counting it
+   * would make this field unreachable and delete the G1 residual signal below.
+   * And unrendered fixed content: the layout spacer is blank space, and the
+   * section title is drawn only when entries accompany it, so a page whose
+   * budget charges both while drawing neither is still empty.
    *
    * A DIAGNOSTIC, NOT A TARGET — with one exception, and it is a different
    * animal. On a LATER page this is the deliberate residual of one flow being
@@ -504,13 +633,80 @@ export interface LayoutPageDiagnostics {
  * Match on `code`, never on `message`: the wording is for humans and will change.
  */
 export interface LayoutDiagnosticWarning {
-  code: 'overflow' | 'page1-no-experience'
-  /** 1-based page number. */
-  page: number
-  overflowPt: number
-  /** True when the user's own page1ExperienceCount/page1SplitBullets forced it. Always false for `page1-no-experience`. */
-  forcedByConfig: boolean
+  /**
+   * `overflow` — real content flows onto an unnumbered extra sheet; always a
+   * defect. `page1-no-experience` — roles exist and page 1 shows none; worth
+   * raising. `page1-ends-early` (§3.8) — page 1 has roles but the next one
+   * could not start there; a PRICED FACT, not necessarily a defect: it fires
+   * on well-packed CVs too, and its numbers say what shortening the summary
+   * would buy. Mutually exclusive with `page1-no-experience` by construction.
+   * `main-slot-unmeasured` (I1) — the layout puts a section other than the
+   * summary/experience in a main slot; it renders but is not measured, so the
+   * plan's numbers exclude it. `physical-pages-exceed-plan` (I1) — the
+   * rendered PDF has more sheets than the plan numbered; a build-only defect
+   * (it is merged into the envelope by the CLI/MCP layer from the produced
+   * bytes, so `plan_layout` can never carry it).
+   * `experience-empty` (I2) — the CV has no experience entries at all (a
+   * student or first-job CV); mutually exclusive with `page1-no-experience`,
+   * which requires roles to exist. `main-column-empty` (I3) — a
+   * multi-page CV whose main column renders nothing on ANY page. Not "the
+   * last page's blank column": one flow ending before the other is the
+   * ordinary residual, normal, and never reported. Suppressed where a layout
+   * puts unmeasured sections in a main slot, because the plan cannot then see
+   * that column's ink.
+   */
+  code:
+    | 'overflow'
+    | 'page1-no-experience'
+    | 'page1-ends-early'
+    | 'main-slot-unmeasured'
+    | 'physical-pages-exceed-plan'
+    | 'experience-empty'
+    | 'main-column-empty'
+  /**
+   * CVX classifying its own message (architecture review 4a): 'defect' =
+   * something is wrong, act on it; 'fact' = true and priced, act only if the
+   * user wants what it prices (`page1-ends-early` fires on well-packed CVs
+   * too). Lets a consumer filter without hardcoding the code list.
+   */
+  kind: 'defect' | 'fact'
+  /**
+   * 1-based page number — present on every PAGE-SCOPED code. Absent on the two
+   * codes whose subject is not a page (I1): `main-slot-unmeasured` describes
+   * the layout, and `physical-pages-exceed-plan` describes the document. A
+   * consumer that groups by page must therefore skip warnings without one
+   * rather than assume `0`.
+   */
+  page?: number
+  /** Page-scoped codes only (`overflow`). */
+  overflowPt?: number
+  /**
+   * DEPRECATED, permanently `false`: the page1ExperienceCount /
+   * page1SplitBullets levers that could force an overflow were removed
+   * (maintainer ruling). The field stays so consumers that match on it keep
+   * working. `overflow` only.
+   */
+  forcedByConfig?: boolean
   message: string
+  /** page1-ends-early only: what would have to be freed on page 1 for the next role's smallest piece to start there. Falls monotonically as the user shortens the summary. */
+  shortByPt?: number
+  /** page1-ends-early only. */
+  residualPt?: number
+  smallestPiecePt?: number
+  gapBeforePt?: number
+  /** main-column-empty only: the pages carrying no main-column ink, 1-based (all of them, by construction). */
+  pages?: number[]
+  /** experience-empty only: page 1's fixed content — what the main column does carry. */
+  fixedPt?: number
+  /** main-slot-unmeasured only: the unmeasured section keys, in layout order. */
+  keys?: string[]
+  /** physical-pages-exceed-plan only: pages the plan numbered. */
+  planned?: number
+  /** physical-pages-exceed-plan only: sheets the rendered PDF actually has. */
+  physical?: number
+  /** page1-ends-early only: page 1's fixed content (summary + spacer + section title) — the lever. */
+  fixedPt?: number
+  nextRole?: string | null
 }
 
 /**
@@ -525,27 +721,36 @@ export interface LayoutDiagnosticWarning {
  */
 export interface LayoutDiagnostics {
   /**
+   * Diagnostics-shape version. Key on it before interpreting `fill`.
+   *
+   * 2 = §3.9's comparable fill (occupancy over capacity) + §3.8's blockedBy +
+   * this field itself; v1's denominator was the residual budget.
+   *
+   * 3 (I2) = three fields changed MEANING on a CV with no experience entries:
+   * `mainPageCount` counts the page a summary renders on (was 0), page-1
+   * `main.*` are numbers there (were nulls), and `emptyColumn` means "no ink
+   * in the column" rather than "no packed blocks", so a summary-bearing page 1
+   * is no longer reported empty. Warning `page`/`overflowPt`/`forcedByConfig`
+   * also became optional, for the two codes that are not page-scoped.
+   *
+   * The envelope's `schemaVersion: 1` is unchanged — its fields are only
+   * added to.
+   */
+  version: 4
+  /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything
    * overflows: react-pdf flows surplus content onto extra, unnumbered physical
-   * sheets. Measured on the shipped scaffold with `page1ExperienceCount: 3`:
-   * `totalPages: 3`, PDF 4 sheets. Check `totals.overflowPt` /
-   * `totals.overflowPages` before quoting this to a user as "your CV is N pages".
+   * sheets (reachable only through content no pagination can help — e.g. a
+   * summary taller than the whole column; the config lever that used to force
+   * it was removed). Check `totals.overflowPt` / `totals.overflowPages`
+   * before quoting this to a user as "your CV is N pages".
    */
   totalPages: number
   /** Pages the main flow alone needed (`totalPages` is the max of the two). */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
   sidebarPageCount: number
-  /**
-   * The packing levers config.yaml set for this plan (`null` = not set), so a
-   * reader can tell a pagination the content produced from one the config
-   * forced. There are no OTHER levers: everything else follows the content.
-   */
-  leversUsed: {
-    page1ExperienceCount: number | null
-    page1SplitBullets: number | null
-  }
   pages: LayoutPageDiagnostics[]
   totals: {
     /** Pages whose content reaches past budget (each has an `overflow` warning). */

@@ -84,7 +84,7 @@ npx @hrtips/cvx build --ats
 
 All commands accept `--json` for machine-readable output (one JSON object on stdout, logs on stderr) and use semantic exit codes: `0` ok, `2` validation failed, `3` render failed, `64` usage error. `init` is a convenience, not a prerequisite — `build` renders any `cv-content/` folder with valid YAML (built-in themes and layouts need no extra files).
 
-**Compatibility promise:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). Within a schema major version, your content files never break — new keys may appear, existing ones keep working. `npx @hrtips/cvx validate` on today's files will still pass on every future 1.x release.
+**Content schema:** content files are versioned by `schemaVersion` in `config.yaml` (currently `1`) and validated against the [canonical JSON Schema](schema/v1/cvx.schema.json). New keys may appear within a schema major. Keys can also be **removed** when they are measured to do nothing — `page1ExperienceCount` and `page1SplitBullets` were, in 1.8.0 — in which case builds keep working and `validate` names the removal, while `validate --strict` treats the now-unknown key as an error. The CHANGELOG says so at the release that does it.
 
 ---
 
@@ -208,8 +208,6 @@ Everything visual is controlled by `cv-content/config.yaml`:
 ```yaml
 theme: teal               # teal | coral | mono
 layout: two-column        # two-column | single-column
-page1ExperienceCount: 2   # experience entries on page 1
-page1SplitBullets: 2      # split the last entry: N bullets on page 1, rest continue
 ```
 
 Change a value, re-run `npx @hrtips/cvx build`, done.
@@ -229,12 +227,7 @@ Change a value, re-run `npx @hrtips/cvx build`, done.
 | `two-column` | Sidebar + main column | Designed CV with photo, identity block, achievements |
 | `single-column` | Full width | ATS-safe, no sidebar, no decorative elements |
 
-**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing). Set `page1ExperienceCount` / `page1SplitBullets` to control page 1 explicitly. Example with 6 entries and the config above:
-
-- **Page 1** — Summary + Entry 1 (full) + Entry 2 (first 2 bullets)
-- **Page 2** — Entry 2 (cont'd) + Entries 3–6
-
-Forcing a count that doesn't fit is warned about by `validate` and `build`, and the overflow spills onto extra physical pages — nothing is ever clipped or dropped, your CV just gains unplanned pages.
+**Pagination** — experience entries are distributed across pages automatically (greedy bin-packing), never overflowing a page, and an entry too tall for the remaining room is split at a bullet boundary and continued overleaf. There are no pagination settings: the layout follows the content. (The old `page1ExperienceCount` / `page1SplitBullets` keys were removed — measured, they never reduced the page count, and forcing them pushed content onto an unnumbered extra sheet. A config that still has them gets a validation message saying exactly that.)
 
 ### Script support
 

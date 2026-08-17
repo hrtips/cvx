@@ -10,7 +10,7 @@
 // catch. The lever's warning is now covered by render.test.js and
 // validateContent.test.js against the real build path.
 import { describe, expect, it } from 'vitest'
-import { deriveMetrics, entryH, packExperiences, summaryH } from './layout.js'
+import { deriveMetrics, entryH, summaryH } from './layout.js'
 import { tealTheme } from './themes/teal.js'
 
 const M = deriveMetrics(tealTheme)
@@ -52,32 +52,7 @@ describe('summaryH', () => {
   })
 })
 
-describe('packExperiences — config-driven split', () => {
-  const exp = (/** @type {number} */ n) =>
-    Array.from({ length: n }, (_, i) => ({
-      role: `R${i}`,
-      company: `C${i}`,
-      period: 'p',
-      bullets: ['b']
-    }))
-
-  it('keeps all entries on page 1 when the forced count exceeds the list length', () => {
-    const r = packExperiences(exp(2), ['s'], { page1ExperienceCount: 5, page1SplitBullets: null })
-    expect(r.page1Experiences).toHaveLength(2)
-    expect(r.continuationChunks).toEqual([])
-    expect(r.totalPages).toBe(1)
-  })
-
-  it('splits the last page-1 entry at page1SplitBullets and continues the remainder', () => {
-    const experience = [
-      { role: 'Split', company: 'C', period: 'p', bullets: ['b0', 'b1', 'b2', 'b3'] },
-      { role: 'Next', company: 'C', period: 'p', bullets: ['x'] }
-    ]
-    const r = packExperiences(experience, ['s'], { page1ExperienceCount: 1, page1SplitBullets: 2 })
-    expect(r.page1Experiences[0].endBullet).toBe(2)
-    const head = r.continuationChunks.flat()[0]
-    expect(head.isContinuation).toBe(true)
-    expect(head.startBullet).toBe(2)
-    expect(r.totalPages).toBeGreaterThanOrEqual(2)
-  })
-})
+// (The 'packExperiences — config-driven split' describe lived here until the
+// page1ExperienceCount / page1SplitBullets levers were REMOVED — maintainer
+// ruling, design-layout-fidelity.md Review outcome #1. The branch it tested
+// is gone; automatic packing is the only path.)

@@ -29,6 +29,28 @@ Always validate after every edit and before every build. Findings include the fi
 
 If `npx` is unreachable (no network in your sandbox), write the `cv-content/*.yaml` files from the schema and deliver them with the handoff from the AI guide's default flow (see below — it ships with CVX, so no network is needed to read it) — never substitute another PDF renderer. A linkedin.com URL is unfetchable even when public: ask for the profile's **More → Save to PDF** export or pasted text instead of inferring.
 
+## Ask about shape before you draft — once, with examples
+
+A designer takes a brief before working, and so should you. Before writing any YAML, ask the user how they want the CV to *read* — one message, batched, with concrete examples so the question is answerable by someone who has never thought about layout:
+
+> *"Before I draft: roughly how long should this be — one page, two, or as long as it needs? Anything you want to lead with or play down (recent roles, education, publications)? And is this aimed at a particular job — if so, paste the ad and I'll angle the wording at it."*
+
+Ask once and move on; don't interrogate. What you get back is **scope, not permission**: with it, trimming a section or tightening prose is work you were asked to do rather than a decision you need to clear each time. Without it, you'll either over-ask or guess.
+
+**The brief is the conversation, not a file.** There is no `preferences:` block and no brief file — nothing to write, nothing to keep in sync. It lives in your context for this session, and anything that should outlast the session is the user's own notes or your client's memory feature, not `cv-content/`.
+
+## Track your own changes — CVX cannot
+
+CVX is stateless. It has no undo, no snapshots, no history, and it does not remember the previous build: ask it the same question twice and you get the same answer. Every bit of continuity in the loop is yours to hold.
+
+So keep a short running list as you go — what you changed, why, and what it did to the render (*"tightened the two 2019 bullets to pull page 3's referees up; page count unchanged"*). You need it to:
+
+- **Backtrack.** If an edit made the page worse, put the previous wording back — you are the only thing that knows what it was.
+- **Not re-litigate.** If the user restored a sentence you had rewritten, that is direction: leave it alone from then on.
+- **Report honestly at the end.** Tell the user what you changed across the whole session, not just the last step.
+
+And know when to stop: nothing in CVX bounds the loop. Stop when the page looks right and the user is satisfied — not after a fixed number of passes, and never by iterating on measurements when you cannot see the render.
+
 ## The full docs ship with CVX — don't fetch them
 
 `docs/ai-guide.md` (the complete playbook) and `docs/cv-schema.md` (the field-by-field reference) are inside the installed package, alongside this skill — `../../docs/ai-guide.md` relative to this file. Read them from disk when you can; they match the version you are actually running.
@@ -50,20 +72,69 @@ Apply the answers, re-validate, then build both variants. A truthful thin bullet
 
 ## Reading the layout
 
-You can't see the PDF. `plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` tells you how it paginated, without rendering anything:
+**Open the PDF and look at it.** `build_pdf` returns an absolute `path` — open it and read every page. Most clients (Claude Code, Claude Desktop, the IDE extensions) render PDFs natively, and the defects that matter most — a stranded heading, a page that ends early, a near-empty column — appear in no diagnostic field. If your client genuinely cannot open a PDF, build once and hand off; don't iterate on measurements alone.
+
+`plan_layout` (MCP) or the `diagnostics` block in `build --json` / `build_pdf` reports how it paginated without rendering anything. Measurements tell you what the layout *costs*; looking at the page tells you whether it's any good. Use both:
 
 - It describes the **designed two-column variant only**. The ATS variant is a single column react-pdf flows by itself — CVX never packs it, there is no dry run for it, and its sheet count can differ. Build it to find out.
-- `totalPages` is the number of **planned** pages, not necessarily the sheet count of the PDF: an overflowing page spills onto an extra sheet the numbering can't count. Check `totals.overflowPt` before telling the user "your CV is 3 pages".
-- Per page: `main.fill` / `sidebar.fill` (`used / budget` — normally 0–1, and **above 1 exactly when that page is over budget**; 2.098 means page 1 holds twice what fits), the roles on that page, and the sidebar sections with their item ranges. Ranges are **0-based and end-exclusive**: `range: [6, 8)` of `of: 8` is the last *two* items — `items` already gives you the count, so you never have to do that arithmetic. `continued: true` = carried over from the previous page.
-- `diagnostics.warnings` is the list that means something is *wrong*, and each entry has a `code` — match on that, not on the wording:
-  - `overflow` — a page reaches past its budget and spills onto an extra sheet. The warning names the page and the fix (usually: shorten the longest single item, or the summary).
-  - `page1-no-experience` — page 1 carries no roles at all, because the summary and identity block leave less room than the smallest piece of the first role. The reader's first page shows no work history; raise it with the user (shortening the summary is the only thing that moves it).
+- `totalPages` is the number of **planned** pages, not necessarily the sheet count of the PDF: an overflowing page spills onto an extra sheet the numbering can't count. Check `totals.overflowPt` before telling the user "your CV is 3 pages" — and know that `overflowPt` only prices the flows the planner *measures* (summary, experience, and the sidebar sections). A main slot carrying anything else (see "Student and first-job CVs" below) can spill extra sheets with `overflowPt: 0` and no warning. CVX now runs that check for you on every build: if the finished PDF has more sheets than the plan numbered, `build_pdf` (and `cvx build --json`) returns the **`physical-pages-exceed-plan`** defect naming both counts. It is the one warning a dry run can never produce — `plan_layout` renders nothing, so a clean plan is not proof of a clean PDF. When it fires, open the PDF and look at the last pages: a mismatch is usually a trailing margin spilling a **blank** sheet, which no text-extraction check will ever notice.
+- Per page: `main.fill` / `sidebar.fill` — **column occupancy**: `(fixedPt + usedPt) / capacityPt`, the same measurement on every page so pages can be compared (`diagnostics.version: 4`; v1 divided by the residual budget, which made page 1 look far emptier than it was). Normally 0–1, and **above 1 exactly when that page is over budget**. Also per page: `blockedBy` — why the next role/section could not start there, with `shortByPt`, **the one number that falls monotonically as you shorten what is above it**. Fill is a description, not a progress signal: shortening content LOWERS fill until a block moves up, then it jumps — steer by `shortByPt`, never by fill. Plus the roles on that page, and the sidebar sections with their item ranges. Ranges are **0-based and end-exclusive**: `range: [6, 8)` of `of: 8` is the last *two* items — `items` already gives you the count, so you never have to do that arithmetic. `continued: true` = carried over from the previous page.
+- **Per main-column entry: what it costs.** `heightPt` is the placed piece's measured height; `headPt` is the **indivisible** part — everything the piece must carry before its first bullet — broken out as `head.rolePt` / `metaPt` / `locationPt` / `descriptionPt` / `progressionPt`; and `bulletsPt` prices each bullet of the slice in order. This is what turns `shortByPt` into an edit **without rebuilding**: compare it against the terms and take the first one that covers it. Worked example — a role blocked with `shortByPt: 53.64` and `headPt: 124.35` whose `head` reads `{rolePt: 13, metaPt: 12.3, descriptionPt: 35.15, progressionPt: 63.9}`: the progression table alone (63.9) exceeds the shortfall, so dropping it starts the role on page 1, while the description (35.15) alone would not. Do that subtraction before you propose any prose cut.
+- `diagnostics.warnings` is the list of **named conditions**, each with a `code` — match on that, not on the wording. Each carries a `kind`: `defect` (something is wrong — act) or `fact` (true and priced — act only if the user wants what it prices):
+  - `overflow` — a page reaches past its budget and spills onto an extra sheet. The warning names the page and the overshoot; what to shorten is the judgement call below.
+  - `page1-ends-early` — page 1 has roles, but the next one could not start there: its smallest legal piece needs more than the room left. **Fires on well-packed CVs too** — it is not by itself a defect. Its payload prices the trade: `shortByPt` is how much must come free for the next role to start on page 1. Mention it only when the user wants page 1 fuller or the CV shorter; it is the number that turns "make it fit" into an actionable edit. **The smallest legal piece is not just a heading and a bullet** — it is the role heading, its company/period line, any `description`, and then the entry's first unit of content: **one `progression` row, or the first bullet**. The promotion table splits at a row boundary, so a role with a long one can start on a part-full page carrying only some of its rows and continue the rest overleaf. What is never split is the heading block itself, and a description alone can still be a large share of `smallestPiecePt`.
+  - `physical-pages-exceed-plan` (**defect**, builds only) — the rendered PDF has more sheets than the plan numbered: content the planner did not measure reached the page and react-pdf flowed it onto sheets the page badges do not count. Payload: `planned` and `physical`. Open the PDF and look at the last pages.
+  - `main-slot-unmeasured` (**fact**) — this layout puts a section other than the summary/experience in a `main` slot. It renders correctly, but the planner does not measure it, so `totalPages` and `overflowPt` exclude it. Payload: `keys`. Expected on the student layout below; it is why the defect above exists.
+  - `main-column-empty` (**fact**) — a multi-page CV whose wide column renders nothing on any page: every page carries only its sidebar. Payload: `pages`. This is *not* the ordinary case of a sidebar outlasting a short experience list (that shape has content on page 1 and runs out later, and is fine). It usually means the layout should carry sections in `main` — see "Student and first-job CVs" below.
+  - `experience-empty` (**fact**) — this CV has no experience entries at all: a student or first-job CV. Payload: `fixedPt`, how much of page 1 the summary occupies. It is mutually exclusive with `page1-no-experience`, which needs roles to exist — so on a CV with no work history you get this, never that.
+  - `page1-no-experience` — page 1 carries no roles at all, because the summary and identity block leave less room than the smallest piece of the first role. The reader's first page shows no work history; raise it with the user. Two lengths move it: the summary, and the first role's own head (its `description` and `progression` rows are part of the piece that has to fit).
 - `notices` is a separate, plain-text list of notes about the run (a font with no glyph for some text, a layout that fell back to the default). It is not the same field as `diagnostics.warnings`.
-- `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets** — and note it means "no packed blocks in that column", not "blank": a page can report `emptyColumn: 'main'` and still carry the summary. A *last* page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it. The one case that is *not* fine is page 1 — and that one arrives as the `page1-no-experience` warning, so you never have to judge it from `emptyColumn` alone.
+- `emptyColumn` / `emptyColumnPages` are **diagnostics, not targets**. It means **no ink in that column** — a page-1 main column carrying a summary is *not* empty (it used to report `'main'` before `version: 4`'s lineage, which is why older docs explain the difference). A *last* page whose sidebar outlasts the experience list is normal and fine; packing to remove it measurably produces worse CVs (fragmented sections, near-empty pages). Report it if the user asks; don't chase it. The one case that is *not* fine is page 1 — and that one arrives as the `page1-no-experience` warning, so you never have to judge it from `emptyColumn` alone.
 
-**There are no layout levers.** The layout is a function of the content, so `plan_layout` returns the same answer every time until the YAML changes — calling it in a loop achieves nothing. Use it once before the build, and once after a content edit if the user asked about length.
+**What the warnings price, and what you do about it.** The engine states
+conditions and their cost; choosing the edit is your job with the user (that
+split is deliberate — a renderer has no business having opinions about someone's
+career). The usual moves, by code:
 
-**Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither should you. If the CV is longer than the user wants, name the options and what each one costs — *"we could cut the two oldest roles to 2 bullets each, or drop the publications section — which would you prefer?"* — and let them decide. Deleting a section, or trimming bullets, is a content edit the user approves; it is never a layout fix you apply on your own.
+- `page1-ends-early` / `page1-no-experience` — `shortByPt` is exactly how much
+  must come free for the next role to start on page 1, and **there are two
+  places it can come from**: the fixed content above the roles (the summary,
+  usually), or the blocked role's own head — its `description` and its
+  `progression` rows, which shrinks the piece rather than enlarging the hole.
+  The second is invisible if you only read "what is above it", and on a role
+  with a promotion table it is often the cheaper of the two. Offer the user the
+  trade before making it.
+- `overflow` where the summary alone is taller than the column — the summary is
+  fixed page-1 content, so no pagination helps; it has to get shorter.
+- `overflow` where one block is taller than a page — one bullet, description or
+  sidebar item is the culprit; splitting only happens at item boundaries.
+- `main-column-empty` / `experience-empty` — the wide column is unused or has no
+  roles to hold. Moving sections into `main` in the layout is the lever.
+- `physical-pages-exceed-plan` — open the PDF and look at the last pages.
+
+**`plan_layout` is idempotent — the pagination is a function of the content**, so it returns the same answer every time until the YAML changes, and calling it in a loop achieves nothing. Use it once before the build, and once after a content edit if the user asked about length.
+
+That is *not* the same as "layout changes never help", and the two cases are worth keeping straight:
+
+- **A full experience list** — the main column's pagination is fixed by the content *and the template's spacing*. Swapping sidebar sections around does not move it (the two columns are independent flows), `summary` only renders from `first.main`, and themes are colour-only with identical geometry. The levers here are content edits, the two `shortByPt` targets above, and the `spacing:` block below.
+- **An empty or very short experience list** — moving sections between columns is the strongest lever there is, and costs no content edits. See "Student and first-job CVs" below.
+
+**Rank levers by cost before you recommend one.** Compare `blockedBy.shortByPt` across pages and take the cheapest, not the most comfortable. Greedy top-down packing makes prefix repair monotone: **an edit below a break cannot move content already placed above it** — so a cut in the last role cannot fill page 1. The carve-out that matters: *the blocked role's own head is an input to its break*, so shrinking that role's `description` or `progression` does move the break even though the role sits below it.
+
+**Tighten the template before you cut the text.** `cv-content/layouts/*.yaml` takes a `spacing:` block of multipliers on the theme's own vertical whitespace — `1` is unchanged, and the legible range is `0.6`–`1.5` (outside it is a validation error, not a silent clamp):
+
+```yaml
+spacing:
+  entryGap: 0.8      # space BETWEEN experience entries — the strongest lever on page count
+  bulletGap: 1.0     # space between bullets, in the summary and within an entry
+  sectionGap: 1.0    # space around section boundaries and under section titles
+```
+
+Prefer `entryGap` alone: it compresses the gaps between jobs and leaves the reading rhythm *inside* a job untouched, which is the typographically right instinct. Measured on a real CV, `entryGap: 0.8` turned 3 pages into 2 with no word changed — so this is the first thing to try for an author who does not want their text altered, and it costs nothing to undo. Two cautions: it is a real design change, so look at the render rather than only the page count; and packing to 0.99 fill leaves nothing for the next sentence they add. Horizontal spacing is deliberately not exposed — changing it would change wrap widths, hence every measurement.
+
+**Check for text that is already on the page.** Before proposing any cut, look for duplication across sections — a summary bullet listing awards that the `achievements` sidebar prints beside it, or skills restated in both the summary and `competencies`. On a real CV a single duplicated summary bullet was 48pt of the 53.64pt needed, and removing it lost no fact at all. This is the cheapest edit that exists and it is invisible to a grammar pass.
+
+**Never drop content to fit — surface the trade-off to the user.** CVX renders 100% of the YAML: it never omits, clips, or hides text to save a page, and neither do you. If the CV is longer than the user wants, name the options and what each one costs — *"we could cut the two oldest roles to 2 bullets each, or drop the publications section — which would you prefer?"* — and let them decide. Once they've given you direction, editing the text is your job: tighten the prose, make the cut they chose, and say what you changed each time you change it. The rule is that the user decides *what* goes, not that you may never act.
 
 **Don't promise a page count for an edit you haven't planned.** Cuts don't map to pages the way they look like they should: on the shipped example CV, dropping the whole publications section still renders 3 pages (page 3 holds the referees), and so does trimming the two oldest roles to 2 bullets each. Sidebar and main are two independent flows, and the page count is the longer of them — so removing main-column text can leave the total untouched. If the user wants a number, make the edit and re-run `plan_layout`.
 
@@ -77,6 +148,40 @@ If the user gives you a target job description, tailor **truthfully** — never 
 - Recent graduate or career-changer with thin experience: make `education.yaml` and `competencies.yaml` do more of the work, and keep the experience section tight.
 
 Keep the base `cv-content/` intact and tailor a copy — the durable YAML is reusable for the next application.
+
+## Student and first-job CVs (no experience yet)
+
+`experience.yaml: []` is valid — but the default two-column layout was designed around it being full. With it empty, page 1's wide column holds only the summary, education lands in the *narrow sidebar* (where entry text wraps badly), and the diagnostics now name it for you: `experience-empty` fires (with `fixedPt`, what page 1 does carry), and page 1's `main.*` numbers are real rather than `null`. `page1-no-experience` stays silent here by construction — it needs at least one role to exist. The result looks like a rendering bug and is actually a layout mismatch.
+
+The fix is the layout file, not the content. Any section key can be placed in a `main` slot in `cv-content/layouts/two-column.yaml` — the renderer draws it there. The reverse is **not** true: a `sidebar` slot only accepts the sidebar's own sections (contact, achievements, education, certifications, publications, languages, competencies, referees). Putting `summary` or `experience` in one is a validation error, because the packer cannot render them there.
+
+```yaml
+pages:
+  first:
+    sidebar: [identity-photo, contact, certifications, referees]
+    main: [summary, {spacer: 14}, education, {spacer: 10}, competencies]
+```
+
+Three things to know when you do this:
+
+- **The `first`/`continuation`/`last` keys mean different things in the two columns.** The `main` lists really are per-page-kind. The `sidebar` lists are **not**: all three concatenate into one ordered flow that the engine paginates itself, so listing a section under `last` sets its *position in the order*, not the page it lands on. A section named in `last.sidebar` routinely renders on page 1. You cannot push sidebar content onto a later page by naming it there.
+- **The planner measures only summary + experience in `main`.** Everything else renders unmeasured: the plan can say 1 page while the PDF has 2 (often a blank spill sheet from a trailing margin). After *every* build with such a layout, verify the physical sheet count against `totalPages` and open the last page. If a blank sheet appears, remove spacers or move a section to the other column — don't trust the diagnostics to price it, they can't see it.
+- **Sections cost different amounts per column.** Competency tags flow horizontally — cheap in the wide column, tall in the sidebar. Entry-style sections (education, certifications, referees) are the opposite: narrow-column wrapping roughly doubles them. Swapping which column carries which section is the strongest one-page lever you have, and it costs no content edits.
+
+## Converting an existing CV (PDF or export)
+
+When the source is a designed PDF, extract before you transcribe — never retype from a screenshot:
+
+```bash
+pdftotext -layout original.pdf -   # read the text with its visual structure
+pdfimages -png original.pdf img    # pull the photo; convert/rename to cv-content/images/profile.jpg
+```
+
+Transcribe **verbatim** into the nearest honest section — never relabel content under a heading that misrepresents it (a "Training / Courses" list belongs in `certifications.yaml` and will render as "Certifications"; that's an honest home with a different label, so tell the user about the rename). What the schema can't express, disclose instead of approximating silently: grouped skills flatten to one tag cloud, education details (GPA, specialization) fold into the `institution` string, a paragraph summary becomes bullets, inline bold is lost.
+
+**Promotions within one employer are a layout decision, not just an ATS one.** You can model them as one entry with a `progression` table, or as separate entries — both are truthful, and the guide recommends separate entries so ATS keyword derivation sees every title. What neither says is that the choice moves the page break: a `progression` table is welded into the entry's indivisible head, so an entry carrying one is much harder to start on a part-full page. Measured on a real CV, the two modellings of the *same four promotions* differed by a whole page-1 column (`main.fill` 0.767 vs 0.985) and by whether `page1-ends-early` fired at all. If page 1 is ending early on an entry with a promotion table, try the other modelling before proposing any cut — it changes no facts.
+
+After the build, prove nothing was lost: extract the new PDF's text in **reading order** (`pdftotext` *without* `-layout` — layout mode interleaves the two columns and breaks phrases that wrap), normalize whitespace, and check that a few dozen distinctive strings from the original — every name, phone number, date, grade, URL — appear. Anything missing is either a wrap artifact (check the normalized text) or genuine loss; find out which before handing over.
 
 ## Rules that are not optional
 
@@ -100,7 +205,7 @@ Every scaffolded file carries a `$schema` header, pinned to the CVX release that
 - `achievements.yaml`: list of `{year, text}` — `year` is the bold headline (often the award name), `text` the attribution.
 - `referees.yaml`: list of `{name, title, company, email, phone}`, or `[]` to print "References available upon request." Modern guidance treats even that line as filler — offer to drop the section (a layout without the `referees` slot) and reclaim the space.
 - `keywords.yaml` (optional): extra truthful ATS keywords not already covered by competencies/titles; embedded in PDF metadata, never printed.
-- `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename); pagination keys only if page 1 overflows.
+- `config.yaml`: `schemaVersion: 1`, `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom filename). Pagination is automatic — the old page-1 keys were removed; if a legacy config still has them, validation says so and they are ignored.
 
 ## Variants
 

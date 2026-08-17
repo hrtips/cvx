@@ -33,7 +33,7 @@ const FAMILY = 'Lato'
  * success. Measured on the shipped scaffold (v1.6.0): a designed build followed
  * by an ATS build in one process lost 17 distinct Lato-Bold glyphs, rendering
  * "Founder & Field Commander – Gotham Operations" as "oun er iel Co an er ot a
- * O eration". `research/c0-retro.md` finding 1 is the same bug class, caught
+ * O eration". `research/archive/c0-retro.md` finding 1 is the same bug class, caught
  * before v1.5.0 in `cvx build --all` and fixed there by process isolation;
  * `bin/cvx.js buildAll()` still isolates, but the MCP server (long-lived, and
  * told by skills/cvx/SKILL.md to build both variants) never got that fix.

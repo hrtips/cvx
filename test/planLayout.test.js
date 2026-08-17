@@ -22,22 +22,21 @@
 //      and is checked within a bounded, one-directional tolerance, for a reason
 //      this file measured and records below.
 //
-// MEASURED FINDING, pre-existing and deliberately NOT fixed here. Differencing
-// the shipped scaffold's page-2 role tops shows `entryH()` predicts each
-// experience entry ~6.7pt TALLER than react-pdf lays it out: 4.0pt of trailing
-// entry margin (`entryMb * 15/11` = 15pt predicted vs the 11pt ExpItem renders)
-// and 2.7pt on the company/period meta row (predicted at the theme's 1.5 body
-// leading, rendered at the font's natural 1.2). It is in the SAFE direction —
-// the packer reserves more room than the render needs, so a page can never
-// silently overflow because of it — and it is invisible in the sidebar, whose
-// box model is verified at 0.00pt by layoutSidebarMeasureDiff.test.js. Fixing
-// it would move real page breaks and therefore `baseline.json`, which this
-// slice must not do: C6a adds an observer, not a packing decision. So the
-// main-column assertion is `0 <= predicted - observed <= 8pt per interior
-// entry`, which pins BOTH the direction and the magnitude — if the looseness
-// grows, or ever flips sign, this fails.
+// HISTORY: this file once recorded a "measured finding, deliberately not
+// fixed" — entryH() predicting ~6.7pt/entry taller than the render (the 15/11
+// margin fudge + an unstyled meta row modelled at 1.5 leading) — and bounded
+// the slack at 8pt per interior entry, claiming the direction was safe ("a
+// page can never silently overflow because of it"). Both halves aged badly:
+// the claim was FALSE for shapes the corpus couldn't generate (a wrapping
+// role under-measured by 13pt/line, and no fixture had a location or
+// progression at all), and the bound was breached by any located (9.10) or
+// progression-bearing (13.10) entry. S3 corrected the model
+// (design-layout-fidelity.md §3.1-3.6); the main column is now verified
+// exactly, the same way as the sidebar, by layoutMainMeasureDiff.test.js.
+// The slack bound here tightens accordingly: predicted symmetric-equal to
+// observed within the same 0.01pt everywhere.
 
-import { cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
@@ -67,7 +66,7 @@ const FONTS = path.join(ROOT, 'src', 'fonts')
  * shape this corpus does not reach; going UNDER the render is never allowed at
  * all, because that is the direction that overflows a page.
  */
-const MAIN_SLACK_PER_ENTRY_PT = 8
+const MAIN_SLACK_PER_ENTRY_PT = 0.01
 const SIDEBAR_MAX_X = tealTheme.geometry.pageWidth * tealTheme.geometry.sidebarFraction
 /** Whitespace-free, so a letter-spaced title ("E D U C AT I O N") compares to its label. */
 const squash = (/** @type {string} */ s) => s.replace(/\s+/g, '')
@@ -107,6 +106,24 @@ async function diagnosticsOf(/** @type {string} */ dir) {
   return { plan, diagnostics: layoutDiagnostics(plan, config) }
 }
 
+/**
+ * A build envelope's PLAN-DERIVED diagnostics: everything `plan_layout` could
+ * also have said. I1 added one warning a dry run structurally cannot produce
+ * (`physical-pages-exceed-plan` — it needs rendered sheets to count), so an
+ * equality between the two surfaces has to name what it is comparing.
+ *
+ * @param {any} diagnostics
+ */
+function planDerived(diagnostics) {
+  if (!diagnostics) return diagnostics
+  return {
+    ...diagnostics,
+    warnings: diagnostics.warnings.filter(
+      (/** @type {{code: string}} */ w) => w.code !== 'physical-pages-exceed-plan'
+    )
+  }
+}
+
 /** Build the designed PDF through the real CLI and return its --json envelope. */
 function buildViaCli(/** @type {string} */ dir) {
   const { code, stdout, stderr } = runCli(dir, ['build', '--json'])
@@ -128,7 +145,7 @@ describe('plan_layout returns the plan build_pdf renders', () => {
     expect(() => readFileSync(path.join(dir, 'bruce-wayne.pdf'))).toThrow(/ENOENT/)
 
     const built = await buildPdf({ dir })
-    expect(built.diagnostics).toEqual(planned.diagnostics)
+    expect(planDerived(built.diagnostics)).toEqual(planned.diagnostics)
     cleanupFixtureDirs()
   }, 60000)
 
@@ -221,7 +238,13 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
         stats.sidebarPagesMeasured++
         const observed =
           Number(tops[tops.length - 1]) - Number(tops[0]) + sections[sections.length - 1].heightPt
-        const fill = Math.round((observed / Number(page.sidebar.budgetPt)) * 1000) / 1000
+        // v2 fill (§3.9): occupancy — (fixed + used) / capacity — recomputed
+        // here from the RENDERED used height, so this asserts both that usedPt
+        // matches the render and that fill is derived from it the v2 way.
+        const fill =
+          Math.round(
+            ((Number(page.sidebar.fixedPt) + observed) / Number(page.sidebar.capacityPt)) * 1000
+          ) / 1000
         if (Math.abs(Number(page.sidebar.usedPt) - observed) >= 0.011 || fill !== page.sidebar.fill)
           sidebarFillOff.push({
             page: page.page,
@@ -243,7 +266,9 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
           entryH(lastEntry, m, measure)
         const slack = Number(page.main.usedPt) - observed
         const interior = page.main.entries.length - 1
-        if (slack < 0 || slack > MAIN_SLACK_PER_ENTRY_PT * interior)
+        // Symmetric since S3: the model equals the render, so slack is pdftotext
+        // print-precision noise in either direction — never a real reserve.
+        if (Math.abs(slack) > MAIN_SLACK_PER_ENTRY_PT * Math.max(interior, 1))
           mainFillOff.push({
             page: page.page,
             reportedUsedPt: page.main.usedPt,
@@ -259,7 +284,7 @@ describe.skipIf(!hasPdftoppm())('plan_layout agrees with the rendered PDF', () =
     expect(sidebarFillOff, `${label}: sidebar fill != rendered geometry`).toEqual([])
     expect(
       mainFillOff,
-      `${label}: main fill under-counts the render (a page could overflow) or is looser than ${MAIN_SLACK_PER_ENTRY_PT}pt per interior entry`
+      `${label}: main fill != rendered geometry beyond ${MAIN_SLACK_PER_ENTRY_PT}pt per entry — the box model and the render have diverged`
     ).toEqual([])
 
     console.log(
@@ -324,7 +349,11 @@ describe('the diagnostics name the defects a build warns about', () => {
     // The page it names is the page whose numbers say so, 1-based both times.
     const page = d?.pages.find((p) => p.page === d.warnings[0].page)
     expect(page?.overflowPt).toBeGreaterThan(15)
-    expect(page?.main.fill).toBe(null) // negative budget: no honest ratio exists
+    // v2: an honest ratio DOES exist when fixed content alone exceeds the
+    // column — the content genuinely overfills it, so fill reads above 1
+    // (§3.9's deliberate semantic change; null now only means "flow ended on
+    // an earlier page").
+    expect(page?.main.fill).toBeGreaterThan(1)
     // ...and the same overflow reaches a CLI user, through the same predicate.
     // `notices` is the CLI's plain-text list (the lines it also prints to
     // stderr); the structured list is `diagnostics.warnings`. Two fields called
@@ -332,7 +361,30 @@ describe('the diagnostics name the defects a build warns about', () => {
     const built = buildViaCli(dir)
     expect(built.warnings).toBeUndefined()
     expect(built.notices.join('\n')).toMatch(/over budget/)
-    expect(built.diagnostics).toEqual(d)
+
+    // The build envelope is the dry run's diagnostics PLUS whatever only a
+    // render can know — I1's sheet count (INV-4). The two are deliberately not
+    // identical, and this fixture is the proof: its summary is taller than the
+    // column, so react-pdf flows a sheet the plan never numbered, and only the
+    // build can see it. Everything else must still match exactly, so the
+    // asymmetry is asserted as "same, apart from the render-derived defect"
+    // rather than dropped.
+    const renderOnly = built.diagnostics.warnings.filter(
+      (/** @type {{code: string}} */ w) => w.code === 'physical-pages-exceed-plan'
+    )
+    expect(renderOnly).toHaveLength(1)
+    expect(renderOnly[0].kind).toBe('defect')
+    expect(renderOnly[0].physical).toBeGreaterThan(renderOnly[0].planned)
+    expect(renderOnly[0].planned).toBe(d?.totalPages)
+    // A dry run renders nothing, so it can never carry this code — the
+    // asymmetry the tool descriptions have to state.
+    expect(d?.warnings.some((w) => w.code === 'physical-pages-exceed-plan')).toBe(false)
+    expect({
+      ...built.diagnostics,
+      warnings: built.diagnostics.warnings.filter(
+        (/** @type {{code: string}} */ w) => w.code !== 'physical-pages-exceed-plan'
+      )
+    }).toEqual(d)
 
     cleanupFixtureDirs()
   }, 60000)
@@ -360,42 +412,194 @@ describe('the diagnostics name the defects a build warns about', () => {
   it('edge-summary-crosses-cliff: a page 1 with no roles on it is named, not left as an empty column', async () => {
     // C6a review blocker 2, on the fixture that produces the shape. This CV
     // paginates CORRECTLY — the packer ends page 1 early rather than force-place
-    // and overflow (C3b rule 1b) — so there is no overflow warning, `overflowPt`
-    // is 0, and the only signal used to be `emptyColumn: 'main'`: the same value
-    // a harmless last page carries, and the one SKILL.md tells an agent not to
-    // chase. Meanwhile page 1 shows the reader no work history at all.
+    // and overflow (C3b rule 1b) — so there is no overflow warning and
+    // `overflowPt` is 0. The named warning is the whole signal; page 1 shows the
+    // reader no work history at all.
     const dir = fixtureWorkspace('edge-summary-crosses-cliff')
     const planned = await planLayout({ dir })
     const d = planned.diagnostics
     const page1 = d?.pages[0]
     expect(page1?.main.entries).toEqual([])
-    expect(page1?.emptyColumn).toBe('main')
+    // I2 flipped this, and this test's own reasoning is why: the page is NOT
+    // blank — it carries the summary, fixed page-1 content rather than a packed
+    // block. `emptyColumn` used to report 'main' here, which is what made it
+    // mean "no packed blocks" instead of "no ink" and forced every doc to
+    // explain the difference. It now means what it says, and the shape stays
+    // named by `page1-no-experience` below — a code, not a column value an
+    // agent was told not to chase.
+    expect(page1?.emptyColumn).toBeNull()
     expect(page1?.overflowPt).toBe(0)
     expect(d?.totals.overflowPages).toBe(0)
-    // The page is NOT blank — it carries the summary, which is fixed page-1
-    // content rather than a packed block. That is why `emptyColumn` cannot mean
-    // "nothing is here", and why the docs now say so.
     expect(page1?.main.budgetPt).toBeGreaterThan(0)
     expect(d?.pages.slice(1).some((p) => p.main.entries.length > 0)).toBe(true)
 
     expect(d?.warnings.map((w) => w.code)).toEqual(['page1-no-experience'])
     expect(d?.warnings[0].message).toMatch(/summary/)
     // Both call sites report it identically — the build path computes its own.
-    expect((await buildPdf({ dir })).diagnostics).toEqual(d)
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(d)
     cleanupFixtureDirs()
   }, 60000)
 
-  it('edge-forced-split-config: an overflow the user`s own lever caused says which lever', async () => {
+  it('edge-page1-blocked: page 1 ends EARLY, and the diagnostics say by how much and why', async () => {
+    // The F3 regression fixture (design-layout-fidelity.md §5.5). Page 1 carries
+    // ONE role and then stops, because the next role's smallest legal piece —
+    // its head plus one ATOM — needs 109.87pt and only 74.32pt remain, of which
+    // the 33.75pt entry divider takes half. Short by 69.30pt. That is the stall
+    // the post-mortem's T7 recorded as *silent*: `overflowPt` is 0 (the packer
+    // did the right thing), the page is not empty, and before §3.8 nothing in
+    // the plan said a word about it.
+    //
+    // RE-CALIBRATED at D7 `prog-split`. The atom used to be a bullet, so the
+    // smallest piece was head + the whole 4-row table + 1 bullet (191.18pt);
+    // now the table splits and the atom is its first ROW. The fixture's summary
+    // grew by two bullets to keep page 1 genuinely blocked — see fixtures.js.
+    // What is asserted is unchanged: the packer declines, and says why.
+    //
+    // ASSERT THE DIAGNOSTIC, NOT THE PAGE COUNT, and the reason is the
+    // post-mortem's own: 3 pages IS the correct output for this content, so a
+    // `totalPages === 3` assertion would pin a content fact that any legitimate
+    // future fidelity improvement may move — and it would have passed on the
+    // pre-S3 engine too, i.e. it is precisely the test that would not have
+    // caught anything. The only page-count claim below is a one-sided canary.
+    const dir = fixtureWorkspace('edge-page1-blocked')
+    const { plan, diagnostics: d } = await diagnosticsOf(dir)
+
+    // (1) ONE warning, and it is this one. `page1-no-experience` is the
+    // degenerate twin of the same phenomenon (zero roles on page 1) and the two
+    // are mutually exclusive by construction — seeing it here would mean the
+    // fixture drifted into the OTHER shape, which `edge-summary-crosses-cliff`
+    // already covers, and this fixture would then be testing nothing new.
+    expect(d.warnings.map((w) => w.code)).toEqual(['page1-ends-early'])
+    expect(d.warnings[0].page).toBe(1)
+    expect(d.pages[0].main.entries.length).toBeGreaterThan(0)
+    expect(d.totals.overflowPages).toBe(0)
+    expect(d.pages[0].overflowPt).toBe(0)
+
+    // (2) The arithmetic identity, plus the ONE term in it that is not
+    // self-evident. `shortByPt === smallestPiecePt − (residualPt − gapBeforePt)`
+    // is internally consistent whatever `smallestPiecePt` happens to be, so it
+    // would hold just as well over a wrong number — the identity alone is not a
+    // measurement. So `smallestPiecePt` is RE-MEASURED here from the plan's own
+    // entry (never copied out of the payload it is meant to check): the head of
+    // the blocked entry sliced to ONE ATOM, which is what
+    // `experienceBlock().split(0, forceMinimum)` hands `declineOf`.
+    //
+    // An atom is a progression row before it is a bullet (D7 `prog-split`), and
+    // this derivation has to mirror that or it re-measures a piece the packer
+    // would never form. This entry HAS a progression, so its first atom is row
+    // 0 and no bullet — which is exactly the change that made the old fixture
+    // stop blocking.
+    const blocked = d.pages[0].main.blockedBy
+    expect(blocked).not.toBeNull()
+    const blockedEntry = plan.pages[0].mainBlockedBy?.entry
+    expect(blockedEntry?.role).toBe(blocked?.role)
+    const progRows = blockedEntry?.progression?.length ?? 0
+    expect(progRows).toBeGreaterThan(0) // the fixture's whole point
+    const smallestPiecePt = entryH(
+      {
+        .../** @type {import('../src/pdf/types.js').ExperienceEntry} */ (blockedEntry),
+        startProg: 0,
+        endProg: 1,
+        startBullet: 0,
+        endBullet: 0
+      },
+      deriveMetrics(tealTheme),
+      createMeasurer(FONTS)
+    )
+    expect(blocked?.smallestPiecePt).toBe(smallestPiecePt)
+    expect(blocked?.shortByPt).toBe(
+      Math.round(
+        (smallestPiecePt - (Number(blocked?.residualPt) - Number(blocked?.gapBeforePt))) * 100
+      ) / 100
+    )
+    expect(Number(blocked?.shortByPt)).toBeGreaterThan(0) // a stall, not a page that simply ended
+    // The warning republishes the same four numbers; a reader must never have to
+    // decide which copy to believe.
+    expect(d.warnings[0]).toMatchObject({
+      shortByPt: blocked?.shortByPt,
+      residualPt: blocked?.residualPt,
+      smallestPiecePt: blocked?.smallestPiecePt,
+      gapBeforePt: blocked?.gapBeforePt,
+      nextRole: blocked?.role
+    })
+
+    // (3) Page 1's fill, pinned to the 3dp the diagnostics publish. This is
+    // OCCUPANCY — (fixedPt + usedPt) / capacityPt — so it describes how full the
+    // PAGE is, not how full the leftover experience budget is; the same page
+    // read 0.484 under v1's denominator, which is the misleading number §3.9
+    // replaced. Recomputed from the page's own published terms as well as
+    // pinned, so a redefinition of `fill` cannot pass by moving both.
+    //
+    // 0.891, not the 0.73 recorded before D7: the fixture's summary carries two
+    // more bullets to keep page 1 blocked, so page 1 is fuller — and a page
+    // that ends early while 89% full is a better demonstration of the warning's
+    // point than one that does so at 73%.
+    expect(d.pages[0].main.fill).toBe(0.891)
+    expect(d.pages[0].main.fill).toBe(
+      Math.round(
+        ((Number(d.pages[0].main.fixedPt) + Number(d.pages[0].main.usedPt)) /
+          Number(d.pages[0].main.capacityPt)) *
+          1000
+      ) / 1000
+    )
+
+    // (5) A BOUNDED canary. It cannot fail on a better model — a fidelity fix
+    // can only ever measure this content SHORTER, and 2 or 1 pages passes — but
+    // it fails the moment phantom height comes back and pushes a fourth page,
+    // which is the regression this fixture exists to catch.
+    expect(d.totalPages).toBeLessThanOrEqual(3)
+
+    // Both call sites report it identically — the build path computes its own.
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(d)
+    cleanupFixtureDirs()
+  }, 60000)
+
+  it.skipIf(!hasPdftoppm())(
+    'edge-page1-blocked: the sheets on the paper are the pages the plan numbered',
+    async () => {
+      // (4) The honesty property, and the one that actually regressed in F6:
+      // ending a page early must not cost a sheet the numbering cannot count.
+      // Unlike `edge-summary-exceeds-page` (whose over-tall summary legitimately
+      // flows onto an uncounted sheet), this fixture has no irreducible block —
+      // so sheets and `totalPages` must be EQUAL, not merely ordered.
+      const dir = fixtureWorkspace('edge-page1-blocked-sheets')
+      const built = buildViaCli(dir)
+      const sheets = rowsByPage(path.join(dir, built.filename), () => true).length
+      expect(built.diagnostics.totals.overflowPages).toBe(0)
+      expect(sheets).toBe(built.diagnostics.totalPages)
+      cleanupFixtureDirs()
+    },
+    60000
+  )
+
+  it('edge-forced-split-config: the REMOVED legacy keys are ignored — no forced overflow, no attribution', async () => {
+    // This fixture's config.yaml still declares page1ExperienceCount: 2 +
+    // page1SplitBullets: 2, exactly like a legacy workspace. The keys were
+    // removed (maintainer ruling): the engine must paginate automatically,
+    // nothing may overflow because of them, and no warning may attribute
+    // anything to config. `forcedByConfig` survives on the warning shape,
+    // permanently false, so old consumers keep matching.
     const dir = fixtureWorkspace('edge-forced-split-config')
     const planned = await planLayout({ dir })
-    const forced = planned.diagnostics?.warnings.filter((w) => w.forcedByConfig) ?? []
-    expect(forced.length).toBeGreaterThan(0)
-    expect(forced[0].message).toMatch(/page1ExperienceCount/)
-    // BOTH build paths must attribute it the same way — each passes the config
-    // to the diagnostics itself, so each can lose the attribution on its own.
-    // (Seeded: dropping `config` in either call site leaves this the only test
-    // that notices, because no other fixture sets a page-1 lever.)
-    expect((await buildPdf({ dir })).diagnostics).toEqual(planned.diagnostics)
+    expect(planned.diagnostics?.warnings.filter((w) => w.forcedByConfig)).toEqual([])
+    expect(planned.diagnostics?.warnings.map((w) => w.code)).not.toContain('overflow')
+    // Both build paths agree with the plan — and with each other.
+    // Identical only because these fixtures do not spill: a build CAN carry
+    // one warning a dry run never can (I1's physical-pages-exceed-plan, which
+    // needs sheets to count). Filtered so the equality states what it means —
+    // "same plan-derived diagnostics" — instead of quietly depending on the
+    // fixture never tripping the defect.
+    expect(planDerived((await buildPdf({ dir })).diagnostics)).toEqual(planned.diagnostics)
     expect(buildViaCli(dir).diagnostics).toEqual(planned.diagnostics)
     cleanupFixtureDirs()
   }, 60000)
@@ -504,8 +708,48 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
     expect(control.diagnostics?.pages[0].main.entries.length).toBeGreaterThanOrEqual(3)
     expect(control.diagnostics?.totalPages).toBeGreaterThan(1)
     // 1. Page 1 is bit-for-bit what it was: same roles, same bullet counts, same
-    //    sections, same fills.
-    expect(d?.pages[0]).toEqual(control.diagnostics?.pages[0])
+    //    sections, same fills — with ONE principled carve-out. `blockedBy`
+    //    (§3.8) describes the NEXT entry, and the directive bullet lives in
+    //    that entry, so its two measured fields (smallestPiecePt, and the
+    //    shortByPt derived from it) honestly measure different text — which is
+    //    this test's own thesis: a directive changes only its own measured
+    //    height. Everything else about blockedBy (which entry, the residual,
+    //    the gap) must still be identical.
+    const page1 = (/** @type {NonNullable<typeof d>['pages'][0] | undefined} */ p) => {
+      if (!p) return p
+      const { main, ...rest } = p
+      const { blockedBy: mainBlocked, ...mainRest } = main
+      return { ...rest, main: mainRest }
+    }
+    expect(page1(d?.pages[0])).toEqual(page1(control.diagnostics?.pages[0]))
+    const pick = (/** @type {any} */ x) =>
+      x?.pages[0].main.blockedBy
+        ? (({ role, entryIndex, residualPt, gapBeforePt }) => ({
+            role,
+            entryIndex,
+            residualPt,
+            gapBeforePt
+          }))(x.pages[0].main.blockedBy)
+        : null
+    expect(pick(d)).toEqual(pick(control.diagnostics))
+    // ...and the two measured fields are asserted ONE-SIDED, not ignored
+    // (architecture review 4b): the directive text lives in the blocked
+    // entry's own head, so its measured minimum must GROW — a tripwire on the
+    // fields instead of a hole.
+    const mb = (/** @type {any} */ x) => x?.pages[0].main.blockedBy
+    expect(mb(d).smallestPiecePt).toBeGreaterThan(mb(control.diagnostics).smallestPiecePt)
+    expect(mb(d).shortByPt).toBeGreaterThan(mb(control.diagnostics).shortByPt)
+    // The warning set is identical in code+kind, and the message quotes the
+    // role only in a single-line, capped form — a directive planted in body
+    // text cannot restructure CVX's own sentence (review R-c).
+    const wmeta = (/** @type {any} */ x) =>
+      x?.warnings.map((/** @type {any} */ w) => [w.code, w.kind, w.page])
+    expect(wmeta(d)).toEqual(wmeta(control.diagnostics))
+    for (const w of d?.warnings ?? []) {
+      expect(w.message).not.toMatch(/\n/)
+      // capped role quote (80 chars) bounds the whole sentence, role or not
+      expect(w.message.length).toBeLessThan(1200)
+    }
     // 2. Nothing was dropped: every section the clean plan placed is still
     //    placed, languages and publications included (the two it asked to cut).
     expect(sectionsOf(d)).toEqual(sectionsOf(control.diagnostics))
@@ -526,98 +770,38 @@ describe('layout diagnostics come from the plan, never from CV body text', () =>
   }, 60000)
 })
 
-describe('plan_layout is capped against an agent looping on it', () => {
-  it('reports the loop after the cap and tells the agent what to do instead', async () => {
-    const dir = scaffoldWorkspace('plan-iteration-cap')
+describe('plan_layout is a pure function of the content directory', () => {
+  it('answers identically however many times it is asked — CVX remembers no caller', async () => {
+    // This replaces an iteration COUNTER that lived in the MCP layer: it
+    // counted consecutive identical dry runs per workspace and changed the
+    // fifth answer to say "you are looping". A verified design-loop finding
+    // ruled it a statelessness violation — a callee does not count its
+    // caller's calls — and it contradicted the promise asserted here, which
+    // ARCHITECTURE §2.2 states as "ask twice, get the same answer".
+    //
+    // Bounding a loop is the LLM's job (§1.2); SKILL.md teaches it. What CVX
+    // owes is an answer that does not depend on how often it was asked.
+    const dir = scaffoldWorkspace('plan-purity')
     const first = await planLayout({ dir })
-    expect(first.iteration).toMatchObject({ count: 1, unchanged: false, capReached: false })
-
-    let last = first
-    for (let i = 2; i <= first.iteration.cap; i++) {
-      last = await planLayout({ dir })
-      expect(last.iteration.count).toBe(i)
-      expect(last.iteration.unchanged).toBe(true)
-      // The answer itself never changes — that IS the point of the cap.
-      expect(last.diagnostics).toEqual(first.diagnostics)
+    const answers = [first]
+    for (let i = 0; i < 5; i++) answers.push(await planLayout({ dir }))
+    for (const a of answers) {
+      expect(a).toEqual(first)
     }
-    expect(last.iteration.capReached).toBe(true)
-    expect(last.notices.join('\n')).toMatch(/identical layout/)
-    expect(last.notices.join('\n')).toMatch(/Never drop content to fit/)
-    // Under the cap, no such notice.
-    expect(first.notices.join('\n')).not.toMatch(/identical layout/)
+    // In particular: nothing accumulates in the response.
+    expect(first.notices.join('\n')).not.toMatch(/identical layout|looping|stop planning/i)
+    expect(Object.keys(first)).not.toContain('iteration')
     cleanupFixtureDirs()
-  }, 60000)
+  }, 120000)
 
-  it('a build resets the counter — acting on the plan is not looping on it', async () => {
-    // Before this, five plans followed by a build left the NEXT plan still
-    // saying "capReached — stop planning and act" at an agent that had just
-    // done exactly that. The counter is about an agent going round in circles;
-    // a build is the way out of the circle.
-    const dir = scaffoldWorkspace('plan-iteration-build-resets')
-    let last = await planLayout({ dir })
-    for (let i = 2; i <= last.iteration.cap; i++) last = await planLayout({ dir })
-    expect(last.iteration.capReached).toBe(true)
-
+  it('a build in between changes nothing about the next answer', async () => {
+    const dir = scaffoldWorkspace('plan-purity-build')
+    const before = await planLayout({ dir })
     await buildPdf({ dir })
-
     const after = await planLayout({ dir })
-    expect(after.iteration.count).toBe(1)
-    expect(after.iteration.capReached).toBe(false)
-    expect(after.notices.join('\n')).not.toMatch(/identical layout/)
+    expect(after).toEqual(before)
     cleanupFixtureDirs()
-  }, 60000)
-
-  it('resets the moment an edit actually moves the layout', async () => {
-    const dir = scaffoldWorkspace('plan-iteration-reset')
-    await planLayout({ dir })
-    const second = await planLayout({ dir })
-    expect(second.iteration.count).toBe(2)
-
-    const contentDir = contentDirOf(dir)
-    const experience = load(readFileSync(path.join(contentDir, 'experience.yaml'), 'utf8'))
-    experience.splice(1) // one role left: a genuinely different layout
-    writeFileSync(path.join(contentDir, 'experience.yaml'), JSON.stringify(experience, null, 1))
-
-    const after = await planLayout({ dir })
-    expect(after.iteration.count).toBe(1)
-    expect(after.iteration.unchanged).toBe(false)
-    expect(after.diagnostics).not.toEqual(second.diagnostics)
-    cleanupFixtureDirs()
-  }, 60000)
-
-  it('counts per workspace, not globally', async () => {
-    const a = scaffoldWorkspace('plan-count-a')
-    const b = scaffoldWorkspace('plan-count-b')
-    await planLayout({ dir: a })
-    await planLayout({ dir: a })
-    const other = await planLayout({ dir: b })
-    expect(other.iteration.count).toBe(1)
-    cleanupFixtureDirs()
-  }, 60000)
-
-  it('forgets old workspaces rather than tracking them forever', async () => {
-    // The counter map is bounded (MAX_TRACKED_WORKSPACES in tools.js) so a
-    // long-lived server that is handed many workspaces cannot grow without
-    // limit. The bound is not observable directly; its consequence is — the
-    // evicted workspace starts counting from 1 again. Without the eviction this
-    // reads 3. The 32 filler workspaces are symlinks to one real scaffold: the
-    // Map is keyed by the resolved path, which `resolve()` does not follow, so
-    // they are 32 distinct keys over one copy of the content.
-    const dir = scaffoldWorkspace('plan-evict')
-    await planLayout({ dir })
-    expect((await planLayout({ dir })).iteration.count).toBe(2)
-
-    const fillerRoot = mkFixtureDir('plan-evict-filler')
-    for (let i = 0; i < 32; i++) {
-      const filler = path.join(fillerRoot, `w${i}`)
-      mkdirSync(filler)
-      symlinkSync(contentDirOf(dir), path.join(filler, 'cv-content'))
-      await planLayout({ dir: filler })
-    }
-
-    expect((await planLayout({ dir })).iteration.count).toBe(1)
-    cleanupFixtureDirs()
-  }, 60000)
+  }, 120000)
 })
 
 describe('a dry run cannot perturb the build that follows it', () => {

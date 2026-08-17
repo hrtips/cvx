@@ -6,9 +6,8 @@
 
 template: single-column
 
-geometry:
-  size: A4
-  margin: 42
+# No `geometry:` block: page size and margin come from the theme and are not
+# settable per CV yet. The keys that used to sit here were ignored entirely.
 
 pages:
   first:

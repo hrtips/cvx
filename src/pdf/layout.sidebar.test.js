@@ -257,7 +257,16 @@ describe('packBlocks — a page ends early when nothing of the next block fits (
     // smallest legal piece is 80pt: too big for page 0, fine for page 1.
     const pages = packBlocks([chunky('L', 2)], (i) => (i === 0 ? 50 : 200))
     expect(pages.map((p) => p.blocks.map((b) => b.id))).toEqual([[], ['L']])
-    expect(pages[0]).toEqual({ blocks: [], used: 0, budget: 50 })
+    // The empty page RECORDS why it is empty (§3.8): the price of this page
+    // break, at the moment rule 1b declined the block. smallestPiecePt is the
+    // block's minimum legal piece (its 80pt head), residualPt the whole 50pt
+    // budget (nothing was placed), gapBefore 0 (a lead never charges one).
+    expect(pages[0]).toEqual({
+      blocks: [],
+      used: 0,
+      budget: 50,
+      blockedBy: { index: 0, smallestPiecePt: 80, residualPt: 50, gapBeforePt: 0 }
+    })
     // ...and the page it moved to is not over budget, which is the whole point
     expect(pages[1].used).toBeLessThanOrEqual(pages[1].budget)
   })
@@ -953,32 +962,10 @@ describe('planTwoColumn — P = max(P_main, P_sidebar)', () => {
     })
   })
 
-  it('honours a config-forced page-1 split and reports its (legitimately exceeded) page-1 budget', () => {
-    const content = { ...CONTENT, summary: ['One line.'], experience: experience(6) }
-    const within = planTwoColumn({
-      content,
-      layout: TWO_COLUMN_LAYOUT,
-      config: { page1ExperienceCount: 3, page1SplitBullets: null },
-      theme: tealTheme,
-      measure
-    })
-    expect(within.pages[0].mainBlocks).toHaveLength(3)
-    expect(within.pages[0].mainFill?.used).toBeLessThanOrEqual(
-      Number(within.pages[0].mainFill?.budget)
-    )
-
-    // Forcing more than fits is the user's call — the packer reports it (and
-    // render.js warns) instead of silently dropping an entry.
-    const forced = planTwoColumn({
-      content,
-      layout: TWO_COLUMN_LAYOUT,
-      config: { page1ExperienceCount: 6, page1SplitBullets: null },
-      theme: tealTheme,
-      measure
-    })
-    expect(forced.pages[0].mainBlocks).toHaveLength(6)
-    expect(forced.pages[0].mainFill?.used).toBeGreaterThan(Number(forced.pages[0].mainFill?.budget))
-  })
+  // (An 'honours a config-forced page-1 split' test lived here until the
+  // page1ExperienceCount / page1SplitBullets levers were removed — maintainer
+  // ruling, design-layout-fidelity.md Review outcome #1. edge-forced-split-config
+  // now proves the legacy keys are IGNORED.)
 })
 
 describe('main-column budget accounts for the page-number badge', () => {

@@ -1,5 +1,5 @@
-// C0 — packer-decision invariants (research/sprint-layout-engine.md C0 /
-// research/layout-packing-design.md §11): every block placed exactly once,
+// C0 — packer-decision invariants (research/archive/sprint-layout-engine.md C0 /
+// research/archive/layout-packing-design.md §11): every block placed exactly once,
 // order preserved, Invariant 0 (nothing dropped/clipped/duplicated), and no
 // orphaned heading, asserted as pure functions over the LayoutPlan shape
 // `{ pages: [{ index, main, sidebar }], totalPages }`.
@@ -150,7 +150,7 @@ describe('invariants.js — self-test on synthetic plans', () => {
   // (see estimator.js) without carrying that specific application forward
   // — front-load/budget assertions on today's (loose, ~20-33%-over)
   // estimate are out of scope for this pass (explicitly deferred, not
-  // silently dropped — see research/c0-baseline.md).
+  // silently dropped — see research/archive/c0-baseline.md).
   it('frontLoadHolds passes non-increasing fills and fails when a later page is fuller, outside tolerance', () => {
     expect(frontLoadHolds([1, 0.8, 0.5]).ok).toBe(true)
     expect(frontLoadHolds([0.5, 0.52], 0.05).ok).toBe(true) // within tolerance
@@ -257,8 +257,7 @@ describe('main-column plan (packExperiences really packs this — testable today
   function planFor(dir) {
     const summary = readYaml(dir, 'summary.yaml')
     const experience = readYaml(dir, 'experience.yaml')
-    const config = readYaml(dir, 'config.yaml')
-    const packed = packExperiences(experience, summary, config, tealTheme, harnessMeasurer())
+    const packed = packExperiences(experience, summary, tealTheme, harnessMeasurer())
     return { packed, summary, experience }
   }
 
@@ -281,7 +280,6 @@ describe('main-column plan (packExperiences really packs this — testable today
     const packed = packExperiences(
       content.experience,
       content.summary,
-      content.config,
       tealTheme,
       harnessMeasurer()
     )
@@ -307,7 +305,7 @@ describe('main-column plan (packExperiences really packs this — testable today
       },
       { role: 'Engineer', company: 'Acme', bullets: ['Second stint bullet one.'] }
     ]
-    const packed = packExperiences(experience, summary, {}, tealTheme, harnessMeasurer())
+    const packed = packExperiences(experience, summary, tealTheme, harnessMeasurer())
     const plan = mainPlanFromPackResult(packed, summary)
     const actual = flowIds(plan, 'main')
     const expected = [...summaryBlockIds(summary), ...experienceBlockIds(experience)]
@@ -902,16 +900,18 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
   // `overflowPt` should now be reachable only through content nothing can
   // paginate. This pins that set by name: a new entry means a regression or a
   // new deliberate case, and either way it has to be argued, not absorbed.
+  // ('edge-forced-split-config' was the third entry until the
+  // page1ExperienceCount / page1SplitBullets levers were REMOVED — maintainer
+  // ruling. Its legacy keys are now ignored, it paginates automatically, and
+  // it must NOT overflow: it moved from this allow-list to the general case.)
   const OVERFLOW_ALLOWED = {
-    'edge-forced-split-config':
-      "the user's own page1ExperienceCount/page1SplitBullets force more onto page 1 than fits; honouring a documented arrangement lever beats silently overriding it, and render.js warns",
     'edge-summary-exceeds-page':
       'the summary alone is taller than the main column. It is fixed page-1 content, not a packed block, so no pagination can help (see the packed-vs-fixed note in layout.js)',
     'edge-page-tall-item':
       "design doc G7's irreducible residual: one bullet and one certification each taller than a whole page"
   }
 
-  it('no page reaches past its budget except the three named, argued cases — and each of those warns', () => {
+  it('no page reaches past its budget except the two named, argued cases — and each of those warns', () => {
     const unexpected = []
     const silent = []
     const noLongerOverflowing = []
@@ -926,7 +926,7 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
       if (over.length === 0 && allowed) noLongerOverflowing.push(spec.id)
       // Whatever overflows must be REPORTED: an unnumbered sheet with no
       // diagnostic is the exact shape of the defect this slice is closing.
-      const warnings = overflowWarnings(plan, content.config)
+      const warnings = overflowWarnings(plan)
       if (over.length > 0 && warnings.length === 0) silent.push(spec.id)
     }
     expect(unexpected).toEqual([])
@@ -935,12 +935,12 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     expect(noLongerOverflowing).toEqual([])
   })
 
-  it('the overflow warning names the page and the amount, and says something different for each of the three causes', () => {
+  it('the overflow warning names the page and the amount, and says something different for each of the two causes', () => {
     const byId = {}
     for (const id of Object.keys(OVERFLOW_ALLOWED)) {
       const content = buildContent(buildFixturePlan().fixtures.find((f) => f.id === id))
       const { plan } = realSidebarPlan(content)
-      byId[id] = overflowWarnings(plan, content.config)
+      byId[id] = overflowWarnings(plan)
     }
     // one warning per overflowing page, never two for the same page
     for (const [id, ws] of Object.entries(byId)) {
@@ -951,8 +951,6 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
         expect(w.message).toMatch(/~\d+pt over budget/)
       }
     }
-    expect(byId['edge-forced-split-config'][0].forcedByConfig).toBe(true)
-    expect(byId['edge-forced-split-config'][0].message).toContain('page1ExperienceCount')
     expect(byId['edge-summary-exceeds-page'][0].message).toContain('summary alone')
     expect(byId['edge-page-tall-item'][0].message).toContain('cannot be split any further')
   })
@@ -965,7 +963,6 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
     let ended = 0
     for (const spec of buildFixturePlan().fixtures) {
       const content = buildContent(spec)
-      if (content.config?.page1ExperienceCount != null) continue // the forced branch does not pack page 1
       const { plan } = realSidebarPlan(content)
       plan.pages.forEach((page, i) => {
         if (page.mainBlocks.length > 0) return

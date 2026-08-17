@@ -135,7 +135,19 @@ describe.skipIf(!hasPdftoppm())(
       const dir = mkFixtureDir('sidebar-diff-scaffold')
       // Copy the scaffold verbatim so the render sees the real photo, then diff.
       cpSync(templateDir, path.join(dir, 'cv-content'), { recursive: true })
-      const { rows } = check('scaffold', dir, content)
+      // Plan with the scaffold's OWN layout, not the built-in default. The
+      // render reads `layouts/two-column.yaml` out of the fixture, so planning
+      // against `defaultLayouts.js` measures a different document — and the
+      // scaffold's layout deliberately omits `referees` while the built-in
+      // default still includes it. Without this the plan and the render
+      // disagree on page count, `pagesAlign` goes false, and the identity-row
+      // family silently measures nothing. Same failure mode this file's
+      // docblock warns about for the reordered fixtures.
+      const { rows } = check('scaffold', dir, content, {
+        layout: normalizeLayout(
+          load(readFileSync(path.join(templateDir, 'layouts', 'two-column.yaml'), 'utf8'))
+        )
+      })
       // Spelled out directly (not only inside check()) so this test can never
       // pass by measuring nothing: the scaffold has enough sidebar content that
       // several interior sections must be reachable.

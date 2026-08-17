@@ -9,6 +9,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import { TOOLS } from '../src/mcp/tools.js'
+import { planTwoColumn } from '../src/pdf/layout.js'
+import { layoutDiagnostics } from '../src/pdf/layoutDiagnostics.js'
 import { packageVersion, scaffoldContent, schemaRefFor } from '../src/pdf/scaffold.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
@@ -21,6 +23,16 @@ const aiGuide = readFileSync(path.join(ROOT, 'docs', 'ai-guide.md'), 'utf8')
 const skillMd = readFileSync(path.join(ROOT, 'skills', 'cvx', 'SKILL.md'), 'utf8')
 const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
 const llms = readFileSync(path.join(ROOT, 'llms.txt'), 'utf8')
+// The two model-facing SOURCE surfaces: an MCP client shows these before any
+// markdown doc is ever read, and the architecture review (D3/D4) found both
+// still teaching v1 semantics while the markdown was already correct — the
+// original guard iterated only the markdown files, so it was structurally
+// unable to see the one place that was wrong.
+const mcpTools = readFileSync(path.join(ROOT, 'src', 'mcp', 'tools.js'), 'utf8')
+// The type model is the source of truth for the warning-code union — the doc
+// guard below derives the list from it rather than repeating it here (I1).
+const typesDts = readFileSync(path.join(ROOT, 'src', 'pdf', 'types.d.ts'), 'utf8')
+const mcpServer = readFileSync(path.join(ROOT, 'src', 'mcp', 'server.js'), 'utf8')
 
 const CONTENT_DEFS = [
   'personal',
@@ -181,8 +193,93 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
     ['skills/cvx/SKILL.md', skillMd],
     ['docs/ai-guide.md', aiGuide],
     ['llms.txt', llms],
-    ['README.md', readme]
+    ['README.md', readme],
+    ['src/mcp/tools.js', mcpTools],
+    ['src/mcp/server.js', mcpServer]
   ]
+
+  it('the MCP tool surface teaches the complete warning-code list and the kind discriminator', () => {
+    // An unlisted code inside an array documented as "defects", carrying an
+    // exact edit size, is the R1 gradient with a "please climb me" label
+    // (architecture review, D3). The code list and the defect/fact split must
+    // be visible on the surface a bare MCP client shows.
+    for (const text of [mcpTools]) {
+      expect(text).toContain('page1-ends-early')
+      expect(text).toMatch(/kind/)
+      expect(text).toMatch(/'fact'|"fact"|`fact`/)
+    }
+  })
+
+  it('every warning code the engine can emit is taught on the model-facing surfaces', () => {
+    // Derived from the type model's union, not a list retyped here: a code
+    // added to the engine without a word of documentation is exactly the drift
+    // this file exists to stop, and a hand-copied list would drift with it.
+    const union = /code:\s*((?:\s*\|?\s*'[a-z0-9-]+')+)/i.exec(typesDts)
+    expect(union, 'could not find the warning-code union in types.d.ts').toBeTruthy()
+    const codes = [...union[1].matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1])
+    // Sanity: the union we matched is the warning one, not some other union.
+    expect(codes).toContain('overflow')
+    expect(codes.length).toBeGreaterThanOrEqual(5)
+    for (const code of codes) {
+      expect(skillMd, `SKILL.md never mentions the ${code} warning`).toContain(code)
+      expect(mcpTools, `the MCP tool descriptions never mention ${code}`).toContain(code)
+    }
+  })
+
+  it('every doc naming the diagnostics version names the CURRENT one', () => {
+    // R-E exists so two meanings never share a version — which only works if
+    // the docs move with the bump. I2 shipped v3 with three surfaces still
+    // printing "version: 2", one of them in the same sentence as the new
+    // number, because nothing checked. Derived from the engine, never retyped.
+    //
+    // Both forms the docs actually use: `diagnostics.version: N` and a bare
+    // `` `version: N` `` inside a sentence about the diagnostics. `schemaVersion`
+    // is a different, unrelated number and must not match — the lowercase
+    // word boundary is what excludes it.
+    const current = layoutDiagnostics(
+      planTwoColumn({ content: { personal: { name: 'A' }, summary: ['s'], experience: [] } })
+    )?.version
+    expect(current).toBeTypeOf('number')
+    let seen = 0
+    for (const [name, text] of MODEL_FACING) {
+      for (const [, printed] of text.matchAll(/(?:diagnostics\.version|`version)\W{0,3}(\d+)/g)) {
+        seen++
+        expect(Number(printed), `${name} still teaches diagnostics version ${printed}`).toBe(
+          current
+        )
+      }
+    }
+    // The guard is only worth having if it is looking at something.
+    expect(seen).toBeGreaterThanOrEqual(4)
+  })
+
+  it('the build-only nature of the physical-page defect is stated wherever it is taught', () => {
+    // The asymmetry is the part an agent gets wrong: plan_layout renders
+    // nothing, so a clean dry run does not clear this defect class. A surface
+    // that names the code without that caveat teaches "the plan is enough".
+    for (const [name, text] of MODEL_FACING) {
+      if (!text.includes('physical-pages-exceed-plan')) continue
+      expect(text, `${name} names the defect without saying a dry run cannot see it`).toMatch(
+        /dry run|plan_layout (?:can )?never|only a build|builds only/i
+      )
+    }
+  })
+
+  it('every doc that explains fill teaches the v2 occupancy semantics, and none the v1 denominator', () => {
+    // §3.9: fill's denominator changed (residual budget → whole column). A doc
+    // describing v1 next to a v2 payload would send every reader to the exact
+    // misreading the redefinition exists to end — page 1 "40% empty" while the
+    // column is 80% occupied.
+    for (const [name, text] of MODEL_FACING) {
+      if (!/\bfill\b/.test(text)) continue
+      expect(text, `${name} explains fill without the v2 occupancy definition`).toMatch(
+        /occupancy/i
+      )
+      expect(text, `${name} still teaches fill's v1 denominator`).not.toMatch(
+        /fill.{0,40}used \/ budget/i
+      )
+    }
+  })
 
   it('every shipped tool is named in the docs a model reads first', () => {
     for (const [name, text] of MODEL_FACING) {
@@ -220,7 +317,16 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
       ['docs/ai-guide.md', aiGuide]
     ]) {
       expect(text, `${name} has no "reading the layout" section`).toMatch(/Reading the layout/i)
-      expect(text, `${name} does not say there are no layout levers`).toMatch(/no layout levers/i)
+      // D8(d): this used to require the phrase "no layout levers", which is the
+      // flat claim that contradicted the student-layout section's "swapping
+      // which column carries which section is the strongest one-page lever you
+      // have". What both docs must actually carry is the true, useful claim —
+      // `plan_layout` is idempotent, so re-calling it achieves nothing — plus
+      // the carve-out naming when column swaps DO bite.
+      expect(text, `${name} does not say plan_layout is idempotent`).toMatch(/idempotent/i)
+      expect(text, `${name} does not name the empty/short-experience carve-out`).toMatch(
+        /empty (or )?(and )?(very )?short experience list/i
+      )
     }
   })
 })
@@ -362,11 +468,14 @@ describe('the docs a model is told to read are inside the tarball', () => {
   it('package.json ships the model-facing docs, by path, and not the internal ones', () => {
     expect(pkg.files).toContain('docs/ai-guide.md')
     expect(pkg.files).toContain('docs/cv-schema.md')
-    // Path-based on purpose: `docs` as a directory would drag in
-    // hostile-baseline.md, an internal quality record.
+    // Path-based on purpose: shipping `docs` as a directory would stop being a
+    // deliberate act the day an internal record lands back in it.
     expect(pkg.files).not.toContain('docs')
-    expect(existsSync(path.join(ROOT, 'docs', 'hostile-baseline.md'))).toBe(true)
-    expect(pkg.files.some((/** @type {string} */ f) => f.startsWith('docs/hostile'))).toBe(false)
+    // The internal quality record was folded into ARCHITECTURE.md and archived
+    // (2026-08-14); it must exist as a historical record and never ship.
+    expect(existsSync(path.join(ROOT, 'research', 'archive', 'hostile-baseline.md'))).toBe(true)
+    expect(existsSync(path.join(ROOT, 'ARCHITECTURE.md'))).toBe(true)
+    expect(pkg.files.some((/** @type {string} */ f) => f.startsWith('research'))).toBe(false)
   })
 
   it('get_schema advertises them, and returns the text inline when asked', () => {

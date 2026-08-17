@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-08-14).** This document was folded into the single source
+> of truth, [`ARCHITECTURE.md`](../../ARCHITECTURE.md), and is kept verbatim as
+> a historical record. Where this file and ARCHITECTURE.md disagree,
+> ARCHITECTURE.md wins — several decisions recorded here were later overturned
+> (see its §7.2). Do not update this file.
+
 # CVX layout engine — detailed design
 
 *2026-07-27. Builds on `layout-packing-research.md` (root cause + phased plan) and the architecture pass. This document specifies the **algorithm**: a single generic packing engine that unifies techniques currently found only in isolation, adapts to variable/optional content, stays byte-reproducible in pure Node, and exposes **layout levers an LLM can drive iteratively over MCP**.*

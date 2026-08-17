@@ -136,8 +136,13 @@ export function createMeasurer(fontsDir) {
     if (words.length === 0) return 1
 
     const spaceWidth = widthOf(' ', size, opts)
+    // @react-pdf/textkit's line breaker gives each whitespace glue a shrink of
+    // width*3/9 = width/3, so a line whose natural width exceeds the column by
+    // up to (spaces x spaceWidth / 3) still fits.
+    const SHRINK = 1 / 3
     let lines = 1
     let currentWidth = 0
+    let spaces = 0
     for (const word of words) {
       const wordWidth = widthOf(word, size, opts)
       if (currentWidth === 0) {
@@ -145,11 +150,13 @@ export function createMeasurer(fontsDir) {
         continue
       }
       const withSpace = currentWidth + spaceWidth + wordWidth
-      if (withSpace > maxWidth) {
+      if (withSpace > maxWidth + (spaces + 1) * spaceWidth * SHRINK) {
         lines += 1
         currentWidth = wordWidth
+        spaces = 0
       } else {
         currentWidth = withSpace
+        spaces += 1
       }
     }
     return lines

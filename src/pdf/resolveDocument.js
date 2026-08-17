@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { LAYOUTS, TWO_COLUMN_LAYOUT } from './defaultLayouts.js'
+import { applyLayoutSpacing } from './themes/layoutSpacing.js'
 import { monoTheme } from './themes/mono.js'
 import { tealTheme } from './themes/teal.js'
 
@@ -31,7 +32,6 @@ const LAYOUT_DEFAULT_THEME = {
  *   activeLayout: import('./types.js').ResolvedLayout,
  *   activeTheme: import('./types.js').Theme,
  *   isSingleColumn: boolean,
- *   packing: import('./types.js').CVConfig,
  * }}
  */
 export function resolveDocument({ config, theme, layout } = {}) {
@@ -39,14 +39,20 @@ export function resolveDocument({ config, theme, layout } = {}) {
   const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (
     layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
   )
-  const activeTheme =
-    theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  const baseTheme = theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  // D11: the template's `spacing:` groups are applied HERE, to the theme, and
+  // nowhere else. This function is already the single chain the planner and the
+  // renderer both go through (that is why it exists), so scaling the theme at
+  // this point makes it impossible for the model to measure one spacing and the
+  // page to draw another. Identity in, same object out — a layout declaring no
+  // spacing is byte-for-byte the build it was before the feature existed.
+  const activeTheme = applyLayoutSpacing(baseTheme, activeLayout)
 
   return {
     layoutName,
     activeLayout,
     activeTheme,
-    isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column',
+    isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column'
     // Normalised to the shape the packer reads: explicit nulls, never undefined,
     // so "unset" is one value rather than two.
     //
@@ -65,7 +71,9 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // without ever executing the new code path (demonstrated in C4: a `balance`
     // mode seeded to DROP a block left the whole suite green).
     //
-    // C6a adds a FOURTH and FIFTH place, and a warning about which lever.
+    // (Kept after S5 removed the packing field this once documented: the
+    // three-places-in-one-commit rule below is the standing contract for ANY
+    // future lever, and C4 is the measured reason.)
     //
     // FOURTH: the MCP tools' `inputSchema`s (src/mcp/tools.js) — `plan_layout`'s,
     // which today accepts `dir` and nothing else (a lever an agent cannot pass to
@@ -90,9 +98,5 @@ export function resolveDocument({ config, theme, layout } = {}) {
     // white space and a section fragmented across five pages. The diagnostics
     // C6a publishes deliberately carry no score for an agent to optimise there
     // (see layoutDiagnostics.js), and a `balance` lever would hand it one anyway.
-    packing: {
-      page1ExperienceCount: config?.page1ExperienceCount ?? null,
-      page1SplitBullets: config?.page1SplitBullets ?? null
-    }
   }
 }

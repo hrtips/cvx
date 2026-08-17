@@ -44,6 +44,7 @@ import { cpSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { load } from 'js-yaml'
 import { afterAll, describe, expect, it } from 'vitest'
+import { normalizeLayout } from '../src/pdf/loadLayout.js'
 import { diff, loadBaseline, normalizeOracleFacts } from './layout-harness/baseline.js'
 import { checkCompleteness, sentinelsFor, tailSentinel } from './layout-harness/contentOracle.js'
 import { buildContent } from './layout-harness/contentSpecs.js'
@@ -63,8 +64,15 @@ import { hardInvariantViolations, structuralFactsFor } from './layout-harness/st
 const { fixtures, meta } = buildFixturePlan()
 const baseline = loadBaseline()
 
-function assertHardInvariants(content) {
-  const structural = structuralFactsFor(content)
+/** The shipped scaffold renders with its own layout file; plan with the same one. */
+function scaffoldLayout(templateDir) {
+  return normalizeLayout(
+    load(readFileSync(path.join(templateDir, 'layouts', 'two-column.yaml'), 'utf8'))
+  )
+}
+
+function assertHardInvariants(content, layout = undefined) {
+  const structural = structuralFactsFor(content, layout)
   const violations = hardInvariantViolations(structural)
   expect(
     violations,
@@ -265,7 +273,7 @@ describe.skipIf(!hasPdftoppm())(
     // History: this test used to assert the scaffold's default config
     // (page1ExperienceCount: 2, page1SplitBullets: 2) reproduced bug (a)/(b)
     // (physical page count 4 vs logical 2, a blank page, an empty sidebar
-    // column) — the concrete example research/c0-baseline.md walked through.
+    // column) — the concrete example research/archive/c0-baseline.md walked through.
     // A review round (post-C2) found that forcing that split was never
     // actually necessary (the scaffold's own AGENTS.md rule: "add pagination
     // keys only if page 1 overflows") and, per real font measurement, was
@@ -310,7 +318,9 @@ describe.skipIf(!hasPdftoppm())(
       }
       expect(content.config.page1ExperienceCount).toBeUndefined() // guards against the forced keys silently creeping back in
 
-      const structural = assertHardInvariants(content)
+      // The scaffold is copied verbatim, so it renders with its OWN
+      // layouts/two-column.yaml — plan against that, not the built-in default.
+      const structural = assertHardInvariants(content, scaffoldLayout(templateDir))
       assertContentComplete(oracle, content)
       assertMatchesDescriptiveBaseline('scaffold-default', {
         logicalTotalPages: structural.logicalTotalPages,

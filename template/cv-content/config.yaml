@@ -4,16 +4,13 @@
 # theme      Colour scheme: teal | coral | mono
 # layout     Page structure: two-column | single-column
 #
-# page1ExperienceCount   How many experience entries appear on page 1.
-#                        The last entry may be split (see page1SplitBullets).
-#
-# page1SplitBullets      If set, the last entry on page 1 shows only this many
-#                        bullets; the rest continue on the next page.
-#                        Omit (or set to null) to show the full entry.
+# Pagination is automatic and never overflows. (The old page1ExperienceCount /
+# page1SplitBullets keys were removed: they never reduced the page count, and
+# forcing them pushed content onto an unnumbered extra sheet.)
 #
 # ─────────────────────────────────────────────────────────────────────────────
 
-# schemaVersion  Content schema major — content files never break within a major.
+# schemaVersion  Content schema major — new keys may appear within a major.
 schemaVersion: 1
 
 theme: teal

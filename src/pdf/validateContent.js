@@ -17,7 +17,8 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
-import { overflowWarnings, planTwoColumn } from './layout.js'
+import { overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
+import { normalizeLayout } from './loadLayout.js'
 import {
   createMeasurer,
   describeUnsupportedGlyphFinding,
@@ -25,6 +26,7 @@ import {
 } from './measure.js'
 import { PHOTO_EXTENSIONS } from './profilePhoto.js'
 import { THEMES } from './themes/index.js'
+import { SPACING_BOUNDS, SPACING_KEYS } from './themes/layoutSpacing.js'
 
 const Ajv2020 = /** @type {any} */ (Ajv2020Module).default ?? Ajv2020Module
 
@@ -149,6 +151,21 @@ function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
         break
       case 'additionalProperties': {
         const key = err.params.additionalProperty
+        // Not a typo: these two were real config keys, REMOVED by maintainer
+        // ruling (design-layout-fidelity.md, Review outcome #1) after being
+        // measured as an anti-lever — the page count never moved and every
+        // effective setting pushed content onto an unnumbered extra sheet.
+        // A "did you mean" here would send the user hunting for a near-miss
+        // spelling of a key that no longer exists.
+        if (key === 'page1ExperienceCount' || key === 'page1SplitBullets') {
+          finding = {
+            path: err.instancePath || '(root)',
+            message: `"${key}" was removed — automatic packing replaced it (it never reduced the page count, and forcing it pushed content onto an unnumbered extra sheet)`,
+            suggestion: 'delete the key; pagination is automatic and never overflows',
+            unknownKey: true
+          }
+          break
+        }
         const guess = didYouMean(key, Object.keys(err.parentSchema?.properties ?? {}))
         finding = {
           path: err.instancePath || '(root)',
@@ -377,17 +394,13 @@ export function validateContent(
     try {
       const plan = planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
-        config,
         theme,
         measure
       })
-      for (const w of overflowWarnings(plan, config)) {
-        add('warning', w.forcedByConfig ? 'config.yaml' : 'summary.yaml', 'page-overflow', {
-          ...(w.forcedByConfig ? { path: '/page1ExperienceCount' } : {}),
+      for (const w of overflowWarnings(plan)) {
+        add('warning', 'summary.yaml', 'page-overflow', {
           message: w.message,
-          suggestion: w.forcedByConfig
-            ? 'check the rendered page 1; reduce page1ExperienceCount, set page1SplitBullets, or remove both for automatic pagination'
-            : `check page ${w.page} of the render; the fix is to shorten the offending item, since no pagination can fit a single block taller than a page`
+          suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
         })
       }
     } catch {
@@ -461,6 +474,83 @@ export function validateContent(
         const severity = f.unknownKey && !strict ? 'warning' : 'error'
         add(severity, file, f.unknownKey ? 'unknown-key' : 'schema', f)
       }
+    }
+
+    // D11: template spacing is a multiplier with a legibility floor and a
+    // waste ceiling. Out-of-range is an ERROR with a field path, never a clamp
+    // (ruling R-M): a clamped value silently renders something the author did
+    // not ask for. The schema carries the same bounds, so this is belt and
+    // braces for a hand-written layout that skipped schema validation.
+    const declaredSpacing = /** @type {Record<string, unknown>} */ (
+      /** @type {any} */ (doc)?.spacing ?? {}
+    )
+    for (const [key, value] of Object.entries(declaredSpacing)) {
+      if (!SPACING_KEYS.includes(key)) {
+        add('error', file, 'unknown-spacing-key', {
+          path: `/spacing/${key}`,
+          message: `"${key}" is not a spacing group`,
+          suggestion: `use one of: ${SPACING_KEYS.join(', ')}`
+        })
+        continue
+      }
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        add('error', file, 'spacing-not-a-number', {
+          path: `/spacing/${key}`,
+          message: `spacing.${key} must be a number (a multiplier of the theme's value, 1 = unchanged)`
+        })
+        continue
+      }
+      if (value < SPACING_BOUNDS.min || value > SPACING_BOUNDS.max) {
+        add('error', file, 'spacing-out-of-range', {
+          path: `/spacing/${key}`,
+          message: `spacing.${key} is ${value} — outside the legible range ${SPACING_BOUNDS.min}–${SPACING_BOUNDS.max}`,
+          suggestion: `${value < SPACING_BOUNDS.min ? 'below' : 'above'} the bound; try ${value < SPACING_BOUNDS.min ? SPACING_BOUNDS.min : SPACING_BOUNDS.max}`
+        })
+      }
+    }
+
+    // D2: a `sidebar` slot key the sidebar cannot render used to be dropped in
+    // SILENCE — `packSidebar` skips any key `sidebarSectionH` returns null for,
+    // and the two-column renderer only draws the slices the packer produced, so
+    // e.g. `summary` in a sidebar slot deleted the whole section from the PDF
+    // while `validate --strict` still reported ok. The schema cannot catch it
+    // (layoutSlot is any non-empty string), so it is checked here. Sections are
+    // semantically pinned to their column (§7.2), so this is a real error, not
+    // a warning: INV-0 does not permit content to vanish quietly.
+    for (const [pageKind, page] of Object.entries(normalizeLayout(doc) ?? {})) {
+      const sidebar = /** @type {{ sidebar?: string[] }} */ (page)?.sidebar
+      if (!Array.isArray(sidebar)) continue
+      // Only slots the author actually WROTE as a key. `normalizeLayout`
+      // stringifies whatever it is given, so a malformed slot (`- ~`, a number,
+      // a nested list) arrives here as the string "null" — and reporting
+      // `"null" cannot render in a sidebar slot` quotes a key nobody typed, on
+      // top of the shape error the schema already raised for the same path. A
+      // second, invented diagnostic is worse than none.
+      const pages = /** @type {Record<string, { sidebar?: unknown[] }>} */ (
+        /** @type {{ pages?: unknown }} */ (doc)?.pages ?? doc
+      )
+      const rawSlots = pages?.[pageKind]?.sidebar ?? []
+      sidebar.forEach((key, i) => {
+        if (typeof key !== 'string') return
+        // A slot the author wrote as a KEY is a string, or the object form
+        // (`{ spacer: n }`, `{ education: { continued: true } }`). Anything else
+        // — null, a number, a nested list — is a shape the schema has already
+        // rejected at this exact path, and `null` in particular reaches this
+        // loop as the STRING "null" once normalized. (`typeof null === 'object'`
+        // is why the first cut of this guard let it through.)
+        const raw = rawSlots[i]
+        const authored = typeof raw === 'string' || (raw !== null && typeof raw === 'object')
+        if (raw !== undefined && !authored) return
+        if (key.startsWith('identity-') || key.startsWith('spacer:')) return
+        if (SIDEBAR_SECTION_KEYS.includes(key.split(':')[0])) return
+        add('error', file, 'slot-not-renderable', {
+          path: `/${pageKind}/sidebar/${i}`,
+          message: `"${key}" cannot render in a sidebar slot — it would be dropped from the PDF without warning`,
+          suggestion: didYouMean(key, SIDEBAR_SECTION_KEYS)
+            ? `did you mean "${didYouMean(key, SIDEBAR_SECTION_KEYS)}"?`
+            : `move it to a main slot, or use one of: ${SIDEBAR_SECTION_KEYS.join(', ')}`
+        })
+      })
     }
   }
 

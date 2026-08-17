@@ -34,6 +34,18 @@ const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8'))
 
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
 
+/**
+ * Which build-time defects `--strict` turns into a non-zero exit.
+ *
+ * ONE set, used by `build` and by `build --all`, because they drifted apart
+ * the moment they were written separately: `--all` gated every `kind:'defect'`
+ * while `build` gated this code alone, so the same CV exited 0 from one
+ * command and 2 from the other (gate-7 re-review). Scoped narrowly on purpose
+ * — R-D rules on this defect, and `HELP` documents exactly this — so widening
+ * it to every defect stays a maintainer ruling that changes this one line.
+ */
+const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan'])
+
 const HELP = `cvx ${version} — config-driven CV generator
 
 Usage:
@@ -49,6 +61,8 @@ Usage:
 
 Options:
   --strict             validate: treat warnings (e.g. unknown keys) as errors
+                       build: exit non-zero if the PDF has more sheets than
+                       planned (also applies to build --all)
   --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
@@ -268,12 +282,15 @@ export async function mcpInit(/** @type {{ client?: string, json?: boolean }} */
     )
 }
 
-export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { ats, json }) {
+export async function build(
+  /** @type {{ ats?: boolean, json?: boolean, strict?: boolean }} */ { ats, json, strict }
+) {
   const { renderCV } = await import('../lib/pdf/render.js')
   const { layoutDiagnostics } = await import('../lib/pdf/layoutDiagnostics.js')
+  const { attachPhysicalWarnings } = await import('../lib/pdf/physicalPagesWarning.js')
   /** @type {string[]} */
   const notices = []
-  const { buffer, filename, themeName, layoutName, config, plan } = await renderCV({
+  const { buffer, filename, themeName, layoutName, plan } = await renderCV({
     contentDir: join(process.cwd(), 'cv-content'),
     fontsDir: join(pkgRoot, 'lib', 'fonts'),
     ats,
@@ -283,6 +300,25 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
     }
   })
   writeFileSync(join(process.cwd(), filename), buffer)
+
+  // I1 (INV-4): the plan counts pages it numbered; this counts sheets that
+  // exist. `--ats` has no plan (single column, auto-flowed) so there is no
+  // claim to check. Merged into the envelope's warnings here — NOT inside
+  // layoutDiagnostics, which is pinned pure over the plan; see
+  // physicalPagesWarning.js.
+  const { diagnostics, added: physical } = attachPhysicalWarnings({
+    diagnostics: ats ? null : layoutDiagnostics(plan),
+    buffer,
+    plan,
+    ats
+  })
+  for (const w of physical) {
+    // R-D: a defect reaches stderr in every mode. Facts never do — a normal
+    // page break is not shouted at (the existing page1-ends-early rule).
+    notices.push(w.message)
+    console.error(`⚠ ${w.message}`)
+  }
+
   if (json) {
     emit({
       command: 'build',
@@ -303,11 +339,19 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
       // blind to the PDF as one driving the MCP server — so it gets the same
       // numbers `build_pdf` returns, from the same function. `null` for --ats
       // (single column, auto-flowed, never packed).
-      diagnostics: layoutDiagnostics(plan, config)
+      diagnostics
     })
   } else {
     const mode = ats ? 'ATS' : `theme: ${themeName}, layout: ${layoutName}`
     console.log(`✅ ${filename}  (${(buffer.byteLength / 1024).toFixed(0)} KB, ${mode})`)
+  }
+
+  // R-D: the PDF exists and is content-complete, so a defect is exit 0 by
+  // default — calling it a render failure would misstate what happened. Under
+  // --strict it must be impossible to ignore, matching `validate`'s precedent
+  // (warnings become errors) so a scripted caller can opt into hard failure.
+  if (strict && physical.some((w) => STRICT_GATED_CODES.has(w.code))) {
+    process.exit(EXIT.validation)
   }
 }
 
@@ -321,7 +365,9 @@ export async function build(/** @type {{ ats?: boolean, json?: boolean }} */ { a
 // missing glyphs on the page). That leak is now fixed at the source, in
 // src/pdf/fonts.js, so every caller is safe; the child processes stay as
 // defence in depth for the one command that renders twice by construction.
-export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
+export async function buildAll(
+  /** @type {{ json?: boolean, strict?: boolean }} */ { json, strict }
+) {
   const contentDir = join(process.cwd(), 'cv-content')
   const { validateContent } = await import('../lib/pdf/validateContent.js')
   const vr = validateContent(
@@ -356,6 +402,8 @@ export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
 
   const cliPath = fileURLToPath(import.meta.url)
   const outputs = []
+  /** Defect-kind warnings from either variant — the --strict gate below. */
+  const strictFailures = []
   for (const ats of [false, true]) {
     const label = ats ? 'ATS' : 'designed'
     let res
@@ -394,6 +442,14 @@ export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
       else console.error(`Build failed for the ${label} variant.`)
       process.exit(EXIT.render)
     }
+    // R-D applies to `--all` too. The child is NOT run with --strict: it would
+    // exit non-zero, and the catch above would report that as `render-failed`,
+    // which misdescribes a PDF that exists and is content-complete. Collect the
+    // defects from the child's own envelope and decide once, after both
+    // variants are written.
+    for (const w of res.diagnostics?.warnings ?? []) {
+      if (STRICT_GATED_CODES.has(w.code)) strictFailures.push(`${label}: ${w.message}`)
+    }
     outputs.push({
       filename: res.filename,
       bytes: res.bytes,
@@ -411,6 +467,11 @@ export async function buildAll(/** @type {{ json?: boolean }} */ { json }) {
       )
   }
   if (json) emit({ command: 'build', all: true, ok: true, outputs })
+  // Both PDFs exist and are content-complete, so the default stays exit 0 with
+  // the defects reported (R-D). --strict is the opt-in hard gate, and it must
+  // behave the same here as on a single build — `--all` is the command the
+  // docs push agents toward, so a carve-out would be the gap that matters.
+  if (strict && strictFailures.length > 0) process.exit(EXIT.validation)
 }
 
 export async function main(argv = process.argv) {

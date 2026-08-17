@@ -82,8 +82,19 @@ function mainSlotKeys(layout, index, totalPages) {
   // (continuation -> last -> first): a hand-written layouts/*.yaml may define
   // only `first`, and the renderer must not throw where the plan copes.
   const cont = layout.continuation?.main ?? layout.last?.main ?? layout.first.main
-  if (index === totalPages - 1) return layout.last?.main ?? cont
-  return cont
+  if (index !== totalPages - 1) return cont
+  const last = layout.last?.main
+  if (!last) return cont
+  // D3: on a TWO-page document the final page is also the only continuation
+  // page, so it plays both roles and must render both slot lists — union in
+  // document order, `continuation` first. Returning `last` alone (the pre-fix
+  // behaviour) meant every key appearing only in `continuation.main` rendered
+  // NOWHERE, silently, for any section — measured: `achievements` there on a
+  // 2-page CV produced zero occurrences with `validate --strict` reporting ok.
+  // On 3+ pages the continuation keys have already rendered on an earlier
+  // page, so the final page takes `last` alone and nothing is duplicated.
+  if (totalPages === 2) return [...new Set([...cont, ...last])]
+  return last
 }
 
 /**
@@ -180,7 +191,7 @@ export default function CVDocument({
   measure,
   plan
 }) {
-  const { activeLayout, activeTheme, isSingleColumn, packing } = resolveDocument({
+  const { activeLayout, activeTheme, isSingleColumn } = resolveDocument({
     config,
     theme,
     layout
@@ -227,7 +238,6 @@ export default function CVDocument({
               planTwoColumn({
                 content: data,
                 layout: activeLayout,
-                config: packing,
                 theme: activeTheme,
                 measure
               })
