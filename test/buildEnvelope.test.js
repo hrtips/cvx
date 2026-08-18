@@ -13,7 +13,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { build } from '../bin/cvx.js'
+import { build, stdoutJson } from '../bin/cvx.js'
 import { assertLibMatchesSrc, ROOT } from './layout-harness/scaffold.js'
 
 const TEMPLATE = path.join(ROOT, 'template', 'cv-content')
@@ -41,6 +41,13 @@ async function run(dir, opts) {
   const out = []
   const err = []
   const log = vi.spyOn(console, 'log').mockImplementation((m) => out.push(String(m)))
+  // RV10: the --json envelope goes to fd 1 through `fs.writeSync`, not
+  // console.log — stdout is asynchronous over a pipe and `build` exits
+  // immediately after printing, which truncated the payload at 64KiB for any
+  // caller consuming it. Capture it where it is now written.
+  const write = vi.spyOn(stdoutJson, 'write').mockImplementation((m) => {
+    out.push(String(m))
+  })
   const error = vi.spyOn(console, 'error').mockImplementation((m) => err.push(String(m)))
   /** @type {number | null} */
   let exited = null
@@ -56,6 +63,7 @@ async function run(dir, opts) {
   } finally {
     process.chdir(cwd)
     log.mockRestore()
+    write.mockRestore()
     error.mockRestore()
     exit.mockRestore()
   }

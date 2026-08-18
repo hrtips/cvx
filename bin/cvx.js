@@ -22,7 +22,8 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
-  writeFileSync
+  writeFileSync,
+  writeSync
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -83,7 +84,68 @@ Exit codes: 0 ok · 2 validation failed · 3 render failed · 64 usage error
 Edit the YAML files in cv-content/ and re-run "cvx build".
 Docs: https://github.com/hrtips/cvx#readme`
 
-const emit = (/** @type {unknown} */ obj) => console.log(JSON.stringify(obj, null, 2))
+/**
+ * Write the one JSON object this command's `--json` contract promises.
+ *
+ * RV10: this used `console.log`, and every command calls `process.exit()`
+ * immediately afterwards. `process.stdout` is ASYNCHRONOUS when stdout is a
+ * pipe — which is exactly what it is when an agent or a script consumes the
+ * output — so `exit()` discarded whatever had not drained. Measured: the
+ * payload arrived truncated at exactly 65536 bytes, the pipe buffer, and the
+ * JSON was unparseable, with no indication that anything was missing.
+ *
+ * Reachable rather than theoretical: the scaffold's `validate --json` is 472
+ * bytes and a 12-role CV's `build --json` is 19.7 KB, so the ceiling is about
+ * 3x a large real CV — but `validate`'s findings are unbounded (`allErrors:
+ * true`), and a content directory full of unknown keys is a very ordinary way
+ * for an assistant-written CV to fail.
+ *
+ * `writeSync` on fd 1 is not subject to that: it blocks until the bytes are
+ * handed over. The loop is for partial writes, which a full pipe can return.
+ */
+/**
+ * The one place `--json` output leaves this process.
+ *
+ * A named seam rather than a bare call, for two reasons. Production needs a
+ * SYNCHRONOUS write (see below); the in-process tests need to capture the
+ * envelope, and stubbing `fs.writeSync` globally is not an option — vitest's
+ * own worker writes through it and dies. So tests replace this one property.
+ */
+export const stdoutJson = {
+  /**
+   * RV10: this used `console.log`, and every command calls `process.exit()`
+   * immediately afterwards. `process.stdout` is ASYNCHRONOUS when stdout is a
+   * pipe — which is exactly what it is when an agent or a script consumes the
+   * output — so `exit()` discarded whatever had not drained. Measured: the
+   * payload arrived truncated at exactly 65536 bytes, the pipe buffer, and the
+   * JSON was unparseable, with nothing saying so.
+   *
+   * Reachable rather than theoretical: the scaffold's `validate --json` is 472
+   * bytes and a 12-role CV's `build --json` is 19.7 KB, so the ceiling is
+   * about 3x a large real CV — but `validate`'s findings are unbounded
+   * (`allErrors: true`), and a content directory full of unknown keys is an
+   * ordinary way for an assistant-written CV to fail, which is when the caller
+   * most needs to read them.
+   *
+   * `writeSync` blocks until the bytes are handed over. The loop covers a
+   * partial write, which a full pipe can return.
+   */
+  write(/** @type {string} */ text, /** @type {number} */ fd = 1) {
+    const buf = Buffer.from(text, 'utf8')
+    let off = 0
+    while (off < buf.length) {
+      try {
+        off += writeSync(fd, buf, off, buf.length - off)
+      } catch (err) {
+        // EAGAIN: the pipe is momentarily full and the fd is non-blocking.
+        // Retry rather than dropping the tail — dropping it is the bug.
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'EAGAIN') throw err
+      }
+    }
+  }
+}
+
+const emit = (/** @type {unknown} */ obj) => stdoutJson.write(`${JSON.stringify(obj, null, 2)}\n`)
 
 export async function init(/** @type {{ json?: boolean }} */ { json }) {
   const dest = join(process.cwd(), 'cv-content')

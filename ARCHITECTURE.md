@@ -1225,16 +1225,19 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     budget that variant does not have. The agent-facing docs teach that
     warning's remediation, so a driving LLM would shorten a summary that has no
     overflow.
-  - **RV10 (P1) — SCHEDULED (this pass). `--json` truncates at the 64 KiB pipe buffer**,
+  - **RV10 (P1) — LANDED. `--json` truncated at the 64 KiB pipe buffer**,
     delivering unparseable JSON to an agent with no indication. Measured
     context: scaffold `validate --json` 472 B, scaffold `build --json` 8.5 KB, a
     12-role CV `build --json` 19.7 KB — the ceiling is ~3× a large real CV, and
     `validate`'s findings are unbounded under `allErrors: true`.
-  - **RV11 (P2) — the spacing bound `0.6–1.5` is copy-pasted in seven places**
+  - **RV11 (P2) — LANDED (tripwire, not de-duplication). The spacing bound `0.6–1.5` is copy-pasted in seven places**
     with nothing binding them, including three literals in the JSON Schema that
     `get_schema` serves the driving LLM as the authoritative contract.
     `validateContent.js` already calls it "belt and braces" in its own comment.
-    **PARKED** — needs a docsSync-style numeric tripwire; no fix shipped.
+    Closed with a docsSync-style tripwire (`test/spacingBoundsSync.test.js`)
+    that reads the canonical constant and asserts the schema's three min/max
+    pairs and all four prose copies agree. The copies remain — JSON Schema
+    cannot import a JS module — but they can no longer drift silently.
   - **RV12 — PARKED, and why.** Two independently-coded "ATS" renderers
     (`--ats` → `ATSDocument.jsx`; `layout: single-column` → the sidebar-styled
     registry components at full width). Same content: 2 dense pages vs 3 with a

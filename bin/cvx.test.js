@@ -15,7 +15,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { build, buildAll, init, isRunAsMain, list, main, mcpInit, validate } from './cvx.js'
+import {
+  build,
+  buildAll,
+  init,
+  isRunAsMain,
+  list,
+  main,
+  mcpInit,
+  stdoutJson,
+  validate
+} from './cvx.js'
 
 // The `mcp` (no subcommand) branch starts a blocking stdio server; mock it so
 // the branch is exercised without hanging the test process.
@@ -42,6 +52,8 @@ let exitSpy
 let logSpy
 /** @type {import('vitest').MockInstance} */
 let errSpy
+/** @type {import('vitest').MockInstance} */
+let writeSpy
 
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'cvx-cli-'))
@@ -50,6 +62,9 @@ beforeEach(() => {
     throw new ExitError(Number(code ?? 0))
   })
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  // emit() writes the --json envelope straight to fd 1 (RV10). Swallow it in
+  // tests the way console.log is swallowed, and record it for jsonEmits().
+  writeSpy = vi.spyOn(stdoutJson, 'write').mockImplementation(() => {})
   errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -58,6 +73,7 @@ afterEach(() => {
   exitSpy.mockRestore()
   logSpy.mockRestore()
   errSpy.mockRestore()
+  writeSpy.mockRestore()
   rmSync(tmp, { recursive: true, force: true })
 })
 
@@ -74,10 +90,16 @@ async function exitCode(/** @type {Promise<unknown>} */ promise) {
 }
 
 // Every JSON object printed on stdout (emit()/--json), in order.
+//
+// RV10: emit() writes to fd 1 with `writeSync`, not `console.log`, because
+// stdout is asynchronous over a pipe and every command calls process.exit()
+// straight after — which truncated the envelope at the 64KiB pipe buffer for
+// any caller consuming it. So the envelope is captured from the fd-1 spy;
+// `logSpy` still covers the human-readable output.
 function jsonEmits() {
-  return logSpy.mock.calls
-    .map((c) => c[0])
-    .filter((c) => typeof c === 'string' && c.trimStart().startsWith('{'))
+  return writeSpy.mock.calls
+    .map((c) => String(c[0]))
+    .filter((c) => c.trimStart().startsWith('{'))
     .map((s) => JSON.parse(s))
 }
 
@@ -159,6 +181,7 @@ describe('init', () => {
   it('refuses to overwrite an existing cv-content/ (usage 64, --json)', async () => {
     await init({ json: true })
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(init({ json: true }))).toBe(64)
     expect(jsonOut()).toMatchObject({ ok: false, error: { code: 'already-exists' } })
   })
@@ -179,6 +202,7 @@ describe('validate', () => {
   it('exits 0 on the scaffold (--json, --strict)', async () => {
     await init({ json: true })
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(validate({ strict: true, json: true }))).toBe(0)
     const out = jsonOut()
     expect(out).toMatchObject({ command: 'validate', ok: true, schemaVersion: 1, strict: true })
@@ -188,6 +212,7 @@ describe('validate', () => {
   it('exits 0 on the scaffold (human output)', async () => {
     await init({ json: false })
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(validate({ strict: false, json: false }))).toBe(0)
     expect(logText()).toContain('is valid')
   })
@@ -196,6 +221,7 @@ describe('validate', () => {
     await init({ json: true })
     writeFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'title: No Name Here\n')
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(validate({ json: true }))).toBe(2)
     const out = jsonOut()
     expect(out.ok).toBe(false)
@@ -206,6 +232,7 @@ describe('validate', () => {
     await init({ json: false })
     writeFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'title: No Name Here\n')
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(validate({ json: false }))).toBe(2)
     expect(logText()).toContain('error')
   })
@@ -213,6 +240,7 @@ describe('validate', () => {
   it('is reachable via main() dispatch', async () => {
     await init({ json: true })
     logSpy.mockClear()
+    writeSpy.mockClear()
     await exitCode(main(argv('validate', '--strict', '--json')))
     expect(jsonEmits().some((j) => j.command === 'validate' && j.ok === true)).toBe(true)
   })
@@ -226,6 +254,7 @@ describe('validate', () => {
       'name: Test\nlinkdin: https://example.com\n'
     )
     logSpy.mockClear()
+    writeSpy.mockClear()
     await exitCode(validate({ strict: true, json: false }))
     expect(logText()).toMatch(/linkedin/i)
   })
@@ -342,6 +371,7 @@ describe('build', () => {
     async () => {
       await init({ json: true })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await build({ ats: false, json: true })
       const out = jsonOut()
       expect(out).toMatchObject({
@@ -363,6 +393,7 @@ describe('build', () => {
     async () => {
       await init({ json: false })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await build({ ats: true, json: false })
       expect(existsSync(join(tmp, 'bruce-wayne-ats.pdf'))).toBe(true)
       expect(logText()).toContain('bruce-wayne-ats.pdf')
@@ -375,6 +406,7 @@ describe('build', () => {
     async () => {
       await init({ json: true })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await build({ ats: true, json: true })
       const out = jsonOut()
       expect(out).toMatchObject({
@@ -393,6 +425,7 @@ describe('build', () => {
     async () => {
       await init({ json: false })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await build({ ats: false, json: false })
       expect(logText()).toMatch(/theme:.*layout:/)
     },
@@ -420,6 +453,7 @@ describe('build --all', () => {
     async () => {
       await init({ json: true })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await buildAll({ json: true })
       const out = jsonOut()
       expect(out).toMatchObject({ command: 'build', all: true, ok: true })
@@ -436,6 +470,7 @@ describe('build --all', () => {
     async () => {
       await init({ json: false })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await buildAll({ json: false })
       expect(logText()).toContain('bruce-wayne.pdf')
       expect(logText()).toContain('bruce-wayne-ats.pdf')
@@ -447,6 +482,7 @@ describe('build --all', () => {
     await init({ json: true })
     writeFileSync(join(tmp, 'cv-content', 'personal.yaml'), 'title: No Name\n')
     logSpy.mockClear()
+    writeSpy.mockClear()
     expect(await exitCode(buildAll({ json: true }))).toBe(2)
     expect(jsonOut()).toMatchObject({
       command: 'build',
@@ -469,6 +505,7 @@ describe('build --all', () => {
     async () => {
       await init({ json: true })
       logSpy.mockClear()
+      writeSpy.mockClear()
       await main(argv('build', '--all', '--json'))
       expect(jsonOut()).toMatchObject({ all: true, ok: true })
     },
