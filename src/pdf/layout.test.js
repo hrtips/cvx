@@ -1,4 +1,4 @@
-// packExperiences' public contract. The `resolveFirstSidebar (R1)` describe
+// packExperiences' public contract. The `resolveFirstSidebar (RV1)` describe
 // that used to head this file is gone with the function: its single-page
 // sidebar fold is subsumed by sidebarFlowKeys() + packSidebar() (C3a), and its
 // `isSinglePage === false` branch was unreachable in production — keeping tests

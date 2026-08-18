@@ -56,7 +56,7 @@
 //      `role-not-on-planned-page` means the render has drifted from the plan and
 //      must never occur.
 //
-// THEME (risk R2 in the design). Every number here is Lato at the shipped sizes,
+// THEME (risk RV2 in the design). Every number here is Lato at the shipped sizes,
 // and six harness modules still hardcode `tealTheme`. This one takes the theme
 // as a parameter from day one — not because a second theme is exercised today,
 // but because P3 makes the type scale variable and owes a re-derivation, and a

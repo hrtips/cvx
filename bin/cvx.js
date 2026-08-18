@@ -53,7 +53,7 @@ const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
  * — R-D rules on this defect, and `HELP` documents exactly this — so widening
  * it to every defect stays a maintainer ruling that changes this one line.
  */
-const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan'])
+const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan', 'slot-not-renderable'])
 
 const HELP = `cvx ${version} — config-driven CV generator
 
@@ -362,7 +362,16 @@ export async function build(
   // default — calling it a render failure would misstate what happened. Under
   // --strict it must be impossible to ignore, matching `validate`'s precedent
   // (warnings become errors) so a scripted caller can opt into hard failure.
-  if (strict && physical.some((w) => STRICT_GATED_CODES.has(w.code))) {
+  //
+  // RV1: the gate reads the PLAN's warnings as well as the physical ones. It
+  // used to read `physical` alone, which was right while the only gated code
+  // came from `attachPhysicalWarnings` — but `slot-not-renderable` is derived
+  // from the layout's slots, so a gate that only looked at the physical list
+  // would have let the defect it exists for walk straight through.
+  const gated = [...(diagnostics?.warnings ?? []), ...physical].some((w) =>
+    STRICT_GATED_CODES.has(w.code)
+  )
+  if (strict && gated) {
     process.exit(EXIT.validation)
   }
 }

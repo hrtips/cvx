@@ -200,7 +200,7 @@ describe('MCP tools and the layout-reading rules are documented wherever a model
 
   it('the MCP tool surface teaches the complete warning-code list and the kind discriminator', () => {
     // An unlisted code inside an array documented as "defects", carrying an
-    // exact edit size, is the R1 gradient with a "please climb me" label
+    // exact edit size, is the RV1 gradient with a "please climb me" label
     // (architecture review, D3). The code list and the defect/fact split must
     // be visible on the surface a bare MCP client shows.
     for (const text of [mcpTools]) {

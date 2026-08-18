@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-// Regression guard for R4: the Node export path imports `js-yaml` directly,
+// Regression guard for RV4: the Node export path imports `js-yaml` directly,
 // while the browser/Vite path parses YAML through `@rollup/plugin-yaml`, which
 // declares its own `js-yaml` dependency. If those resolve to different MAJORS,
 // the preview and the exported PDF can disagree on parsing semantics.
@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const major = (v) => Number(v.split('.')[0])
 const versionOf = (relPath) => JSON.parse(readFileSync(join(root, relPath), 'utf8')).version
 
-describe('js-yaml alignment across content-loading paths (R4)', () => {
+describe('js-yaml alignment across content-loading paths (RV4)', () => {
   it('resolves to a single js-yaml major for both paths', () => {
     const appMajor = major(versionOf('node_modules/js-yaml/package.json'))
 

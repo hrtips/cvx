@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 28 names. Only ten of them are API. The rest are
+// This module exports 29 names. Only eleven of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -88,7 +88,7 @@
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
 //     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
-//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -2086,8 +2086,43 @@ const slotKey = (slot) => String(slot ?? '').split(':')[0]
 /**
  * Every section key a layout can render, in either column. `contact` is here
  * because a slot draws it, even though its content lives in `personal.yaml`.
+ *
  */
 const RENDERABLE_SECTION_KEYS = Object.freeze([...MEASURED_MAIN_KEYS, ...SIDEBAR_SECTION_KEYS])
+
+/**
+ * Every slot key a `main` slot can actually draw — the accept-list
+ * `validateContent`'s `slot-not-renderable` check derives from (RV1).
+ *
+ * Public for the same reason `SIDEBAR_SECTION_KEYS` is: it is the ONE list,
+ * and a hand-copied second copy is precisely how this gap stayed open. D2 gave
+ * the sidebar half a shared list in 1.8.0; the main half was never written at
+ * all, so `- experiance` in `first.main` deleted five of the scaffold's sixteen
+ * bullets under a clean `validate --strict`.
+ *
+ * Three things sit here that `RENDERABLE_SECTION_KEYS` does not carry, and each
+ * is load-bearing rather than defensive:
+ *
+ * - `header-ats` draws from `personal.yaml` rather than a content section of
+ *   its own, so it is not a "renderable section" — but the SHIPPED
+ *   single-column layout puts it in `first.main` (`defaultLayouts.js`), and an
+ *   accept-list without it would fail the scaffold CVX itself generates.
+ * - `experience:continued` is the one `:continued` form the renderer
+ *   implements (`sections/registry.js`). Every other `<section>:continued`
+ *   draws nothing, which is why main slots match the WHOLE key rather than the
+ *   `split(':')[0]` prefix the sidebar arm uses (RV1).
+ * - the `identity-*` keys are matched by prefix at the call site, as the
+ *   sidebar arm already does.
+ *
+ * Not a permanent surface, for the same reason `MEASURED_MAIN_KEYS` is not:
+ * when I6 gives every section a co-located plugin, the renderer's own registry
+ * becomes the single list and this one goes away with the gap it patches.
+ */
+export const MAIN_SLOT_KEYS = Object.freeze([
+  ...RENDERABLE_SECTION_KEYS,
+  'header-ats',
+  'experience:continued'
+])
 
 /**
  * Content sections that are POPULATED but that no slot in this layout renders —
@@ -2158,6 +2193,43 @@ function unmeasuredMainKeys(layout) {
       // (verified: it produced a 4th sheet against a 3-page plan in silence,
       // while `achievements` in the same slot fired the warning correctly).
       if (key === 'summary' ? kind === 'first' : MEASURED_MAIN_KEYS.includes(key)) continue
+      seen.add(key)
+    }
+  }
+  return [...seen]
+}
+
+/**
+ * Slot keys a `main` slot cannot draw at all — a typo, or a `:continued` form
+ * the renderer does not implement.
+ *
+ * RV1: distinct from {@link unmeasuredMainKeys}, and the difference is the
+ * whole point. "Unmeasured" means the ink reaches the page and the plan's
+ * arithmetic excludes it — a fact. This means the ink NEVER REACHES THE PAGE:
+ * `sections/registry.js` resolves the key to nothing, logs to stderr with no
+ * code, and returns null. `- experiance` in `first.main` deleted five of the
+ * scaffold's sixteen bullets that way, with `notices: []` and exit 0.
+ *
+ * `validate` catches this first and more helpfully (it can offer "did you
+ * mean"), but plain `cvx build` never validates — only `validate` and
+ * `build --all` do — so validation alone would leave the defect shippable.
+ * INV-5 requires every defect state to carry a named code; this is that code.
+ *
+ * @param {{ first?: { main?: unknown[] }, continuation?: { main?: unknown[] }, last?: { main?: unknown[] } }} layout
+ * @returns {string[]} unrenderable keys, deduplicated, in first-seen order
+ */
+function unrenderableMainKeys(layout) {
+  const seen = new Set()
+  for (const kind of /** @type {const} */ (['first', 'continuation', 'last'])) {
+    for (const slot of layout?.[kind]?.main ?? []) {
+      const key = String(slot ?? '')
+      if (key === '') continue
+      if (isIdentityKey(key)) continue
+      // A spacer with a real number is fine; one without is N4's `height: NaN`,
+      // which `validate` rejects. Either way it is not a MISSING section, so it
+      // is not this fact's subject.
+      if (key === 'spacer' || key.startsWith('spacer:')) continue
+      if (MAIN_SLOT_KEYS.includes(key)) continue
       seen.add(key)
     }
   }
@@ -2530,6 +2602,7 @@ export function planTwoColumn({
      * planner starts measuring these and the array is empty by construction.
      */
     unmeasuredMainKeys: unmeasuredMainKeys(layout),
+    unrenderableMainKeys: unrenderableMainKeys(layout),
     /**
      * Populated content sections no slot in this layout renders — present in
      * `cv-content/` and in the ATS variant, absent from this designed PDF.

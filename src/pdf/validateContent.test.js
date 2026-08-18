@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dump } from 'js-yaml'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SIDEBAR_SECTION_KEYS } from './layout.js'
+import { MAIN_SLOT_KEYS, SIDEBAR_SECTION_KEYS } from './layout.js'
 import { SPACING_BOUNDS } from './themes/layoutSpacing.js'
 import { validateContent } from './validateContent.js'
 
@@ -707,6 +707,92 @@ describe('validateContent — a sidebar slot that cannot render is an error, not
     const res = withLayout('template: two-column\nfirst:\n  sidebar:\n    - ~\n')
     expect(res.errors.some((e) => e.code === 'slot-not-renderable')).toBe(false)
     expect(res.errors.length).toBeGreaterThan(0) // the shape check still speaks
+  })
+})
+
+// RV1: the same guard, for the column it was never extended to.
+//
+// D2 closed this for `sidebar` slots in 1.8.0. `main` slots stayed unchecked,
+// so the identical typo behaved in opposite ways depending on which column it
+// was in: `- acheivements` in a sidebar was a hard error with a "did you mean",
+// and `- experiance` in `first.main` deleted five of the scaffold's sixteen
+// bullets under a clean `validate --strict`, a `build --strict` reporting
+// `ok: true` with `notices: []`, and a plan still publishing the dropped
+// bullets as `bulletRange: [0, 5]`.
+//
+// `section-has-no-slot` did not cover it: `experience` still had a slot
+// elsewhere (`experience:continued` on later pages), so that guard was
+// satisfied while page 1's block rendered nothing.
+//
+// The second half. The sidebar arm tests `key.split(':')[0]` — the
+// PREFIX — which is right there, where `education:continued` is a legal way to
+// name a sidebar section. In a main slot it is a hole: `:continued` is
+// implemented for `experience` alone (registry.js), so every other
+// `<anything>:continued` renders nothing, and `frobnicate:continued` walked
+// past a check that catches bare `frobnicate`. Main slots therefore match the
+// WHOLE key.
+describe('validateContent — a main slot that cannot render is an error too (RV1)', () => {
+  const withMain = (/** @type {string} */ slots) =>
+    validateContent({
+      contentDir: makeDir(BASE, {
+        layouts: {
+          'custom.yaml': `template: two-column\nfirst:\n  main:\n${slots
+            .split('\n')
+            .filter(Boolean)
+            .map((k) => `    - ${k}\n`)
+            .join('')}`
+        }
+      }),
+      fontsDir: FONTS
+    })
+
+  it('names a typo, its path, and the near-miss', () => {
+    const res = withMain('experiance')
+    const f = res.errors.find((e) => e.code === 'slot-not-renderable')
+    expect(f).toBeDefined()
+    expect(f?.path).toBe('/first/main/0')
+    expect(f?.message).toMatch(/dropped from the PDF without warning/)
+    expect(f?.suggestion).toMatch(/did you mean "experience"\?/)
+  })
+
+  it('rejects `<section>:continued` for every section but experience', () => {
+    for (const key of ['education:continued', 'achievements:continued', 'summary:continued']) {
+      const res = withMain(key)
+      const f = res.errors.find((e) => e.code === 'slot-not-renderable')
+      expect(f, `${key} must be rejected — only experience implements :continued`).toBeDefined()
+    }
+  })
+
+  it('rejects a bogus key even when `:continued` is appended (the RV1 bypass)', () => {
+    // The tell that the prefix test was the wrong rule here: bare `frobnicate`
+    // was caught, and appending `:continued` walked straight past it.
+    const bare = withMain('frobnicate')
+    const suffixed = withMain('frobnicate:continued')
+    expect(bare.errors.some((e) => e.code === 'slot-not-renderable')).toBe(true)
+    expect(suffixed.errors.some((e) => e.code === 'slot-not-renderable')).toBe(true)
+  })
+
+  it('rejects a spacer whose argument is not a finite number (N4)', () => {
+    // `parseFloat('bogus')` is NaN, and registry.js built a View with
+    // `height: NaN` out of it — silently, against a budget the planner had
+    // already charged at a different number.
+    for (const key of ['spacer:bogus', 'spacer:']) {
+      const res = withMain(key)
+      expect(
+        res.errors.some((e) => e.code === 'slot-not-renderable'),
+        `${key} must be rejected rather than rendering height: NaN`
+      ).toBe(true)
+    }
+    expect(withMain('spacer:27').errors.filter((e) => e.code === 'slot-not-renderable')).toEqual([])
+  })
+
+  it('accepts every key a main slot can actually draw', () => {
+    // Derived from the packer's own list, never hand-copied — the same reason
+    // SIDEBAR_SECTION_KEYS is public (layout.api.test.js): a hand-written second
+    // list is exactly how a silent content-loss gap reopens.
+    const keys = ['spacer:12', 'identity-photo', ...MAIN_SLOT_KEYS]
+    const res = withMain(keys.join('\n'))
+    expect(res.errors.filter((e) => e.code === 'slot-not-renderable')).toEqual([])
   })
 })
 

@@ -58,7 +58,7 @@ const withoutControlChars = (/** @type {string} */ s) =>
 /**
  * The output filename, derived from the person's name.
  *
- * R0: this is the one place CV content decides where bytes land on disk, and
+ * RV0: this is the one place CV content decides where bytes land on disk, and
  * it used to do it with no sanitisation — `name: "../Documents/Resume"` wrote
  * the PDF over that file, outside the workspace, with `validate --strict`
  * clean and the build reporting `✅`. INV-12 ("CV content is data, not

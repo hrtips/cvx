@@ -461,7 +461,7 @@ describe('renderCV — ATS document (ats: true)', () => {
   )
 })
 
-// R0: `personal.name` derives the output path, and derived it with no
+// RV0: `personal.name` derives the output path, and derived it with no
 // sanitisation at all — `name: "../Documents/Resume"` wrote the PDF over that
 // file, outside the workspace, under a clean `validate --strict` and a `✅`
 // build. INV-12 says CV content is data, never commands; the injection suite
@@ -475,7 +475,7 @@ describe('renderCV — ATS document (ats: true)', () => {
 // mangling `José Álvarez` into `jos-lvarez` to close a traversal would be the
 // tool silently altering a user's own name, which is the opposite of INV-14's
 // posture of warning rather than mangling.
-describe('renderCV — the filename cannot escape the workspace (R0)', () => {
+describe('renderCV — the filename cannot escape the workspace (RV0)', () => {
   const cases = [
     { name: '../Documents/Resume', expect: 'documents-resume.pdf' },
     { name: '../../../etc/passwd', expect: 'etc-passwd.pdf' },

@@ -61,7 +61,7 @@ I6/I9 and does not exist yet (corrected 2026-08-18 — this line previously
 claimed the opposite, while §6 said "lands at I6/I9"; a document that
 contradicts itself about whether an invariant is measured is exactly what §6's
 own opening sentence rules out). §6 also re-specifies the guard's *shape* after
-R6 showed the original scope could not catch a real violation: the contract is
+RV6 showed the original scope could not catch a real violation: the contract is
 a positive one over what the packer may read, not a denylist of section names.
 
 And the actor table the whole document rests on:
@@ -326,12 +326,12 @@ is the normative list):
 - **Measurement parity across surfaces**: build and validate resolve the same
   fonts directory and measure identically, so the two can never disagree
   about the same content. **⚠ Not true in the theme axis as of 2026-08-18 —
-  see R7.** `render.js` defaults `config.theme ?? 'teal'` while
+  see RV7.** `render.js` defaults `config.theme ?? 'teal'` while
   `validateContent.js` passes `THEMES[config.theme]`, so a workspace with no
   explicit `theme:` key and `layout: single-column` resolves teal on build and
   mono on validate. It is inert on *measurement* only because the three shipped
   themes are geometrically identical — the precondition §6's theme-threading
-  gate exists to protect and the roadmap plans to remove. R7 collapses the two
+  gate exists to protect and the roadmap plans to remove. RV7 collapses the two
   to one resolution path; this marker comes out when it lands. A caller that
   supplies no fonts directory skips the
   real-measurement checks entirely rather than approximating them —
@@ -591,13 +591,13 @@ marks the ones scheduled by §8 rather than live today.
   plan measures resolves to a component that renders it. **This is INV-3's
   converse and it was missing** — INV-3 forbids ink the planner never priced;
   nothing forbade a price the renderer never spends. Added 2026-08-18 after the
-  R-block found three independent instances (R1, R3, R4), each of which passed
+  R-block found three independent instances (RV1, RV3, RV4), each of which passed
   `validate --strict`, passed `build --strict`, published the dropped content in
   the plan's own `--json`, and left a 98.9%-covered suite green. The asymmetry
   was structural, not accidental: `main-slot-unmeasured` and
   `physical-pages-exceed-plan` both watch for *more* ink than planned, and the
   corpus reaches neither direction of *less*. Instruments in §6; the load-bearing
-  one is the render-level content oracle, whose reach R2 widened.
+  one is the render-level content oracle, whose reach RV2 widened.
 
 Driver-layer invariants (held by the LLM, taught by the product surfaces,
 verified by dogfood transcript review): the fabrication walls and editing
@@ -626,7 +626,7 @@ invariant without an instrument is a claim, not a property.*
 | Stale-build guard (`lib/.build-manifest.json` content hash re-derived before the first CLI spawn; mutation-verified) | harness runs the engine it thinks it runs | `test/layout-harness/scaffold.js` |
 | Public/harness API partition (nine public names; `@internal` tag roll-call kept in sync; shipped modules may not import internal names) | API discipline | `layout.api.test.js` |
 | docsSync (model-facing docs derive from source-of-truth exports; warning codes, occupancy wording, kind lists, emptyColumn caveat, file lists all guarded). The model-facing list includes the MCP tool descriptions and server handshake (`src/mcp/tools.js`, `src/mcp/server.js`) — a doc guard that iterates only markdown misses the surfaces agents actually read; it caught a stale sentence on its first extended run. Prose-drift outside its tripwires is a known limitation. | INV-5's doc half | `test/docsSync.test.js` |
-| Genericity guard. **Re-specified 2026-08-18 (R6): a positive contract on the block type, not a denylist over names.** `packBlocks`, `largestFittingPrefix`, `declineOf`, `canPlaceOn`, `maxPagesFor`, `assertCarryShrinks` and `describeBlock` may read only `{height, gapBefore, split, itemCount, id}` — mechanically checkable by packing a flow of `Proxy`-wrapped blocks that throw on any other property read. The original scope ("no section-name literals / vocabulary imports in core") was measured against a real violation and **would not have caught it**: `maxPagesFor`'s `b.entry?.bullets?.length` is structural knowledge of the experience vocabulary with the identity spelled nowhere, and a string denylist passes it green. The literal denylist is still worth having for the coordinator at I9, but it is the weaker half and must not be mistaken for the guard. | INV-8 | positive contract lands with R6; literal denylist at I9 |
+| Genericity guard. **Re-specified 2026-08-18 (RV6): a positive contract on the block type, not a denylist over names.** `packBlocks`, `largestFittingPrefix`, `declineOf`, `canPlaceOn`, `maxPagesFor`, `assertCarryShrinks` and `describeBlock` may read only `{height, gapBefore, split, itemCount, id}` — mechanically checkable by packing a flow of `Proxy`-wrapped blocks that throw on any other property read. The original scope ("no section-name literals / vocabulary imports in core") was measured against a real violation and **would not have caught it**: `maxPagesFor`'s `b.entry?.bullets?.length` is structural knowledge of the experience vocabulary with the identity spelled nowhere, and a string denylist passes it green. The literal denylist is still worth having for the coordinator at I9, but it is the weaker half and must not be mistaken for the guard. | INV-8 | positive contract lands with RV6; literal denylist at I9 |
 | Theme-threading gate: six harness modules hardcode `tealTheme` (`structuralFacts`, `measureDiff`, `mainMeasureDiff`, `sidebarBudget`, `sidebarPlan`, `renderOracle`), `themeFor(spec)` does not exist, and no fixture has ever varied a theme — while a second theme (`coral`) ships. Any increment that makes theme or geometry vary per CV threads the fixture's real theme through the harness FIRST, or INV-2 is re-derived against the wrong document and still passes (the layout twin already happened: three harness sites planned against the default layout while rendering the scaffold's own, invisible exactly as long as the two agreed). | INV-2's subject validity | precondition for I5/I9 and any theme/geometry surface |
 | Mutation discipline: every new guard must fail when its defect is seeded — a test that can't fail is vacuous. A deferred assertion is never an empty skip — `it.todo` with an `expect.fail` body, so un-deferring without real assertions fails loudly. | test honesty | per-fix, recorded in test comments |
 | Fixture corpus governance. Two-tier fact taxonomy: **Tier 1** — hard invariants (INV-0 at bullet granularity, placed-exactly-once, order, anti-orphan) and content completeness — asserted fresh every run, never recorded; `generateBaseline.js` refuses to write on any violation (a regenerate can never "record" one as false). **Tier 2** — descriptive facts (physical/logical page counts, blank pages, empty columns) — baseline-locked: allowed to record known bugs, red on any change, regenerated only alongside a real fix, so `baseline.json`'s diff across commits is the changelog of what got fixed; byte sizes and raw ink ratios recorded for debugging only, never compared. The lock is mutation-verified. **Migration taxonomy** — acceptable diffs: `pageCount` and `logicalTotalPages` moving together; consequential `emptyColumns` movement; added keys. Stop and investigate, never regenerate over: `pageCount > logicalTotalPages` appearing; any new `blankPages`; any Tier-1 violation; a page-count change on a fixture whose render-diff table is not at zeros. The regenerating commit names each changed fixture, direction, and the explaining term — an unexplainable diff is a stop-work signal. A regeneration must be an improvement axis by axis; fewer pages must mean less wasted space, never less content. Corpus construction: deterministic greedy pairwise cover over the factor axes + named risk/edge fixtures + the shipped scaffold as the one real-world fixture; fixtures generate into temp dirs at test time, only `baseline.json` is committed; degenerate inputs and every defect shape join as named fixtures (the S2a additive pattern). | §2.5 | `test/layout-harness/fixtures.js`, `generateBaseline.js`, `baseline.json` |
@@ -917,7 +917,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
   in 1.8.0 and are marked `LANDED` inline; D8/D9 were answered by the SKILL.md
   rewrite. The block is kept for its refutations, not as a work list.** It stood
   headed "still open" for two releases after it was fixed — the 2026-08-18
-  review (R-block below) caught that, and the lesson is recorded there as R5:
+  review (R-block below) caught that, and the lesson is recorded there as RV5:
   nothing binds this document to the code the way `docsSync` binds the product
   surfaces. **This block was
   corrected the same day after two independent reviews — an adversarial
@@ -983,7 +983,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     Fix: reject the key at validation with a field path, **and** stop charging
     `summaryH` to `mainFirstBudget` when `summary` is not in `first.main`.
   - **D3 (P0) — LANDED 1.8.0 for the 2-page case; the 1-page case was still
-    open and is R3 below. `continuation.main` is dead on every 2-page CV, for any key.**
+    open and is RV3 below. `continuation.main` is dead on every 2-page CV, for any key.**
     `mainSlotKeys` (`src/pdf/CVDocument.jsx:79-87`) returns `layout.last.main`
     when `index === totalPages - 1`, so on a 2-page document the continuation
     slot is never consulted and anything placed there renders nowhere. Verified
@@ -1146,7 +1146,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     the engine — it is a defect in the naming and the docs. Either document it
     loudly in both places or rename the buckets to `order:` groups.
 
-- **R1–R12 — the 2026-08-18 five-lens review** (architecture, JavaScript,
+- **RV1–RV12 — the 2026-08-18 five-lens review** (architecture, JavaScript,
   react-pdf, QA, refactoring, plus a dogfood pass; every finding re-verified
   first-hand by the orchestrator before it was written down, per gate 7 and
   doctrine 1 — which corrected three of them, listed at the end). Baseline at
@@ -1155,7 +1155,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
   with no closed vocabulary binding producer to consumer.** D2 patched the
   sidebar instance in 1.8.0; nobody asked whether main slots had the same hole.
   They did. INV-15 is the model-level half of the same lesson.
-  - **R0 (P0) — LANDED. `personal.name` steers the output path.**
+  - **RV0 (P0) — LANDED. `personal.name` steers the output path.**
     `deriveFilename` never stripped separators or `..`, so
     `name: "../Documents/Resume"` overwrote that file with PDF bytes under a
     clean `validate --strict` and a `✅` build. Absolute paths are re-rooted by
@@ -1164,69 +1164,76 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     commands") on a surface with worse consequences than the layout numbers the
     injection suite already guards. Reachable because an assistant writes
     `personal.yaml` from a user-supplied CV.
-  - **R1 (P0) — LANDED. An unrenderable key in a `main` slot deletes content
+  - **RV1 (P0) — LANDED. An unrenderable key in a `main` slot deletes content
     silently.** `slot-not-renderable` (D2) validated sidebar slots only.
     `- experience` → `- experiance` on the shipped scaffold: 5 of 16 bullets
     gone, `notices: []`, exit 0, and the plan still publishing
     `bulletRange: [0,5]`. `section-has-no-slot` stays satisfied because the
     section has a slot *elsewhere*. Fixed with the main-slot arm plus a
     build-time coded defect — validation alone was not enough because plain
-    `build` never validates.
-  - **R2 (P0) — LANDED. INV-0's render-level instrument checked ~8 of ~30 drawn
+    `build` never validates, and the registry's only signal was a `console.warn`
+    with no code, which `--strict`'s gate cannot see BY CONSTRUCTION.
+    **Second half: `:continued` was a bypass for every key.** The sidebar arm
+    tests `key.split(':')[0]` — correct there, where `education:continued`
+    legitimately names a sidebar section. In a main slot only
+    `experience:continued` is implemented, so every other `<x>:continued` drew
+    nothing, and `frobnicate:continued` walked past a check that catches bare
+    `frobnicate`. Main slots now match the whole key.
+  - **RV2 (P0) — SCHEDULED (this pass, after the content-loss fixes). INV-0's render-level instrument checked ~8 of ~30 drawn
     fields.** Seeding `e.company?.toUpperCase()` — a case-transform INV-0 names
     explicitly — left the suite at **857/857 green** while the shipped ATS PDF
     printed `WAYNE ENTERPRISES`. Two structural causes, both measured: 90% of
     the suite is plan-level (poppler-free: 773 passed / 84 skipped, and those 84
     *are* the render tier), and the render tier's generator emits one document
-    family. **This is the finding that explains R1/R3/R4** — doctrine 6 again,
+    family. **This is the finding that explains RV1/RV3/RV4** — doctrine 6 again,
     at the level of the instrument rather than the corpus.
-  - **R3 (P0) — LANDED. On a 1-page CV every `continuation.main` and `last.main`
+  - **RV3 (P0) — SCHEDULED (this pass). On a 1-page CV every `continuation.main` and `last.main`
     key renders nowhere.** The unclosed remainder of D3, whose fix stopped at
     `totalPages === 2`. §8's own success criterion is a 1-page student CV, so
     this was dead in the roadmap's target shape. `main-slot-unmeasured` fired
     and said the section "is rendered but not measured" — it was not rendered.
-  - **R4 (P0) — LANDED. `{text, link, suffix}` bullets measured by `.text`
+  - **RV4 (P0) — SCHEDULED (this pass). `{text, link, suffix}` bullets measured by `.text`
     alone, rendered concatenated.** 27.00pt under-measure against a 15pt safety
     margin; three rendered line boxes priced as one. Unpriced ink (INV-3), and
     invisible because the render-diff harness's own `bulletText` helper stripped
     `link`/`suffix` identically — **the instrument agreed with the bug.**
-  - **R5 (P1) — LANDED. This document listed six shipped defects as open.**
+  - **RV5 (P1) — LANDED. This document listed six shipped defects as open.**
     D1–D6 all shipped in 1.8.0 while §7.4 was headed "still open, unscheduled".
     `docsSync` binds the product surfaces and reads none of ARCHITECTURE.md,
     CHANGELOG.md or SPRINT.md — the structural cause. A tripwire binding `D<n>`
-    /`R<n>` source comments to a `LANDED` marker here ships with R5.
-  - **R6 (P1) — LANDED. The packing core reads experience-vocabulary internals,
+    /`R<n>` source comments to a `LANDED` marker here ships with RV5.
+  - **RV6 (P1) — SCHEDULED (this pass). The packing core reads experience-vocabulary internals,
     and the guard that should catch it neither exists nor would work.**
     `maxPagesFor`'s `b.entry?.bullets?.length`, stale since D7 made progression
     rows split atoms, lets `packBlocks` throw on schema-valid content. Measured
     reachability curve (title length → rows needed to throw): 3 words → 120,
     8 → 120, 20 → 80, 60 → 30, 400 → 3. No real CV reaches it; recorded for the
     cause, not the crash. See §6's re-specified guard.
-  - **R7 (P1) — LANDED. `build` and `validate` resolved different themes.** See
-    the §2.6 marker. Fixed by collapsing to one resolution path; `build` now
-    honours `LAYOUT_DEFAULT_THEME`, so `layout: single-column` renders **mono**
-    where it previously rendered teal — a deliberate, user-visible change,
-    recorded in CHANGELOG.
-  - **R8 (P1) — LANDED. `build --all` on `layout: single-column` destroyed one
+  - **RV7 (P1) — SCHEDULED (this pass). `build` and `validate` resolve different themes.** See
+    the §2.6 marker. The fix collapses the two to one resolution path, with `build`
+    honouring `LAYOUT_DEFAULT_THEME` so `layout: single-column` renders **mono**
+    where it renders teal today — a deliberate, user-visible change that needs a
+    CHANGELOG entry and a version bump when it lands.
+  - **RV8 (P1) — SCHEDULED (this pass). `build --all` on `layout: single-column` destroys one
     of its own outputs.** The `-ats` filename suffix keyed on the layout name
     while the variant came from the `--ats` flag, so both variants claimed one
     filename; the envelope reported two artifacts and one no longer existed.
-  - **R9 (P1) — LANDED. `validate` ran the two-column packer against
+  - **RV9 (P1) — SCHEDULED (this pass). `validate` runs the two-column packer against
     single-column content**, publishing a `page-overflow` warning about a page
     budget that variant does not have. The agent-facing docs teach that
     warning's remediation, so a driving LLM would shorten a summary that has no
     overflow.
-  - **R10 (P1) — LANDED. `--json` truncated at the 64 KiB pipe buffer**,
+  - **RV10 (P1) — SCHEDULED (this pass). `--json` truncates at the 64 KiB pipe buffer**,
     delivering unparseable JSON to an agent with no indication. Measured
     context: scaffold `validate --json` 472 B, scaffold `build --json` 8.5 KB, a
     12-role CV `build --json` 19.7 KB — the ceiling is ~3× a large real CV, and
     `validate`'s findings are unbounded under `allErrors: true`.
-  - **R11 (P2) — the spacing bound `0.6–1.5` is copy-pasted in seven places**
+  - **RV11 (P2) — the spacing bound `0.6–1.5` is copy-pasted in seven places**
     with nothing binding them, including three literals in the JSON Schema that
     `get_schema` serves the driving LLM as the authoritative contract.
     `validateContent.js` already calls it "belt and braces" in its own comment.
     **PARKED** — needs a docsSync-style numeric tripwire; no fix shipped.
-  - **R12 — PARKED, and why.** Two independently-coded "ATS" renderers
+  - **RV12 — PARKED, and why.** Two independently-coded "ATS" renderers
     (`--ats` → `ATSDocument.jsx`; `layout: single-column` → the sidebar-styled
     registry components at full width). Same content: 2 dense pages vs 3 with a
     near-blank third. Drift has started — `HeaderATS.jsx` reads theme tokens for
@@ -1235,6 +1242,15 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     file in `sections/` and earns §6.1's large-slice ceremony — an
     algorithm/architecture design note first, reviewed, before gate 2. Only the
     misleading scaffold comment was fixed now.
+  - **RV13 (P2) — LANDED. A malformed slot crashed `validate` instead of being
+    reported.** `- spacer:` — the value simply left off — parses to
+    `{ spacer: null }`, and `normalizeItem` read `val.continued` off it
+    (`typeof null === 'object'`). The raw TypeError escaped `normalizeLayout`,
+    escaped `validateContent`, and reached the CLI as **exit 64 — a USAGE
+    error**, telling the user their command was wrong when their content was,
+    with "Cannot read properties of null" and no file or field path. Found by
+    RV1's own test fixture rather than by review: writing the spacer cases made
+    the crash reproduce. A malformed slot is a finding, not a crash.
   - **Also parked, one line each:** inverted `emptyColumn` side on the student
     layout; `list layouts`/`get_schema` reporting `source: "built-in"` over the
     user's own file; `PAGE1_OVERFLOW_WARN_THRESHOLD` unbound from the theme's
@@ -1246,9 +1262,9 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     hand-typed in three envelope sites; the thrice-copied progression-height
     loop (extract only with the float-association caveat).
   - **CORRECTIONS (doctrine 8 — refuted by name).** *(a)* The orchestrator's
-    first read of R1 claimed the whole experience section was lost; the render
+    first read of RV1 claimed the whole experience section was lost; the render
     showed it present. The real loss is 5 of 16 bullets — page 1's block only.
-    Inference replaced by a per-bullet sentinel check. *(b)* R6's reachability
+    Inference replaced by a per-bullet sentinel check. *(b)* RV6's reachability
     was overstated in both directions by two reviewers independently — 92 rows
     and 4 rows — and neither is representative; the measured curve is above.
     *(c)* "`--strict` should gate `section-has-no-slot`" was raised and refuted:

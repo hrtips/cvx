@@ -115,7 +115,7 @@ function quantizeFixed(/** @type {{ capacity: number, budget: number }} */ f) {
  * (shorten the fixed content above by S and it falls by S until the block
  * moves up); `fill` has no such property under any definition, which is why
  * fill must never be sold as a progress signal. Never aggregated across pages
- * — no totals.shortByPt exists, and none may be added (risk R1).
+ * — no totals.shortByPt exists, and none may be added (risk RV1).
  *
  * @param {{ index: number, smallestPiecePt: number, residualPt: number, gapBeforePt: number, entry?: import('./types.js').ExperienceEntry | null, key?: string | null } | null | undefined} d
  */
@@ -238,6 +238,50 @@ function mainSlotUnmeasured(plan) {
         `summary and the experience entries: ${one ? 'it is' : 'they are'} rendered but not ` +
         `measured, so this plan's page count and overflow figures exclude ` +
         `${one ? 'it' : 'them'}.`
+    }
+  ]
+}
+
+/**
+ * A `main` slot names a key the renderer cannot draw — the content is simply
+ * absent from the PDF.
+ *
+ * `kind: 'defect'`, not a fact, and the contrast with its sibling
+ * `main-slot-unmeasured` is the reason both exist. Unmeasured ink REACHES the
+ * page and the arithmetic excludes it; this ink never reaches the page at all.
+ * INV-15.
+ *
+ * Why it exists when `validate` already refuses the same layout, with a better
+ * message and a "did you mean": plain `cvx build` does not validate. Only
+ * `validate` and `build --all` do. Without this, the RV1 repro — one character,
+ * `- experience` to `- experiance`, on the shipped scaffold — still produced
+ * five deleted bullets, `ok: true`, `notices: []` and exit 0, because the only
+ * signal was a `console.warn` in the section registry carrying no code, which
+ * `--strict`'s gate cannot see BY CONSTRUCTION.
+ *
+ * @param {import('./types.js').LayoutPlan} plan
+ * @returns {import('./types.js').LayoutDiagnosticWarning[]}
+ */
+function slotNotRenderable(plan) {
+  const keys = plan.unrenderableMainKeys ?? []
+  if (keys.length === 0) return []
+  // INV-12, same treatment as mainSlotUnmeasured: these strings come from the
+  // user's own layouts/*.yaml and the schema accepts any non-empty string, so
+  // they are untrusted text in a message. The untruncated list stays in `keys`.
+  const safe = keys.slice(0, 5).map((k) => String(k).replace(/\s+/g, ' ').slice(0, 40))
+  const list =
+    safe.join(', ') + (keys.length > safe.length ? `, and ${keys.length - safe.length} more` : '')
+  const one = keys.length === 1
+  return [
+    {
+      code: /** @type {const} */ ('slot-not-renderable'),
+      kind: /** @type {const} */ ('defect'),
+      keys: [...keys],
+      message:
+        `The layout places ${list} in a main slot, and nothing can draw ${one ? 'it' : 'them'}: ` +
+        `${one ? 'that key is' : 'those keys are'} not a section this renderer knows, so ` +
+        `${one ? 'it renders' : 'they render'} nothing and any content there is missing from ` +
+        `the PDF. Run \`cvx validate\` — it names the file, the slot and the likely spelling.`
     }
   ]
 }
@@ -599,8 +643,11 @@ export function layoutDiagnostics(plan) {
     })),
     ...page1WithoutExperience(pages),
     // Defects before facts — section-has-no-slot is a defect, so it belongs in
-    // this group and not after page1EndsEarly, which is a priced fact.
+    // this group and not after page1EndsEarly, which is a priced fact. RV1's
+    // slot-not-renderable is a defect for the same reason and sits beside it:
+    // both name content that is in cv-content/ and absent from the PDF.
     ...sectionHasNoSlot(plan),
+    ...slotNotRenderable(plan),
     ...page1EndsEarly(pages),
     ...experienceEmpty(pages),
     ...mainColumnEmpty(pages, plan.totalPages, plan.unmeasuredMainKeys ?? []),

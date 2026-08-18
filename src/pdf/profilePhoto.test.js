@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PHOTO_EXTENSIONS, pickProfilePhoto } from './profilePhoto.js'
 
-describe('pickProfilePhoto (R9)', () => {
+describe('pickProfilePhoto (RV9)', () => {
   it('returns null when there are no candidates', () => {
     expect(pickProfilePhoto([])).toBeNull()
     expect(pickProfilePhoto()).toBeNull()
