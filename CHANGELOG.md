@@ -64,16 +64,36 @@ reports the file and field path. The same class: an unreadable
 `CVX_ASSET_ROOT` used to fail at module load with exit 1 and a stack trace,
 outside the documented `0 / 2 / 3 / 64` contract.
 
-**The ATS PDF was quietly dropping three things.** Found by widening the
+**The ATS PDF was quietly dropping four things.** Found by widening the
 content check, not by review: a hyperlinked bullet lost its link label and its
-suffix, and `experience[].location` was drawn nowhere in that variant at all.
-Verified by rendering both PDFs from one folder — the designed one had all
-three, the ATS one had none. Two deliverables, different content.
+suffix, and `experience[].location` was drawn nowhere in that variant at all. The
+same bug then turned up a second time in the *summary*, which renders through
+a different component — caught only by driving a real CV through the finished
+build and checking every string in it. Verified by rendering both PDFs from
+one folder: the designed one had everything, the ATS one was missing four
+things. Two deliverables, different content.
 
 **`--json` no longer truncates.** Output was written asynchronously and the
 process exited immediately after, so a caller reading through a pipe — every
 agent, every script — got the envelope cut off at exactly 64 KiB with
 unparseable JSON and no indication. A 603 KB payload now arrives whole.
+
+**`build --strict` now fails on any defect, not just one.** It gated a single
+code; it now gates everything the engine marks `kind: "defect"` — content
+missing from the PDF, more sheets than planned, an over-budget page. Facts
+never gate, so a normal page break still passes. **If you script `--strict`
+around a populated `referees.yaml` that your layout has no slot for, that now
+exits 2**: either add `referees` to a slot, or empty the file. A plain `cvx
+build` is unchanged — the PDF exists, so it still exits 0.
+
+**Defects are now audible without `--json`.** Only one of them printed to
+stderr before, so a plain build could print `✅` over a CV with a section
+missing from the PDF. All of them speak now; facts still stay quiet.
+
+**`diagnostics.version` is 5.** The warning-code list gained
+`slot-not-renderable`. Additive if you match on `kind` — which is what the tool
+descriptions tell you to do — but the set of possible codes changed, and two
+meanings never share a version here.
 
 **Under the hood.** `ARCHITECTURE.md` marked six defects as open that shipped
 in 1.8.0, and a new test binds its backlog to the code so that cannot recur
