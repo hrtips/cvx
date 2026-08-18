@@ -1187,7 +1187,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     *are* the render tier), and the render tier's generator emits one document
     family. **This is the finding that explains RV1/RV3/RV4** — doctrine 6 again,
     at the level of the instrument rather than the corpus.
-  - **RV3 (P0) — SCHEDULED (this pass). On a 1-page CV every `continuation.main` and `last.main`
+  - **RV3 (P0) — LANDED. On a 1-page CV every `continuation.main` and `last.main`
     key renders nowhere.** The unclosed remainder of D3, whose fix stopped at
     `totalPages === 2`. §8's own success criterion is a 1-page student CV, so
     this was dead in the roadmap's target shape. `main-slot-unmeasured` fired

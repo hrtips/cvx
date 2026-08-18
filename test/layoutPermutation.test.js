@@ -133,6 +133,37 @@ describe.skipIf(!hasPdftoppm())('layout permutations — no section may vanish (
     expect(text.split(MARK.achievements).length - 1).toBe(1)
   }, 60000)
 
+  it('RV3: a section only in `continuation.main`/`last.main` renders on a ONE-page CV', () => {
+    // The unclosed remainder of D3. `mainSlotKeys` returns `first.main` early
+    // for index === 0, and on a one-page document page 0 is ALSO the last page
+    // and the only continuation page — so it plays three roles and consulted
+    // one list. D3's fix generalised the final page for totalPages === 2 and
+    // stopped there.
+    //
+    // This is not an exotic shape: §8's own success criterion is a student CV
+    // that builds to ONE physical page, so the two dead slot lists were dead
+    // in the roadmap's target document.
+    const dir = mkFixtureDir('perm-onepage-main')
+    writeFixtureContent(dir, content(1))
+    writeLayout(dir, {
+      template: 'two-column',
+      pages: {
+        first: { sidebar: ['identity-photo', 'contact'], main: ['summary', 'experience'] },
+        continuation: { sidebar: ['identity-compact'], main: ['achievements'] },
+        last: { sidebar: ['identity-compact'], main: ['education'] }
+      }
+    })
+    const { text, plan } = buildAndExtract(dir)
+    expect(plan.totalPages, 'fixture must be exactly 1 page to exercise the bug').toBe(1)
+    expect(text, 'a key only in continuation.main vanished from a 1-page CV').toContain(
+      MARK.achievements
+    )
+    expect(text, 'a key only in last.main vanished from a 1-page CV').toContain(MARK.education)
+    // Rendering each list once, not twice: the union is a union.
+    expect(text.split(MARK.achievements).length - 1).toBe(1)
+    expect(text.split(MARK.education).length - 1).toBe(1)
+  }, 60000)
+
   it('the student-layout shape (sections moved into `main`) loses nothing', () => {
     // SKILL.md §"Student and first-job CVs" teaches exactly this edit.
     const dir = mkFixtureDir('perm-student-main')
@@ -147,7 +178,10 @@ describe.skipIf(!hasPdftoppm())('layout permutations — no section may vanish (
         }
       }
     })
-    const { text } = buildAndExtract(dir)
+    const { text, plan } = buildAndExtract(dir)
+    // Pin the page count like every other case in this file: an assertion about
+    // a shape is only about that shape while the fixture still has it.
+    expect(plan.totalPages, 'the student fixture must stay a 1-page CV').toBe(1)
     for (const key of ['summary', 'education', 'competencies']) {
       expect(text, `${key} vanished from a main-slot layout`).toContain(MARK[key])
     }

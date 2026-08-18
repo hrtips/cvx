@@ -77,23 +77,39 @@ function buildSidebar(identityKeys, slices, data, theme) {
  * @returns {string[]}
  */
 function mainSlotKeys(layout, index, totalPages) {
-  if (index === 0) return layout.first.main
   // Fall back the same way the plan's identity injection does
   // (continuation -> last -> first): a hand-written layouts/*.yaml may define
   // only `first`, and the renderer must not throw where the plan copes.
   const cont = layout.continuation?.main ?? layout.last?.main ?? layout.first.main
-  if (index !== totalPages - 1) return cont
   const last = layout.last?.main
+
+  // D3 / RV3: a page renders the union of EVERY role it plays, deduplicated in
+  // document order. That is the whole rule, and stating it that way is the fix:
+  //
+  //   1 page  → page 0 is first AND continuation AND last
+  //   2 pages → page 1 is continuation AND last
+  //   3+      → the roles are distinct, so each page takes its own list
+  //
+  // D3 fixed the two-page case by special-casing `totalPages === 2`, which left
+  // the one-page case still returning `first.main` alone — so every key that
+  // appeared only in `continuation.main` or `last.main` rendered NOWHERE on a
+  // one-page CV, silently, with `validate --strict` reporting ok. Measured both
+  // ways: `achievements` in continuation.main and `education` in last.main each
+  // produced zero occurrences. §8's success criterion is a student CV that
+  // builds to one page, so this was dead in the roadmap's target shape.
+  //
+  // Deduping is what makes a union safe on 3+ pages: the continuation keys have
+  // already rendered on an earlier sheet, so the final page must not repeat
+  // them — hence `last` alone there, not a union.
+  const union = (/** @type {string[][]} */ ...lists) => [...new Set(lists.flat())]
+
+  if (index === 0) {
+    if (totalPages === 1) return union(layout.first.main, cont, last ?? [])
+    return layout.first.main
+  }
+  if (index !== totalPages - 1) return cont
   if (!last) return cont
-  // D3: on a TWO-page document the final page is also the only continuation
-  // page, so it plays both roles and must render both slot lists — union in
-  // document order, `continuation` first. Returning `last` alone (the pre-fix
-  // behaviour) meant every key appearing only in `continuation.main` rendered
-  // NOWHERE, silently, for any section — measured: `achievements` there on a
-  // 2-page CV produced zero occurrences with `validate --strict` reporting ok.
-  // On 3+ pages the continuation keys have already rendered on an earlier
-  // page, so the final page takes `last` alone and nothing is duplicated.
-  if (totalPages === 2) return [...new Set([...cont, ...last])]
+  if (totalPages === 2) return union(cont, last)
   return last
 }
 
