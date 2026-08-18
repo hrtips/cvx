@@ -9,7 +9,7 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
-## Unreleased
+## 1.10.0 — 2026-08-18
 
 **Five ways a CV could lose content silently, all closed — and one of them
 wrote outside your folder.** Found by a five-lens review against a suite that
