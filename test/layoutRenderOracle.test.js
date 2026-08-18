@@ -167,7 +167,16 @@ describe('C0 content-completeness oracle — self-test (proves the check is not 
     // last-item-only checking could never notice.
     expect(sentinels).toContainEqual({ section: 'certifications', text: 'Certification 0' })
     expect(sentinels).toContainEqual({ section: 'certifications', text: 'Certification 7' })
-    expect(sentinels.filter((s) => s.section === 'certifications')).toHaveLength(8)
+    // RV2: the count is now items x drawn-string-fields, not items. Every
+    // certification also has an `issuer` and a `year`, and those are drawn —
+    // asserting only `name` is what let a case-transform of every COMPANY name
+    // pass 857 green tests. Derived rather than hardcoded so the assertion
+    // survives a fixture gaining a field.
+    const certFields = content.certifications.flatMap((c) =>
+      Object.values(c).filter((v) => typeof v === 'string' && tailSentinel(v))
+    )
+    expect(sentinels.filter((s) => s.section === 'certifications').length).toBe(certFields.length)
+    expect(sentinels.filter((s) => s.section === 'certifications').length).toBeGreaterThan(8)
     // absent sections contribute no sentinel at all:
     expect(sentinels.some((s) => s.section === 'referees')).toBe(false)
   })
@@ -193,10 +202,17 @@ describe('C0 content-completeness oracle — self-test (proves the check is not 
         expect(sentinels).toContainEqual({ section: 'experience', text: tailSentinel(b) })
       }
     }
+    // RV2: strictly MORE than role+bullets now — company, period, description
+    // and any location/progression are drawn too, and each is user content
+    // INV-0 covers. The old exact count was the instrument's blind spot
+    // written down as an assertion.
     const totalBullets = content.experience.reduce((n, e) => n + e.bullets.length, 0)
-    expect(sentinels.filter((s) => s.section === 'experience')).toHaveLength(
+    expect(sentinels.filter((s) => s.section === 'experience').length).toBeGreaterThan(
       content.experience.length + totalBullets
     )
+    for (const e of content.experience) {
+      expect(sentinels).toContainEqual({ section: 'experience', text: tailSentinel(e.company) })
+    }
   })
 
   it('tailSentinel() returns the trailing words of a long string and the whole (short) string unchanged', () => {

@@ -8,6 +8,7 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { useMemo } from 'react'
 import { buildKeywords } from './keywords.js'
+import { bulletText } from './layout.js'
 import { ThemeContext, useTheme } from './ThemeContext.jsx'
 import { monoTheme } from './themes/mono.js'
 
@@ -161,7 +162,16 @@ function ATSContent({
               {i > 0 && <View style={s.entryGap} />}
               <Text style={s.role}>{e.role}</Text>
               <View style={s.expMeta}>
-                <Text style={s.company}>{e.company}</Text>
+                <Text style={s.company}>
+                  {e.company}
+                  {/* RV15: `experience[].location` was drawn NOWHERE in this
+                      variant — the designed CV renders it, the ATS one dropped
+                      it silently. Content, not decoration, so INV-0. Appended
+                      to the company run rather than given its own column: the
+                      period is right-aligned in this row and a third cell
+                      would reflow a layout nothing else needed changed. */}
+                  {e.location ? ` · ${e.location}` : ''}
+                </Text>
                 <Text style={s.period}>{e.period}</Text>
               </View>
               {e.description && <Text style={s.desc}>{e.description}</Text>}
@@ -186,7 +196,7 @@ function ATSContent({
                 // biome-ignore lint/suspicious/noArrayIndexKey: bullet text may repeat; index is the stable identity for this single-shot ATS render
                 <View key={j} style={s.bulletRow}>
                   <Text style={s.bulletDash}>–</Text>
-                  <Text style={s.bulletText}>{typeof b === 'string' ? b : b.text}</Text>
+                  <Text style={s.bulletText}>{bulletText(b)}</Text>
                 </View>
               ))}
             </View>

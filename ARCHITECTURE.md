@@ -1181,7 +1181,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     `experience:continued` is implemented, so every other `<x>:continued` drew
     nothing, and `frobnicate:continued` walked past a check that catches bare
     `frobnicate`. Main slots now match the whole key.
-  - **RV2 (P0) — SCHEDULED (this pass, after the content-loss fixes). INV-0's render-level instrument checked ~8 of ~30 drawn
+  - **RV2 (P0) — LANDED. INV-0's render-level instrument checked ~8 of ~30 drawn
     fields.** Seeding `e.company?.toUpperCase()` — a case-transform INV-0 names
     explicitly — left the suite at **857/857 green** while the shipped ATS PDF
     printed `WAYNE ENTERPRISES`. Two structural causes, both measured: 90% of
@@ -1253,6 +1253,18 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     with "Cannot read properties of null" and no file or field path. Found by
     RV1's own test fixture rather than by review: writing the spacer cases made
     the crash reproduce. A malformed slot is a finding, not a crash.
+  - **RV14 (P0) — LANDED. The ATS variant drew only `bullet.text`.** Found by
+    RV2's widened oracle on its FIRST run, not by review. `ATSDocument.jsx`
+    rendered `typeof b === 'string' ? b : b.text` while the designed variant
+    draws `text` + `link.label` + `suffix`, so a hyperlinked bullet lost two of
+    its three parts in one of the two shipped deliverables. Verified by direct
+    render: designed 1/1/1, ATS 0/0/0. `bulletText` is now one exported
+    function that the measurer, both renderers and the harness all share.
+  - **RV15 (P0) — LANDED. The ATS variant drew no `experience[].location` at
+    all.** Same run, same instrument. `personal.location` was rendered;
+    the per-entry one was drawn nowhere in that variant, so a CV whose roles
+    carry locations shipped two deliverables that differ in content. INV-0 does
+    not distinguish between variants.
   - **Also parked, one line each:** inverted `emptyColumn` side on the student
     layout; `list layouts`/`get_schema` reporting `source: "built-in"` over the
     user's own file; `PAGE1_OVERFLOW_WARN_THRESHOLD` unbound from the theme's

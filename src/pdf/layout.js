@@ -88,7 +88,7 @@
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
 //     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
-//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS, bulletText
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -103,7 +103,7 @@
 //   carries `@internal` in its own docblock, and `layout.api.test.js` proves
 //   the two lists agree AND that no shipped module imports one of them:
 //     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
-//     bulletWidth, bulletText,
+//     bulletWidth,
 //     summaryH, entryH, entryParts, packBlocks, packExperiences, packSidebar,
 //     identityH,
 //     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
@@ -406,11 +406,14 @@ export function bulletWidth(
  *
  * Unpriced ink, so INV-3 — and invisible to INV-2's diff tables because the
  * harness's own comparison helper stripped `link`/`suffix` the same way. The
- * instrument agreed with the bug, which is why this is exported (`@internal`)
- * rather than duplicated: one function, both sides.
+ * instrument agreed with the bug, which is why this is exported at all rather
+ * than duplicated: one function, every side.
  *
- * @internal harness-only export — `test/layout-harness/mainMeasureDiff.js`
- *   matches rendered rows against the same string this prices.
+ * Public because SHIPPED code imports it: `ATSDocument.jsx` draws bullets with
+ * it, `BulletList.jsx`'s JSX composes the same three parts, the four
+ * measurement call sites price it, and the render-diff harness matches rendered
+ * rows against it. That is the whole point — one definition of "what a bullet
+ * says", so the measurer and both renderers cannot disagree again.
  * @param {string | { text?: string, link?: { label?: string }, suffix?: string }} b
  * @returns {string}
  */

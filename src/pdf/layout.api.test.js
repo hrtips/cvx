@@ -54,7 +54,11 @@ const PUBLIC_API = [
   'overflowWarnings',
   'planTwoColumn',
   'sectionTitleLabel',
-  'sidebarFlowKeys'
+  'sidebarFlowKeys',
+  // RV4/RV14: the ONE definition of the string a bullet draws. Shipped code
+  // imports it (ATSDocument.jsx) and so does the render-diff harness, which
+  // previously kept a copy that agreed with the bug it exists to catch.
+  'bulletText'
 ]
 
 /**
@@ -192,12 +196,12 @@ describe('layout.js public API', () => {
     // and its numbers reach consumers through the plan, not through an import.
     // RV1 added MAIN_SLOT_KEYS as the 29th export, public: the one list
     // validateContent's MAIN-slot `slot-not-renderable` check derives from.
-    // RV4 added bulletText as the 30th export, @internal: the ONE definition
-    // of the string a bullet draws, shared with the render-diff harness whose
-    // own copy previously agreed with the bug it was supposed to catch.
+    // RV4 added bulletText as the 30th export, public: the ONE definition of
+    // the string a bullet draws, imported by ATSDocument.jsx and by the
+    // render-diff harness whose copy previously agreed with the bug.
     expect(exported).toHaveLength(30)
-    expect(PUBLIC_API).toHaveLength(11)
-    expect(internal).toHaveLength(19)
+    expect(PUBLIC_API).toHaveLength(12)
+    expect(internal).toHaveLength(18)
   })
 
   it("the module docblock's harness roll-call matches the @internal tags", () => {
@@ -237,7 +241,9 @@ describe('layout.js public API', () => {
         // RV1: the same, for MAIN slots — the half D2 never wrote, which is why
         // `- experiance` in first.main deleted five bullets under a clean
         // `validate --strict`.
-        'MAIN_SLOT_KEYS'
+        'MAIN_SLOT_KEYS',
+        // RV14: ATSDocument.jsx draws bullets through it.
+        'bulletText'
       ].sort()
     )
   })

@@ -114,38 +114,104 @@ export function tailSentinel(text) {
  * asserted present verbatim (after whitespace normalization — see
  * checkCompleteness()) in the rendered PDF's extracted text.
  */
+/**
+ * Fields deliberately NOT walked, each for a stated reason. This list is the
+ * whole judgement in RV2 — everything else the content bag holds is asserted
+ * present in the render.
+ *
+ * Keyed by the JSON-Pointer-ish path segment, matched on the LAST segment so
+ * `experience/0/link/href` and `summary/3/link/href` are both covered.
+ */
+const NOT_A_SENTINEL = new Set([
+  // The one documented carve-out, predating RV2: a non-Latin name renders as
+  // tofu by design (INV-14 warns rather than substitutes), so asserting it
+  // present would make `edge-non-latin-name` fail for doing the right thing.
+  // `layoutRenderOracle.test.js` asserts this absence by name.
+  //
+  // SECTION-QUALIFIED, and that is not pedantry: keyed on the bare word `name`
+  // this silently also excluded `certifications[].name` and `referees[].name`,
+  // so widening the walk would have LOST two checks while appearing to add
+  // dozens. Caught by the existing count assertion, which is what it is for.
+  'personal.name',
+  // A URL is not drawn as text; ContactSection renders `label || href`, and a
+  // long href is the token pdftotext is least reliable about.
+  'personal.href',
+  'personal.phoneHref',
+  'personal.linkedinHref',
+  'personal.facebookHref',
+  'experience.href',
+  'summary.href'
+])
+
+/**
+ * Values too short or too repeated to be a sentinel. `containsAsWhole` enforces
+ * word boundaries, but it cannot make a NON-UNIQUE value diagnostic: every
+ * entry in the corpus shares `period: "2020 – 2024"`, and `proficiency:
+ * "Native"` repeats across languages, so finding one proves nothing about the
+ * other. A sentinel that cannot fail is worse than no sentinel — it inflates
+ * the count while asserting nothing.
+ */
+const MIN_SENTINEL_WORDS = 2
+
+/**
+ * Build the sentinel list for one fixture's content bag (contentSpecs.js's
+ * buildContent() output). Each sentinel is `{ section, text }` — `text` is
+ * asserted present verbatim (after whitespace normalization — see
+ * checkCompleteness()) in the rendered PDF's extracted text.
+ *
+ * RV2: this walks EVERY string leaf, minus `NOT_A_SENTINEL`. It used to
+ * enumerate a hand-written field list — role, bullets, degree, name, title,
+ * language, name, year, competency — about eight of the roughly thirty fields
+ * the renderer draws. Everything else had no render-level content check at
+ * all: the whole summary, every `personal.*` field, company, period, location,
+ * description, progression, institution, issuer, venue, proficiency, and
+ * achievement text.
+ *
+ * Measured cost of that gap: seeding `e.company?.toUpperCase()` into
+ * ATSDocument.jsx — a case-transform INV-0 names explicitly — left the FULL
+ * suite at 857/857 green while the shipped PDF printed "WAYNE ENTERPRISES".
+ * Dropping `experience.period` likewise left the render oracle, the harness
+ * invariants, the sidebar measure-diff and the physical-page check all green.
+ * INV-0 says "every character of C reaches the PDF text layer"; the instrument
+ * enforced it for a minority of C.
+ *
+ * The ATS variant is the worst case and the reason this matters most: it has
+ * no height instrument at all (there is no measure-diff for single column), so
+ * these sentinels are its ONLY content check.
+ */
 export function sentinelsFor(content) {
   const sentinels = []
-  for (const e of content.experience ?? []) {
-    // The entry heading — either the whole entry rendered somewhere or it
-    // didn't; unrelated to bullet-level clipping, kept from round 1.
-    sentinels.push({ section: 'experience', text: e.role })
-    // Every bullet (round 2 fix): a bullet can be individually clipped at a
-    // physical page edge while the entry's role/earlier bullets render
-    // fine — see module docblock. bullets may be plain strings or the
-    // object form with an inline hyperlink (schema: bulletItem) — mirrors
-    // layout.js's own `typeof b === 'string' ? b : b.text` handling.
-    for (const b of e.bullets ?? []) {
-      const text = typeof b === 'string' ? b : b.text
-      const tail = tailSentinel(text)
-      if (tail) sentinels.push({ section: 'experience', text: tail })
+
+  const walk = (value, section, key) => {
+    if (value == null) return
+    if (typeof value === 'string') {
+      if (key && NOT_A_SENTINEL.has(`${section}.${key}`)) return
+      const tail = tailSentinel(value)
+      // Keep single-word tails only when the whole value is that word — an
+      // atomic field like a competency or a language name is a legitimate
+      // sentinel; a one-word TAIL of a longer sentence is not distinctive.
+      const words = tail.split(/\s+/).filter(Boolean).length
+      if (!tail) return
+      if (words < MIN_SENTINEL_WORDS && tail !== String(value).trim()) return
+      sentinels.push({ section, text: tail })
+      return
+    }
+    if (Array.isArray(value)) {
+      for (const v of value) walk(v, section, key)
+      return
+    }
+    if (typeof value === 'object') {
+      for (const [k, v] of Object.entries(value)) walk(v, section, k)
     }
   }
-  // Every item of every present section (round 2 fix: was lastOf() — only
-  // the last item — which misses a silently-dropped MIDDLE item).
-  const everyItemSentinel = (section, arr, pick) => {
-    for (const item of arr ?? []) {
-      const tail = tailSentinel(pick(item))
-      if (tail) sentinels.push({ section, text: tail })
-    }
+
+  for (const [section, value] of Object.entries(content ?? {})) {
+    // `config` is not drawn, and `keywords` is metadata that is never printed
+    // on the page (keywords.yaml's own header says so) — asserting either
+    // present would assert a falsehood.
+    if (section === 'config' || section === 'keywords' || section === 'profilePhoto') continue
+    walk(value, section, null)
   }
-  everyItemSentinel('education', content.education, (x) => x.degree)
-  everyItemSentinel('certifications', content.certifications, (x) => x.name)
-  everyItemSentinel('publications', content.publications, (x) => x.title)
-  everyItemSentinel('languages', content.languages, (x) => x.language)
-  everyItemSentinel('referees', content.referees, (x) => x.name)
-  everyItemSentinel('achievements', content.achievements, (x) => x.year)
-  everyItemSentinel('competencies', content.competencies, (x) => x)
   return sentinels
 }
 
