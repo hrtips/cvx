@@ -176,14 +176,16 @@ function loadAndMeasure(
 async function resolveAndPlan({ contentDir, config, content, profilePhoto, measure, warn }) {
   const themes = await discoverThemes()
   const layouts = discoverLayouts(join(contentDir, 'layouts'))
-  const themeName = config.theme ?? 'teal'
   const layoutName = config.layout ?? 'two-column'
-
-  const theme = themes[themeName]
   const layout = layouts[layoutName] ?? undefined
 
-  if (!theme) {
-    throw new Error(`Unknown theme "${themeName}". Available: ${Object.keys(themes).join(', ')}`)
+  // RV7: the DEFAULT theme is resolveDocument's to choose, not this function's.
+  // `config.theme ?? 'teal'` here is what made `LAYOUT_DEFAULT_THEME` dead on
+  // every build while `validate` reached it — two surfaces, two themes, one
+  // workspace. Only an EXPLICIT theme is validated here, because only an
+  // explicit one can be wrong.
+  if (config.theme && !themes[config.theme]) {
+    throw new Error(`Unknown theme "${config.theme}". Available: ${Object.keys(themes).join(', ')}`)
   }
   if (layoutName && !layout) {
     warn(
@@ -200,7 +202,8 @@ async function resolveAndPlan({ contentDir, config, content, profilePhoto, measu
   // drawn — which is exactly what happened before this, with render.js resolving
   // the theme, CVDocument re-resolving the layout, and layout.js defaulting
   // differently again.
-  const resolved = resolveDocument({ config, theme, layout })
+  const resolved = resolveDocument({ config, themes, layout })
+  const { themeName, activeTheme: theme } = resolved
   const plan = resolved.isSingleColumn
     ? undefined
     : planTwoColumn({
@@ -347,7 +350,13 @@ export async function renderCV({
       )
     )
   )
-  const suffix = layoutName === 'single-column' ? '-ats' : ''
+  // RV8: the suffix is a fact about the VARIANT the caller asked for, not about
+  // the layout's name. Keying it on `layoutName` meant `layout: single-column`
+  // — a documented, shipped option — made the DESIGNED build claim the ATS
+  // build's filename, so `build --all` wrote both to `<name>-ats.pdf` and the
+  // second silently destroyed the first while the envelope reported two
+  // artifacts and `ok: true`. `renderCV` already knows which variant it is.
+  const suffix = ats ? '-ats' : ''
   return {
     buffer,
     filename: deriveFilename(content.personal?.name, suffix),

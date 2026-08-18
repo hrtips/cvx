@@ -11,8 +11,64 @@ what happens to a file that still sets it.
 
 ## Unreleased
 
-**Nothing in the npm package changed.** This entry records work on how CVX is
-*reached* — documentation, and one static page on the project site.
+**Five ways a CV could lose content silently, all closed — and one of them
+wrote outside your folder.** Found by a five-lens review against a suite that
+was green at 857 tests and 98.9% line coverage. Every finding was reproduced
+from an untouched `cvx init` scaffold before being written down, and each fix
+landed its failing test first.
+
+**A name is not a path.** `personal.name` derived the output filename with no
+sanitisation, so `name: "../Documents/Resume"` wrote the PDF **over that file**
+— outside the workspace — while `validate --strict` reported the content valid
+and the build printed `✅`. Absolute paths were already re-rooted under the
+working directory, so what worked was relative traversal into an existing
+directory. Names keep their Unicode: `José Álvarez` still yields
+`josé-álvarez.pdf`, because closing a traversal by mangling someone's name is
+not a fix.
+
+**A typo in a `main` slot no longer deletes a section in silence.** Changing
+`- experience` to `- experiance` in the shipped layout dropped 5 of the
+scaffold's 16 bullets, with `validate --strict` clean, `build --strict` exiting
+0 with `notices: []`, and the plan still reporting those bullets as placed. The
+same typo in a *sidebar* slot has been a hard error since 1.8.0 — that guard
+was simply never extended to the other column. `validate` now names the file,
+the slot and the likely spelling, and `build` reports a new
+`slot-not-renderable` **defect** because plain `build` does not validate.
+Appending `:continued` no longer smuggles a bad key past the check either.
+
+**A one-page CV renders its `continuation.main` and `last.main` slots.** On a
+one-page document that page is also the last page and the only continuation
+page, and it was consulting one of the three lists — so anything placed in the
+other two rendered nowhere. A one-page CV is §8's own target shape.
+
+**`layout: single-column` behaves like one document instead of two.** Three
+changes, all user-visible:
+
+- `build --all` writes **two files**. The `-ats` suffix was derived from the
+  layout's name rather than the variant, so both builds claimed
+  `<name>-ats.pdf` and the second destroyed the first while the command
+  reported two artifacts and `ok: true`.
+- **It now renders in `mono`, not `teal`.** The code has always documented
+  single-column's default theme as mono; the build path never reached that
+  table while `validate` did, so the two disagreed about the same folder. If
+  you were relying on a teal single-column CV, set `theme: teal` in
+  `config.yaml` explicitly.
+- `validate` no longer invents a `page-overflow` warning for it. That warning
+  describes page budgets and sheet numbering, and the single-column variant is
+  auto-flowed with neither.
+
+**A malformed spacer is a finding, not a crash.** `- spacer:` with the value
+left off crashed `validate` with a raw `TypeError` and **exit 64 — a usage
+error**, telling you your command was wrong when your content was. It now
+reports the file and field path.
+
+Also: `ARCHITECTURE.md` marked six defects as open that shipped in 1.8.0, and a
+new test binds its backlog to the code so that cannot recur silently.
+
+---
+
+**Nothing in the npm package changed** in the entry below. It records work on
+how CVX is *reached* — documentation, and one static page on the project site.
 
 **Assistants are now told to fetch the bundle, not to ask for it.** A sandbox that
 cannot reach the npm registry can usually still download a file: verified in a

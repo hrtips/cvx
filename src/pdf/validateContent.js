@@ -445,11 +445,11 @@ export function validateContent(
           userLayout = undefined
         }
       }
-      const resolved = resolveDocument({
-        config,
-        theme: THEMES[/** @type {string} */ (config.theme)],
-        layout: userLayout
-      })
+      // RV7: hand resolveDocument the REGISTRY and let it pick the default, the
+      // same way render.js now does. Passing `THEMES[config.theme]` — undefined
+      // whenever the user set no theme — is what made these two surfaces
+      // disagree about which theme the document has.
+      const resolved = resolveDocument({ config, themes: THEMES, layout: userLayout })
       const plan = planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
         layout: resolved.activeLayout,
@@ -474,11 +474,26 @@ export function validateContent(
           suggestion: `add "${key}" to a slot in cv-content/layouts/${layoutName}.yaml, or empty the file if the omission is intended`
         })
       }
-      for (const w of overflowWarnings(plan)) {
-        add('warning', 'summary.yaml', 'page-overflow', {
-          message: w.message,
-          suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
-        })
+      // RV9: the overflow half is TWO-COLUMN ONLY. `planTwoColumn` packs against
+      // a fictional 312pt main column for a single-column document, whose real
+      // render is ~511pt wide, auto-flowed by react-pdf, and has no plan, no
+      // page budget and no page badge by construction (`render.js` returns
+      // `diagnostics: null` for it, and the MCP tool description says so).
+      // Publishing `page-overflow` there described a document that will never
+      // exist — "it flows onto an extra physical sheet the page numbering does
+      // not count", about a variant with no page numbering — and the
+      // agent-facing docs teach that warning's remediation, so a driving LLM
+      // would go and shorten a summary that has no overflow.
+      //
+      // `section-has-no-slot` above stays for both: it only asks which slot
+      // lists mention which keys, with no geometry in it at all.
+      if (!resolved.isSingleColumn) {
+        for (const w of overflowWarnings(plan)) {
+          add('warning', 'summary.yaml', 'page-overflow', {
+            message: w.message,
+            suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
+          })
+        }
       }
     } catch {
       // Belt and braces, and deliberately silent. Reaching here means the

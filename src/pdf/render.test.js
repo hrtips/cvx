@@ -372,7 +372,11 @@ describe('renderCV — single-column (header-ats section + template)', () => {
       })
       expect(isPdf(buffer)).toBe(true)
       expect(layoutName).toBe('single-column')
-      expect(filename).toBe('bruce-wayne-ats.pdf')
+      // RV8: the `-ats` suffix names the VARIANT, not the layout. This is a
+      // designed build (`ats: false`) that happens to use the single-column
+      // layout, so it keeps the plain filename — previously it claimed the ATS
+      // build's name and `build --all` silently overwrote one with the other.
+      expect(filename).toBe('bruce-wayne.pdf')
     },
     RENDER_TIMEOUT
   )
@@ -401,7 +405,7 @@ describe('renderCV — single-column (header-ats section + template)', () => {
         warn: () => {}
       })
       expect(isPdf(buffer)).toBe(true)
-      expect(filename).toBe('column-person-ats.pdf')
+      expect(filename).toBe('column-person.pdf') // RV8: designed variant, plain name
     },
     RENDER_TIMEOUT
   )
@@ -456,6 +460,82 @@ describe('renderCV — ATS document (ats: true)', () => {
       })
       expect(isPdf(buffer)).toBe(true)
       expect(filename).toBe('solo-name-ats.pdf')
+    },
+    RENDER_TIMEOUT
+  )
+})
+
+// RV7/RV8: the single-column variant's identity — which theme it resolves to,
+// and which filename it claims. Both were wrong in ways that only showed up
+// when the layout was single-column, which is why neither had a build fixture:
+// the one that existed (test/planLayout.test.js) only dry-runs.
+describe('renderCV — single-column resolves one theme and one filename (RV7/RV8)', () => {
+  const singleColumn = (/** @type {Record<string, unknown>} */ config) =>
+    writeContent(
+      { personal: { name: 'Solo Name', title: 'Widget Maker' }, summary: ['A line.'] },
+      { config: { schemaVersion: 1, layout: 'single-column', ...config } }
+    )
+
+  it(
+    'takes its default theme from the layout, not from a hardcoded "teal"',
+    async () => {
+      // §2.6 says build and validate "can never disagree" about the same
+      // content. They did: render.js computed `config.theme ?? 'teal'` and
+      // always passed a concrete theme, so LAYOUT_DEFAULT_THEME was dead here
+      // and live in validateContent — teal on build, mono on validate.
+      const { themeName } = await renderCV({
+        contentDir: singleColumn({}),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(themeName).toBe('mono')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'still honours an explicit theme, and the two-column default is untouched',
+    async () => {
+      const explicit = await renderCV({
+        contentDir: singleColumn({ theme: 'teal' }),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(explicit.themeName).toBe('teal')
+      const twoCol = await renderCV({
+        contentDir: writeContent(
+          { personal: { name: 'Solo Name', title: 'W' }, summary: ['A line.'] },
+          { config: { schemaVersion: 1, layout: 'two-column' } }
+        ),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(twoCol.themeName).toBe('teal')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'gives the designed and ATS variants DIFFERENT filenames (they used to collide)',
+    async () => {
+      // `build --all` renders both from one workspace. Keying the suffix on the
+      // layout name meant both claimed `<name>-ats.pdf`, so the second write
+      // destroyed the first while the envelope reported two artifacts.
+      const dir = singleColumn({})
+      const designed = await renderCV({ contentDir: dir, fontsDir: FONTS, env: {}, warn: () => {} })
+      const ats = await renderCV({
+        contentDir: dir,
+        fontsDir: FONTS,
+        ats: true,
+        env: {},
+        warn: () => {}
+      })
+      expect(designed.filename).toBe('solo-name.pdf')
+      expect(ats.filename).toBe('solo-name-ats.pdf')
+      expect(designed.filename).not.toBe(ats.filename)
     },
     RENDER_TIMEOUT
   )

@@ -325,8 +325,10 @@ is the normative list):
   just going red.
 - **Measurement parity across surfaces**: build and validate resolve the same
   fonts directory and measure identically, so the two can never disagree
-  about the same content. **⚠ Not true in the theme axis as of 2026-08-18 —
-  see RV7.** `render.js` defaults `config.theme ?? 'teal'` while
+  about the same content. (RV7 made this true again in the theme axis: it was
+  false while `render.js` defaulted the theme itself and `validateContent.js`
+  reached `LAYOUT_DEFAULT_THEME`, and the two resolved teal and mono for one
+  workspace. One resolution path now, in `resolveDocument`.) `render.js` defaults `config.theme ?? 'teal'` while
   `validateContent.js` passes `THEMES[config.theme]`, so a workspace with no
   explicit `theme:` key and `layout: single-column` resolves teal on build and
   mono on validate. It is inert on *measurement* only because the three shipped
@@ -1209,16 +1211,16 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     reachability curve (title length → rows needed to throw): 3 words → 120,
     8 → 120, 20 → 80, 60 → 30, 400 → 3. No real CV reaches it; recorded for the
     cause, not the crash. See §6's re-specified guard.
-  - **RV7 (P1) — SCHEDULED (this pass). `build` and `validate` resolve different themes.** See
+  - **RV7 (P1) — LANDED. `build` and `validate` resolved different themes.** See
     the §2.6 marker. The fix collapses the two to one resolution path, with `build`
     honouring `LAYOUT_DEFAULT_THEME` so `layout: single-column` renders **mono**
     where it renders teal today — a deliberate, user-visible change that needs a
     CHANGELOG entry and a version bump when it lands.
-  - **RV8 (P1) — SCHEDULED (this pass). `build --all` on `layout: single-column` destroys one
+  - **RV8 (P1) — LANDED. `build --all` on `layout: single-column` destroyed one
     of its own outputs.** The `-ats` filename suffix keyed on the layout name
     while the variant came from the `--ats` flag, so both variants claimed one
     filename; the envelope reported two artifacts and one no longer existed.
-  - **RV9 (P1) — SCHEDULED (this pass). `validate` runs the two-column packer against
+  - **RV9 (P1) — LANDED. `validate` ran the two-column packer against
     single-column content**, publishing a `page-overflow` warning about a page
     budget that variant does not have. The agent-facing docs teach that
     warning's remediation, so a driving LLM would shorten a summary that has no
