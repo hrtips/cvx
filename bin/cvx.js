@@ -69,9 +69,12 @@ Usage:
                        Write the MCP config for your client
 
 Options:
-  --strict             validate: treat warnings (e.g. unknown keys) as errors
-                       build: exit non-zero if the PDF has more sheets than
-                       planned (also applies to build --all)
+  --strict             validate: treat UNKNOWN-KEY warnings as errors (only
+                       those — other warnings stay warnings on purpose; see
+                       validateContent.js's severity model)
+                       build: exit non-zero on a defect the build can see —
+                       more sheets than planned, or a slot key that renders
+                       nothing (also applies to build --all)
   --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
