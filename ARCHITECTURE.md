@@ -861,6 +861,16 @@ written down).
     measurement — +110 MB, and a per-platform build matrix to solve "no Node",
     a problem no measured target environment has. Container images stayed cut
     because the sandboxes this is for have no container runtime at all.
+    **Why this shape survives vendor churn, which is the real argument for it:**
+    three OpenAI surfaces moved under this work in a single day (2026-08-18) —
+    the container's npm reachability, `container.download`'s reliability, and
+    who may create or share a Custom GPT. The bundle was unaffected by all
+    three, because it is a file that runs on Node and depends on no vendor
+    product decision. Two corollaries: do not build on `container.download`
+    (it refused `application/json` on a content-type allowlist, then failed
+    outright retrying the same host — plain fetching works and is what every
+    surface now documents), and treat any vendor-specific front door as one
+    door rather than the strategy.
 - **Positioning claim discipline**: never "the only local MCP PDF renderer"
   (falsified by mcp-z/mcp-pdf, Reactive Resume MCP, cf-rendercv); the honest
   claim is "the only complete, validated CV workflow an AI agent can drive
@@ -1279,6 +1289,30 @@ correct build in ≤ 1 layout iteration.
 - Privacy discipline for incident and dogfood records: no personal content
   beyond block heights is reproduced in repo documents; personal data stays
   outside the repository; gauntlet runs use fixture identities.
+- **Releases are cut from an annotated tag, and assets are attached to a
+  DRAFT.** `publish.yml` builds the GitHub Release from the tag's own message
+  (subject → title, body → notes), so a lightweight tag fails the job by
+  design. This repo has immutable releases enabled, which is unforgiving:
+  publishing freezes a release's assets *and* reserves its tag name
+  permanently, even after the release is deleted. Assets must therefore be
+  uploaded while the release is still a draft; create-then-upload returns
+  `422 Cannot upload assets to an immutable release` and strands a published
+  release with no assets. **Never delete a published release to retry** — that
+  is how v1.9.0 ended up on npm with no GitHub release it can ever have. The
+  job now declines to touch an already-published release rather than repairing
+  one. `publish.yml` must also dispatch `pages.yml` after a release, or the
+  documented download URL silently serves the previous version.
+- **A hostname is a tool-routing signal, and it decides before any
+  instruction is weighed.** Measured 2026-08-18 on a real run: an assistant
+  given a `github.com` download URL reached for its GitHub connector — which
+  reads repository and release metadata but does not follow the binary
+  release-asset redirect — and from that true failure concluded the *sandbox*
+  could not download, then asked the user to upload the file by hand. Prose
+  telling it not to use the connector was the wrong shape of fix; the signal
+  was removed instead, and the documented execution URL now points at the
+  Pages origin with no repository connotation. Any future move of that URL
+  inherits the requirement: the host must not name a system the model has a
+  connector for. Releases remain the source of truth and keep serving humans.
 
 ---
 
