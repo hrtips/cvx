@@ -40,9 +40,53 @@ export function discoverLayouts(/** @type {string} */ layoutsDir) {
   return layouts
 }
 
+/**
+ * Control characters (NUL included) are never part of a name, and are the
+ * classic way to truncate a path in a downstream consumer. Filtered by code
+ * point rather than by a character-class regex: both linters flag a control
+ * range in a literal, and two inline suppressions on one line reads worse
+ * than saying the thing plainly.
+ */
+const withoutControlChars = (/** @type {string} */ s) =>
+  [...s]
+    .filter((ch) => {
+      const cp = /** @type {number} */ (ch.codePointAt(0))
+      return cp > 0x1f && cp !== 0x7f
+    })
+    .join('')
+
+/**
+ * The output filename, derived from the person's name.
+ *
+ * R0: this is the one place CV content decides where bytes land on disk, and
+ * it used to do it with no sanitisation — `name: "../Documents/Resume"` wrote
+ * the PDF over that file, outside the workspace, with `validate --strict`
+ * clean and the build reporting `✅`. INV-12 ("CV content is data, not
+ * commands") was proven for layout numbers by the injection suite and never
+ * asked about paths. A name is not a path.
+ *
+ * The rule, and why it is segment-wise rather than a `basename()`:
+ * separators split, `.`/`..` segments are dropped, and what remains is JOINED
+ * with hyphens rather than reduced to the last segment. `basename()` would
+ * turn `../Documents/Resume` into `resume.pdf` — still inside the workspace,
+ * but a likelier collision with a file the user already has than
+ * `documents-resume.pdf` is. Nothing is silently discarded either way; this
+ * keeps more of what was typed.
+ *
+ * Unicode letters survive deliberately. Reducing `José Álvarez` to
+ * `jos-lvarez` would close the traversal by mangling a user's own name, which
+ * is precisely the posture INV-14 rejects — CVX warns about what it cannot
+ * render, it does not quietly rewrite it. Filesystems CVX targets take UTF-8.
+ */
 function deriveFilename(/** @type {string | undefined} */ name, /** @type {string} */ suffix) {
-  const base = name ? name.toLowerCase().replace(/\s+/g, '-') : 'cv'
-  return `${base}${suffix}.pdf`
+  const base = withoutControlChars((name ?? '').toLowerCase().replace(/\s+/g, '-'))
+    .split(/[/\\]/)
+    .filter((seg) => seg !== '' && seg !== '.' && seg !== '..')
+    .join('-')
+    // A leading dot would make the deliverable a hidden file the user cannot
+    // find; it is never what a name meant.
+    .replace(/^\.+/, '')
+  return `${base || 'cv'}${suffix}.pdf`
 }
 
 /**

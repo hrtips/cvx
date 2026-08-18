@@ -461,6 +461,56 @@ describe('renderCV — ATS document (ats: true)', () => {
   )
 })
 
+// R0: `personal.name` derives the output path, and derived it with no
+// sanitisation at all — `name: "../Documents/Resume"` wrote the PDF over that
+// file, outside the workspace, under a clean `validate --strict` and a `✅`
+// build. INV-12 says CV content is data, never commands; the injection suite
+// proved that for layout NUMBERS and nobody had asked it about PATHS. The
+// threat model is not hypothetical: an assistant writes personal.yaml from a
+// CV or LinkedIn export the user supplies, and CVX runs locally with the
+// user's permissions.
+//
+// The rule: a name is not a path. Strip anything that could traverse or
+// reroot, and keep everything else — including Unicode letters, because
+// mangling `José Álvarez` into `jos-lvarez` to close a traversal would be the
+// tool silently altering a user's own name, which is the opposite of INV-14's
+// posture of warning rather than mangling.
+describe('renderCV — the filename cannot escape the workspace (R0)', () => {
+  const cases = [
+    { name: '../Documents/Resume', expect: 'documents-resume.pdf' },
+    { name: '../../../etc/passwd', expect: 'etc-passwd.pdf' },
+    { name: 'a/b/c', expect: 'a-b-c.pdf' },
+    { name: 'back\\slash', expect: 'back-slash.pdf' },
+    { name: '..', expect: 'cv.pdf' },
+    { name: '.', expect: 'cv.pdf' },
+    { name: '/absolute', expect: 'absolute.pdf' },
+    // Unicode survives: these are real names, not attacks.
+    { name: 'José Álvarez', expect: 'josé-álvarez.pdf' },
+    { name: "Ada O'Brien-Smith", expect: "ada-o'brien-smith.pdf" }
+  ]
+
+  for (const c of cases) {
+    it(
+      `${JSON.stringify(c.name)} → ${c.expect}`,
+      async () => {
+        const dir = writeContent({ personal: { name: c.name, title: 'Widget Maker' } })
+        const { filename } = await renderCV({
+          contentDir: dir,
+          fontsDir: FONTS,
+          env: {},
+          warn: () => {}
+        })
+        expect(filename).toBe(c.expect)
+        // The property that matters, independent of the exact spelling above:
+        // whatever comes out is a single path segment.
+        expect(filename).not.toMatch(/[/\\]/)
+        expect(filename.split(/[/\\]/)).toHaveLength(1)
+      },
+      RENDER_TIMEOUT
+    )
+  }
+})
+
 describe('renderCV — warnings and errors', () => {
   it('throws when the content directory is missing', async () => {
     await expect(
