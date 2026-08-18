@@ -985,11 +985,17 @@ const SPLITTABLE_PAGES_UNKNOWN = 512
 function maxPagesFor(flow) {
   let items = 0
   for (const block of flow) {
-    const b =
-      /** @type {{ itemCount?: number, entry?: { bullets?: unknown[] }, split?: unknown }} */ (
-        block
-      )
-    items += b.itemCount ?? b.entry?.bullets?.length ?? (b.split ? SPLITTABLE_PAGES_UNKNOWN : 0)
+    const b = /** @type {{ itemCount?: number, split?: unknown }} */ (block)
+    // RV6: `b.entry?.bullets?.length` used to sit here — the experience
+    // vocabulary's shape, read by the packing core. It contained no section
+    // NAME, which is why a denylist-shaped genericity guard would have passed
+    // it green, and it went STALE the moment D7 made progression rows atoms
+    // too: the cap was computed from bullets alone while `split` cut on
+    // `nProg + nBullets`, so `packBlocks` could throw its own termination
+    // error on schema-valid content. Measured reachability (title length →
+    // rows needed): 3 words → 120, 20 → 80, 60 → 30, 400 → 3. No real CV, but
+    // the cause was the reach, not the crash.
+    items += b.itemCount ?? (b.split ? SPLITTABLE_PAGES_UNKNOWN : 0)
   }
   return flow.length + items + 1
 }
@@ -1018,7 +1024,7 @@ function assertCarryShrinks(before, tail, index) {
 
 /** Best-effort identity of a block for an error message — sidebar slices have a key, experience blocks an entry. */
 function describeBlock(/** @type {any} */ block, /** @type {number} */ index) {
-  const key = block?.key ?? block?.entry?.role ?? block?.id
+  const key = block?.key ?? block?.id
   return `${key == null ? 'block' : `"${key}"`} at flow index ${index} (height ${block?.height})`
 }
 
@@ -1219,6 +1225,8 @@ export function overflowWarnings(plan) {
  *   entry: import('./types.js').ExperienceEntry,
  *   height: number,
  *   gapBefore: number,
+ *   itemCount: number,
+ *   id: string,
  *   split: SplitFn<ExperienceBlock>,
  * }} ExperienceBlock
  */
@@ -1244,10 +1252,27 @@ export function overflowWarnings(plan) {
  */
 function experienceBlock(entry, m, measure, gapBefore) {
   const height = entryH(entry, m, measure)
+  // RV6: the block DECLARES its own atom count, the way a sidebar slice
+  // already does, so the packer never has to know what an experience entry is
+  // shaped like. This is `n` inside `split` below — progression rows then
+  // bullets, D7's cut axis — computed once here.
+  const progAtoms = Math.max(
+    0,
+    (entry.endProg ?? entry.progression?.length ?? 0) - (entry.startProg ?? 0)
+  )
+  const bulletAtoms = Math.max(
+    0,
+    (entry.endBullet ?? entry.bullets?.length ?? 0) - (entry.startBullet ?? 0)
+  )
   return {
     entry,
     height,
     gapBefore,
+    itemCount: progAtoms + bulletAtoms,
+    // A human-readable identity for packer error messages — `describeBlock`
+    // used to reach for `entry.role`, which is vocabulary shape inside the
+    // engine for the sake of one string.
+    id: entry.role,
     split: (room, forceMinimum) => {
       // D7 `prog-split`. The cut axis is the entry's ATOMS in document order:
       // the progression rows this piece holds, then its bullets. Before, only
