@@ -60,10 +60,29 @@ changes, all user-visible:
 **A malformed spacer is a finding, not a crash.** `- spacer:` with the value
 left off crashed `validate` with a raw `TypeError` and **exit 64 — a usage
 error**, telling you your command was wrong when your content was. It now
-reports the file and field path.
+reports the file and field path. The same class: an unreadable
+`CVX_ASSET_ROOT` used to fail at module load with exit 1 and a stack trace,
+outside the documented `0 / 2 / 3 / 64` contract.
 
-Also: `ARCHITECTURE.md` marked six defects as open that shipped in 1.8.0, and a
-new test binds its backlog to the code so that cannot recur silently.
+**The ATS PDF was quietly dropping three things.** Found by widening the
+content check, not by review: a hyperlinked bullet lost its link label and its
+suffix, and `experience[].location` was drawn nowhere in that variant at all.
+Verified by rendering both PDFs from one folder — the designed one had all
+three, the ATS one had none. Two deliverables, different content.
+
+**`--json` no longer truncates.** Output was written asynchronously and the
+process exited immediately after, so a caller reading through a pipe — every
+agent, every script — got the envelope cut off at exactly 64 KiB with
+unparseable JSON and no indication. A 603 KB payload now arrives whole.
+
+**Under the hood.** `ARCHITECTURE.md` marked six defects as open that shipped
+in 1.8.0, and a new test binds its backlog to the code so that cannot recur
+silently. The render-level content check now covers every drawn field rather
+than about eight of thirty — seeding a case-transform of every employer name
+used to leave all 857 tests green. The packing engine no longer reaches into
+the shape of an experience entry, and a new guard enforces that mechanically
+rather than by review. `cvx list layouts` now tells you when your own layout
+file is the one in play.
 
 ---
 
