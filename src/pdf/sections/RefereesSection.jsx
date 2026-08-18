@@ -70,7 +70,8 @@ export default function RefereesSection({ data, slice }) {
       <SectionTitle variant="sidebar">{sliceTitle('Referees', slice)}</SectionTitle>
       {referees.length > 0 ? (
         referees.map((r, i) => (
-          <View key={r.name}>
+          // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+          <View key={`${i}-${r.name}`}>
             <Referee r={r} s={s} />
             {i < referees.length - 1 && <View style={s.divider} />}
           </View>

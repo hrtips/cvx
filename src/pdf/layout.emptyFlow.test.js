@@ -262,10 +262,10 @@ describe('I2(d) — emptyColumn means "no content beyond the chrome"', () => {
 })
 
 describe('I2(e) — the shape version says its meaning moved', () => {
-  it('diagnostics carry version 4', () => {
+  it('diagnostics carry version 5', () => {
     const d = layoutDiagnostics(
       planTwoColumn({ content: { experience: [ROLE], summary: SUMMARY_4, ...SIDEBAR } })
     )
-    expect(d?.version).toBe(4)
+    expect(d?.version).toBe(5)
   })
 })

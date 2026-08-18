@@ -59,3 +59,21 @@ export const LAYOUTS = {
   'two-column': TWO_COLUMN_LAYOUT,
   'single-column': SINGLE_COLUMN_LAYOUT
 }
+
+/**
+ * The built-in layout names, derived from the registry that actually resolves
+ * them (N5).
+ *
+ * They were written out by hand in three more places — `validateContent`'s
+ * unknown-layout check, `cvx list layouts`, and the MCP `get_schema` response —
+ * so only ONE of the four decided what resolves and the other three decided
+ * what users and agents are TOLD exists. Nothing kept them in agreement, and
+ * themes already do this correctly through `discoverThemes()`, which is what
+ * made the asymmetry visible.
+ *
+ * The trigger is scheduled, not hypothetical: §8's I8 ships an education-first
+ * layout. Adding it to `LAYOUTS` alone would give a layout that builds
+ * correctly, is invisible to `cvx list layouts` and `get_schema`, and makes
+ * `validate` warn `unknown-layout` about a layout CVX itself ships.
+ */
+export const BUILT_IN_LAYOUT_NAMES = Object.freeze(Object.keys(LAYOUTS))

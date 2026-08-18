@@ -1,7 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/hrtips/cvx/main/schema/v1/layout.schema.json
-# ── Single-Column Layout (ATS) ────────────────────────────────────────────────
-# Plain single-column layout optimised for Applicant Tracking Systems.
-# No sidebar, no decorative elements. Maximum parsability.
+# ── Single-Column Layout ─────────────────────────────────────────────────────
+# Plain single-column layout: no sidebar, no decorative elements.
+#
+# THIS FILE DOES NOT CONTROL `build --ats`. That flag renders its own document
+# (ATSDocument.jsx) and never reads a layout file, so editing the slots below
+# will not change the ATS PDF. This layout applies when `config.yaml` sets
+# `layout: single-column`, which is a *designed* single-column CV.
 # ─────────────────────────────────────────────────────────────────────────────
 
 template: single-column

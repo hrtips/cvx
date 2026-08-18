@@ -8,6 +8,7 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { useMemo } from 'react'
 import { buildKeywords } from './keywords.js'
+import { bulletText } from './layout.js'
 import { ThemeContext, useTheme } from './ThemeContext.jsx'
 import { monoTheme } from './themes/mono.js'
 
@@ -146,7 +147,11 @@ function ATSContent({
             // biome-ignore lint/suspicious/noArrayIndexKey: bullet text may repeat; index is the stable identity for this single-shot ATS render
             <View key={i} style={s.bulletRow}>
               <Text style={s.bulletDash}>–</Text>
-              <Text style={s.bulletText}>{typeof b === 'string' ? b : b.text}</Text>
+              {/* RV14, second site. The experience bullets were fixed and this
+                  one was not, because no scaffold fixture has an object-form
+                  SUMMARY bullet — found by driving a real CV, which is what
+                  SPRINT.md says finds these. */}
+              <Text style={s.bulletText}>{bulletText(b)}</Text>
             </View>
           ))}
         </View>
@@ -157,11 +162,21 @@ function ATSContent({
         <View>
           <Text style={s.section}>Experience</Text>
           {experience.map((e, i) => (
-            <View key={`${e.role}-${e.company}`}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${e.role}-${e.company}`}>
               {i > 0 && <View style={s.entryGap} />}
               <Text style={s.role}>{e.role}</Text>
               <View style={s.expMeta}>
-                <Text style={s.company}>{e.company}</Text>
+                <Text style={s.company}>
+                  {e.company}
+                  {/* RV15: `experience[].location` was drawn NOWHERE in this
+                      variant — the designed CV renders it, the ATS one dropped
+                      it silently. Content, not decoration, so INV-0. Appended
+                      to the company run rather than given its own column: the
+                      period is right-aligned in this row and a third cell
+                      would reflow a layout nothing else needed changed. */}
+                  {e.location ? ` · ${e.location}` : ''}
+                </Text>
                 <Text style={s.period}>{e.period}</Text>
               </View>
               {e.description && <Text style={s.desc}>{e.description}</Text>}
@@ -171,8 +186,9 @@ function ATSContent({
                   <View style={s.progBlock}>
                     {
                       /** @type {import('./types.js').ProgressionStep[]} */ (e.progression).map(
-                        (p) => (
-                          <View key={p.title} style={s.progRow}>
+                        (p, pi) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+                          <View key={`${pi}-${p.title}`} style={s.progRow}>
                             <Text style={s.progTitle}>{p.title}</Text>
                             <Text style={s.progPeriod}>{p.period}</Text>
                           </View>
@@ -186,7 +202,7 @@ function ATSContent({
                 // biome-ignore lint/suspicious/noArrayIndexKey: bullet text may repeat; index is the stable identity for this single-shot ATS render
                 <View key={j} style={s.bulletRow}>
                   <Text style={s.bulletDash}>–</Text>
-                  <Text style={s.bulletText}>{typeof b === 'string' ? b : b.text}</Text>
+                  <Text style={s.bulletText}>{bulletText(b)}</Text>
                 </View>
               ))}
             </View>
@@ -199,7 +215,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Education</Text>
           {education.map((edu, i) => (
-            <View key={edu.degree}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${edu.degree}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{edu.degree}</Text>
               <Text style={s.eduMeta}>
@@ -216,7 +233,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Certifications</Text>
           {certifications.map((c, i) => (
-            <View key={c.name}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${c.name}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{c.name}</Text>
               {(c.issuer || c.year) && (
@@ -232,7 +250,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Publications</Text>
           {publications.map((p, i) => (
-            <View key={p.title}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${p.title}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{p.title}</Text>
               {(p.venue || p.year) && (

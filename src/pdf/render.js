@@ -40,9 +40,53 @@ export function discoverLayouts(/** @type {string} */ layoutsDir) {
   return layouts
 }
 
+/**
+ * Control characters (NUL included) are never part of a name, and are the
+ * classic way to truncate a path in a downstream consumer. Filtered by code
+ * point rather than by a character-class regex: both linters flag a control
+ * range in a literal, and two inline suppressions on one line reads worse
+ * than saying the thing plainly.
+ */
+const withoutControlChars = (/** @type {string} */ s) =>
+  [...s]
+    .filter((ch) => {
+      const cp = /** @type {number} */ (ch.codePointAt(0))
+      return cp > 0x1f && cp !== 0x7f
+    })
+    .join('')
+
+/**
+ * The output filename, derived from the person's name.
+ *
+ * RV0: this is the one place CV content decides where bytes land on disk, and
+ * it used to do it with no sanitisation — `name: "../Documents/Resume"` wrote
+ * the PDF over that file, outside the workspace, with `validate --strict`
+ * clean and the build reporting `✅`. INV-12 ("CV content is data, not
+ * commands") was proven for layout numbers by the injection suite and never
+ * asked about paths. A name is not a path.
+ *
+ * The rule, and why it is segment-wise rather than a `basename()`:
+ * separators split, `.`/`..` segments are dropped, and what remains is JOINED
+ * with hyphens rather than reduced to the last segment. `basename()` would
+ * turn `../Documents/Resume` into `resume.pdf` — still inside the workspace,
+ * but a likelier collision with a file the user already has than
+ * `documents-resume.pdf` is. Nothing is silently discarded either way; this
+ * keeps more of what was typed.
+ *
+ * Unicode letters survive deliberately. Reducing `José Álvarez` to
+ * `jos-lvarez` would close the traversal by mangling a user's own name, which
+ * is precisely the posture INV-14 rejects — CVX warns about what it cannot
+ * render, it does not quietly rewrite it. Filesystems CVX targets take UTF-8.
+ */
 function deriveFilename(/** @type {string | undefined} */ name, /** @type {string} */ suffix) {
-  const base = name ? name.toLowerCase().replace(/\s+/g, '-') : 'cv'
-  return `${base}${suffix}.pdf`
+  const base = withoutControlChars((name ?? '').toLowerCase().replace(/\s+/g, '-'))
+    .split(/[/\\]/)
+    .filter((seg) => seg !== '' && seg !== '.' && seg !== '..')
+    .join('-')
+    // A leading dot would make the deliverable a hidden file the user cannot
+    // find; it is never what a name meant.
+    .replace(/^\.+/, '')
+  return `${base || 'cv'}${suffix}.pdf`
 }
 
 /**
@@ -132,14 +176,16 @@ function loadAndMeasure(
 async function resolveAndPlan({ contentDir, config, content, profilePhoto, measure, warn }) {
   const themes = await discoverThemes()
   const layouts = discoverLayouts(join(contentDir, 'layouts'))
-  const themeName = config.theme ?? 'teal'
   const layoutName = config.layout ?? 'two-column'
-
-  const theme = themes[themeName]
   const layout = layouts[layoutName] ?? undefined
 
-  if (!theme) {
-    throw new Error(`Unknown theme "${themeName}". Available: ${Object.keys(themes).join(', ')}`)
+  // RV7: the DEFAULT theme is resolveDocument's to choose, not this function's.
+  // `config.theme ?? 'teal'` here is what made `LAYOUT_DEFAULT_THEME` dead on
+  // every build while `validate` reached it — two surfaces, two themes, one
+  // workspace. Only an EXPLICIT theme is validated here, because only an
+  // explicit one can be wrong.
+  if (config.theme && !themes[config.theme]) {
+    throw new Error(`Unknown theme "${config.theme}". Available: ${Object.keys(themes).join(', ')}`)
   }
   if (layoutName && !layout) {
     warn(
@@ -156,7 +202,8 @@ async function resolveAndPlan({ contentDir, config, content, profilePhoto, measu
   // drawn — which is exactly what happened before this, with render.js resolving
   // the theme, CVDocument re-resolving the layout, and layout.js defaulting
   // differently again.
-  const resolved = resolveDocument({ config, theme, layout })
+  const resolved = resolveDocument({ config, themes, layout })
+  const { themeName, activeTheme: theme } = resolved
   const plan = resolved.isSingleColumn
     ? undefined
     : planTwoColumn({
@@ -303,7 +350,13 @@ export async function renderCV({
       )
     )
   )
-  const suffix = layoutName === 'single-column' ? '-ats' : ''
+  // RV8: the suffix is a fact about the VARIANT the caller asked for, not about
+  // the layout's name. Keying it on `layoutName` meant `layout: single-column`
+  // — a documented, shipped option — made the DESIGNED build claim the ATS
+  // build's filename, so `build --all` wrote both to `<name>-ats.pdf` and the
+  // second silently destroyed the first while the envelope reported two
+  // artifacts and `ok: true`. `renderCV` already knows which variant it is.
+  const suffix = ats ? '-ats' : ''
   return {
     buffer,
     filename: deriveFilename(content.personal?.name, suffix),

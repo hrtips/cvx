@@ -17,7 +17,8 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
-import { overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
+import { BUILT_IN_LAYOUT_NAMES } from './defaultLayouts.js'
+import { MAIN_SLOT_KEYS, overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
 import { normalizeLayout } from './loadLayout.js'
 import {
   createMeasurer,
@@ -51,7 +52,8 @@ const SCHEMA_PATH = join(
  * appears in a file or on the network.
  */
 const SCHEMA_KEY = 'cvx.schema.json'
-const BUILT_IN_LAYOUTS = ['two-column', 'single-column']
+// N5: derived from the registry that resolves them, never hand-copied.
+const BUILT_IN_LAYOUTS = BUILT_IN_LAYOUT_NAMES
 // Files the default two-column layout cannot render without (the packer
 // crashes on a missing list, and personal.name drives the filename).
 const REQUIRED_FILES = ['personal', 'summary', 'experience']
@@ -80,6 +82,23 @@ function getValidator(/** @type {string} */ def) {
   )
 }
 
+/**
+ * The content-schema major, read from the schema itself (N10).
+ *
+ * Three response envelopes — `cvx validate --json`, MCP `get_schema` and MCP
+ * `validate_cv` — each typed `schemaVersion: 1` by hand. A content-schema
+ * major bump is rare and high-ceremony, which is exactly why three hand-typed
+ * copies would survive it: the envelopes would keep announcing a version the
+ * schema no longer declares, to callers who have no other way to know.
+ *
+ * Lazy, reusing the same cached parse `getValidator` builds — the schema read
+ * stays off the path of callers that never validate.
+ */
+export function contentSchemaVersion() {
+  getValidator('config')
+  return canonicalSchema?.$defs?.config?.properties?.schemaVersion?.const ?? 1
+}
+
 function levenshtein(/** @type {string} */ a, /** @type {string} */ b) {
   const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
   for (let j = 1; j <= b.length; j++) m[0][j] = j
@@ -93,7 +112,7 @@ function levenshtein(/** @type {string} */ a, /** @type {string} */ b) {
   return m[a.length][b.length]
 }
 
-function didYouMean(/** @type {string} */ word, /** @type {string[]} */ candidates) {
+function didYouMean(/** @type {string} */ word, /** @type {readonly string[]} */ candidates) {
   let best = null,
     bestDist = Infinity
   for (const c of candidates) {
@@ -105,6 +124,32 @@ function didYouMean(/** @type {string} */ word, /** @type {string[]} */ candidat
   }
   return bestDist <= Math.max(2, Math.floor(word.length / 3)) ? best : null
 }
+
+/**
+ * Did the author actually write this slot as a KEY?
+ *
+ * `normalizeLayout` stringifies whatever it is given, so a malformed slot
+ * (`- ~`, a number, a nested list) arrives at the renderability checks as a
+ * plain string — and reporting `"a,b" cannot render in a main slot` quotes a
+ * key nobody typed, on top of the shape error the schema already raised for
+ * the same path. A second, invented diagnostic is worse than none.
+ *
+ * The object test mirrors `normalizeItem`'s own rule exactly: an object slot
+ * names a key only when it has EXACTLY ONE. `{}` names no section and
+ * `{summary: {}, experience: {}}` names two, so both stringify to
+ * "[object Object]" — and the schema already reports each of them as a
+ * min/maxProperties violation at the same path.
+ *
+ * Arrays are excluded explicitly, because `typeof [] === 'object'` and
+ * `[] !== null` would otherwise make a nested list read as the legal object
+ * form. Both of these were latent gaps in the sidebar arm too — never
+ * exercised, because the only fixtures for them use MAIN slots, which nothing
+ * checked until RV1.
+ */
+const authoredSlot = (/** @type {unknown} */ raw) =>
+  raw === undefined ||
+  typeof raw === 'string' ||
+  (raw !== null && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 1)
 
 const jsonType = (/** @type {unknown} */ v) =>
   v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v
@@ -419,11 +464,11 @@ export function validateContent(
           userLayout = undefined
         }
       }
-      const resolved = resolveDocument({
-        config,
-        theme: THEMES[/** @type {string} */ (config.theme)],
-        layout: userLayout
-      })
+      // RV7: hand resolveDocument the REGISTRY and let it pick the default, the
+      // same way render.js now does. Passing `THEMES[config.theme]` — undefined
+      // whenever the user set no theme — is what made these two surfaces
+      // disagree about which theme the document has.
+      const resolved = resolveDocument({ config, themes: THEMES, layout: userLayout })
       const plan = planTwoColumn({
         content: /** @type {import('./types.js').CVContent} */ (/** @type {unknown} */ (docs)),
         layout: resolved.activeLayout,
@@ -448,11 +493,26 @@ export function validateContent(
           suggestion: `add "${key}" to a slot in cv-content/layouts/${layoutName}.yaml, or empty the file if the omission is intended`
         })
       }
-      for (const w of overflowWarnings(plan)) {
-        add('warning', 'summary.yaml', 'page-overflow', {
-          message: w.message,
-          suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
-        })
+      // RV9: the overflow half is TWO-COLUMN ONLY. `planTwoColumn` packs against
+      // a fictional 312pt main column for a single-column document, whose real
+      // render is ~511pt wide, auto-flowed by react-pdf, and has no plan, no
+      // page budget and no page badge by construction (`render.js` returns
+      // `diagnostics: null` for it, and the MCP tool description says so).
+      // Publishing `page-overflow` there described a document that will never
+      // exist — "it flows onto an extra physical sheet the page numbering does
+      // not count", about a variant with no page numbering — and the
+      // agent-facing docs teach that warning's remediation, so a driving LLM
+      // would go and shorten a summary that has no overflow.
+      //
+      // `section-has-no-slot` above stays for both: it only asks which slot
+      // lists mention which keys, with no geometry in it at all.
+      if (!resolved.isSingleColumn) {
+        for (const w of overflowWarnings(plan)) {
+          add('warning', 'summary.yaml', 'page-overflow', {
+            message: w.message,
+            suggestion: `page ${w.page} of the render carries a single block taller than a whole page, which no pagination can fit`
+          })
+        }
       }
     } catch {
       // Belt and braces, and deliberately silent. Reaching here means the
@@ -589,9 +649,7 @@ export function validateContent(
         // rejected at this exact path, and `null` in particular reaches this
         // loop as the STRING "null" once normalized. (`typeof null === 'object'`
         // is why the first cut of this guard let it through.)
-        const raw = rawSlots[i]
-        const authored = typeof raw === 'string' || (raw !== null && typeof raw === 'object')
-        if (raw !== undefined && !authored) return
+        if (!authoredSlot(rawSlots[i])) return
         if (key.startsWith('identity-') || key.startsWith('spacer:')) return
         if (SIDEBAR_SECTION_KEYS.includes(key.split(':')[0])) return
         add('error', file, 'slot-not-renderable', {
@@ -600,6 +658,63 @@ export function validateContent(
           suggestion: didYouMean(key, SIDEBAR_SECTION_KEYS)
             ? `did you mean "${didYouMean(key, SIDEBAR_SECTION_KEYS)}"?`
             : `move it to a main slot, or use one of: ${SIDEBAR_SECTION_KEYS.join(', ')}`
+        })
+      })
+    }
+
+    // RV1: the same guard for `main` slots, which D2 never covered — so the
+    // identical typo was a hard error in one column and a silent deletion in
+    // the other. `- experiance` in `first.main` on the shipped scaffold dropped
+    // five of sixteen bullets with `validate --strict` clean, `build --strict`
+    // reporting `ok: true` and `notices: []`, and the plan still publishing the
+    // dropped bullets as `bulletRange: [0, 5]`.
+    //
+    // RV1, second half: main slots match the WHOLE key, not `split(':')[0]`. The prefix test
+    // is right for the sidebar, where `education:continued` legitimately names a
+    // sidebar section. In a main slot `:continued` is implemented for
+    // `experience` alone (sections/registry.js), so `education:continued`
+    // renders nothing — and `frobnicate:continued` walked straight past a check
+    // that catches bare `frobnicate`.
+    for (const [pageKind, page] of Object.entries(normalizeLayout(doc) ?? {})) {
+      const main = /** @type {{ main?: string[] }} */ (page)?.main
+      if (!Array.isArray(main)) continue
+      const pages = /** @type {Record<string, { main?: unknown[] }>} */ (
+        /** @type {{ pages?: unknown }} */ (doc)?.pages ?? doc
+      )
+      const rawSlots = pages?.[pageKind]?.main ?? []
+      main.forEach((key, i) => {
+        if (typeof key !== 'string') return
+        // Same carve-out as the sidebar arm: a malformed slot is the schema's
+        // to report, and quoting a key nobody typed is worse than silence.
+        if (!authoredSlot(rawSlots[i])) return
+        // Identity blocks draw in either column, same carve-out as the sidebar
+        // arm. They are unpriced in a main slot, which is INV-3's known gap
+        // (scheduled I4/I6) and reported by `main-slot-unmeasured` — a
+        // different complaint from "this renders nothing", and not this
+        // guard's to make.
+        if (key.startsWith('identity-')) return
+        if (MAIN_SLOT_KEYS.includes(key)) return
+        // N4: `parseFloat('bogus')` is NaN and registry.js built a View with
+        // `height: NaN` from it — silently, against a budget the planner had
+        // already charged at a different number. A spacer must carry a real
+        // number; `spacer:27abc` prefix-parses to 27, which is also not what
+        // was written.
+        if (key === 'spacer' || key.startsWith('spacer:')) {
+          const arg = key.startsWith('spacer:') ? key.slice('spacer:'.length) : ''
+          if (arg !== '' && Number.isFinite(Number(arg))) return
+          add('error', file, 'slot-not-renderable', {
+            path: `/${pageKind}/main/${i}`,
+            message: `"${key}" is not a usable spacer — its height must be a number`,
+            suggestion: `write it as \`- spacer: 27\` (points), not "${key}"`
+          })
+          return
+        }
+        add('error', file, 'slot-not-renderable', {
+          path: `/${pageKind}/main/${i}`,
+          message: `"${key}" cannot render in a main slot — it would be dropped from the PDF without warning`,
+          suggestion: didYouMean(key, MAIN_SLOT_KEYS)
+            ? `did you mean "${didYouMean(key, MAIN_SLOT_KEYS)}"?`
+            : `use one of: ${MAIN_SLOT_KEYS.join(', ')}`
         })
       })
     }

@@ -26,7 +26,16 @@ function normalizeItem(/** @type {import('./types.js').RawLayoutSlot} */ item) {
       }
 
       // { experience: { continued: true } } → "experience:continued"
-      if (typeof val === 'object' && val.continued) {
+      //
+      // RV13: `val !== null` is load-bearing. `typeof null === 'object'`, and a
+      // slot written `- spacer:` (the value simply left off) parses to
+      // `{ spacer: null }` — so this read threw a raw TypeError out of
+      // `normalizeLayout`, out of `validateContent`, and all the way to the CLI,
+      // which reported exit 64 (USAGE error — "your command was wrong") for a
+      // content problem, with "Cannot read properties of null" and no file or
+      // field path. A malformed slot is a finding, not a crash; the
+      // `slot-not-renderable` check downstream is what names it.
+      if (val !== null && typeof val === 'object' && val.continued) {
         return `${key}:continued`
       }
 

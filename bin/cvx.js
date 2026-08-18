@@ -22,7 +22,8 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
-  writeFileSync
+  writeFileSync,
+  writeSync
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -39,21 +40,55 @@ import { parseArgs } from 'node:util'
  * this is a no-op there. See scripts/build-standalone.js.
  */
 const pkgRoot = process.env.CVX_ASSET_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..')
-const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
+
+/**
+ * N9: read defensively, because this runs at MODULE LOAD — outside `main()`'s
+ * try/catch and therefore outside the documented exit-code contract. With
+ * `CVX_ASSET_ROOT` pointing somewhere without a package.json (a caller-supplied
+ * value, and the standalone bundle sets it), the throw escaped as an unhandled
+ * exception: exit code 1 and a raw stack trace, where the header promises
+ * `0 ok · 2 validation · 3 render · 64 usage`.
+ *
+ * The version is banner text. Failing the whole CLI over it — before any
+ * command has been chosen — is the wrong trade; saying "unknown" is honest and
+ * keeps every real command working.
+ */
+const version = (() => {
+  try {
+    return JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
+  } catch {
+    return 'unknown'
+  }
+})()
 
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
 
 /**
- * Which build-time defects `--strict` turns into a non-zero exit.
+ * Which build-time findings `--strict` turns into a non-zero exit: every one
+ * the engine itself classifies as `kind: 'defect'`.
  *
- * ONE set, used by `build` and by `build --all`, because they drifted apart
- * the moment they were written separately: `--all` gated every `kind:'defect'`
- * while `build` gated this code alone, so the same CV exited 0 from one
- * command and 2 from the other (gate-7 re-review). Scoped narrowly on purpose
- * — R-D rules on this defect, and `HELP` documents exactly this — so widening
- * it to every defect stays a maintainer ruling that changes this one line.
+ * A PREDICATE, not an allowlist, and that is the point (maintainer ruling,
+ * 2026-08-18). It was `new Set(['physical-pages-exceed-plan'])` — one code —
+ * which meant every new defect code had to be remembered into this line or it
+ * was silently ungated. RV1 added one and demonstrated the failure mode
+ * immediately: the defect existed, `--json` reported it, and `--strict` walked
+ * past it until this line changed. Gating on the classification the engine
+ * already publishes makes the next one gated by construction.
+ *
+ * `kind` is exactly the right axis and exists for this: `defect` means
+ * something is wrong, `fact` means true and priced. Facts stay ungated —
+ * `page1-ends-early` fires on well-packed CVs and gating it would make
+ * `--strict` useless.
+ *
+ * The widening is user-visible and deliberate. `overflow`,
+ * `page1-no-experience` and `section-has-no-slot` now fail `build --strict`
+ * where they exited 0 before. `section-has-no-slot` is the one to watch: it
+ * fires on a legitimate setup (a populated `referees.yaml` the designed layout
+ * has no slot for), so anyone scripting `--strict` around that shape must
+ * either place the section or empty the file. R-D still holds for the default
+ * path — the PDF exists, so a defect is exit 0 unless the caller opts in.
  */
-const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan'])
+const isStrictGated = (/** @type {{ kind?: string }} */ w) => w.kind === 'defect'
 
 const HELP = `cvx ${version} — config-driven CV generator
 
@@ -69,9 +104,13 @@ Usage:
                        Write the MCP config for your client
 
 Options:
-  --strict             validate: treat warnings (e.g. unknown keys) as errors
-                       build: exit non-zero if the PDF has more sheets than
-                       planned (also applies to build --all)
+  --strict             validate: treat UNKNOWN-KEY warnings as errors (only
+                       those — other warnings stay warnings on purpose; see
+                       validateContent.js's severity model)
+                       build: exit non-zero on ANY finding the engine marks
+                       kind: "defect" — content missing from the PDF, more
+                       sheets than planned, an over-budget page. Facts (e.g.
+                       page1-ends-early) never gate. Also applies to build --all
   --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
@@ -80,7 +119,68 @@ Exit codes: 0 ok · 2 validation failed · 3 render failed · 64 usage error
 Edit the YAML files in cv-content/ and re-run "cvx build".
 Docs: https://github.com/hrtips/cvx#readme`
 
-const emit = (/** @type {unknown} */ obj) => console.log(JSON.stringify(obj, null, 2))
+/**
+ * Write the one JSON object this command's `--json` contract promises.
+ *
+ * RV10: this used `console.log`, and every command calls `process.exit()`
+ * immediately afterwards. `process.stdout` is ASYNCHRONOUS when stdout is a
+ * pipe — which is exactly what it is when an agent or a script consumes the
+ * output — so `exit()` discarded whatever had not drained. Measured: the
+ * payload arrived truncated at exactly 65536 bytes, the pipe buffer, and the
+ * JSON was unparseable, with no indication that anything was missing.
+ *
+ * Reachable rather than theoretical: the scaffold's `validate --json` is 472
+ * bytes and a 12-role CV's `build --json` is 19.7 KB, so the ceiling is about
+ * 3x a large real CV — but `validate`'s findings are unbounded (`allErrors:
+ * true`), and a content directory full of unknown keys is a very ordinary way
+ * for an assistant-written CV to fail.
+ *
+ * `writeSync` on fd 1 is not subject to that: it blocks until the bytes are
+ * handed over. The loop is for partial writes, which a full pipe can return.
+ */
+/**
+ * The one place `--json` output leaves this process.
+ *
+ * A named seam rather than a bare call, for two reasons. Production needs a
+ * SYNCHRONOUS write (see below); the in-process tests need to capture the
+ * envelope, and stubbing `fs.writeSync` globally is not an option — vitest's
+ * own worker writes through it and dies. So tests replace this one property.
+ */
+export const stdoutJson = {
+  /**
+   * RV10: this used `console.log`, and every command calls `process.exit()`
+   * immediately afterwards. `process.stdout` is ASYNCHRONOUS when stdout is a
+   * pipe — which is exactly what it is when an agent or a script consumes the
+   * output — so `exit()` discarded whatever had not drained. Measured: the
+   * payload arrived truncated at exactly 65536 bytes, the pipe buffer, and the
+   * JSON was unparseable, with nothing saying so.
+   *
+   * Reachable rather than theoretical: the scaffold's `validate --json` is 472
+   * bytes and a 12-role CV's `build --json` is 19.7 KB, so the ceiling is
+   * about 3x a large real CV — but `validate`'s findings are unbounded
+   * (`allErrors: true`), and a content directory full of unknown keys is an
+   * ordinary way for an assistant-written CV to fail, which is when the caller
+   * most needs to read them.
+   *
+   * `writeSync` blocks until the bytes are handed over. The loop covers a
+   * partial write, which a full pipe can return.
+   */
+  write(/** @type {string} */ text, /** @type {number} */ fd = 1) {
+    const buf = Buffer.from(text, 'utf8')
+    let off = 0
+    while (off < buf.length) {
+      try {
+        off += writeSync(fd, buf, off, buf.length - off)
+      } catch (err) {
+        // EAGAIN: the pipe is momentarily full and the fd is non-blocking.
+        // Retry rather than dropping the tail — dropping it is the bug.
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'EAGAIN') throw err
+      }
+    }
+  }
+}
+
+const emit = (/** @type {unknown} */ obj) => stdoutJson.write(`${JSON.stringify(obj, null, 2)}\n`)
 
 export async function init(/** @type {{ json?: boolean }} */ { json }) {
   const dest = join(process.cwd(), 'cv-content')
@@ -118,7 +218,7 @@ Next steps:
 export async function validate(
   /** @type {{ strict?: boolean, json?: boolean }} */ { strict, json }
 ) {
-  const { validateContent } = await import('../lib/pdf/validateContent.js')
+  const { validateContent, contentSchemaVersion } = await import('../lib/pdf/validateContent.js')
   const result = validateContent(
     /** @type {import('../src/pdf/types.js').ValidateOptions} */ ({
       contentDir: join(process.cwd(), 'cv-content'),
@@ -131,7 +231,7 @@ export async function validate(
     emit({
       command: 'validate',
       ok: result.ok,
-      schemaVersion: 1,
+      schemaVersion: contentSchemaVersion(),
       strict,
       errors: result.errors,
       warnings: result.warnings,
@@ -177,19 +277,32 @@ export async function list(/** @type {{ kind?: string, json?: boolean }} */ { ki
   }))
 
   const layoutsDir = join(process.cwd(), 'cv-content', 'layouts')
-  const builtIn = ['two-column', 'single-column']
+  // N5: the ONE inventory, from the registry that resolves layouts.
+  const { BUILT_IN_LAYOUT_NAMES } = await import('../lib/pdf/defaultLayouts.js')
+  const builtIn = BUILT_IN_LAYOUT_NAMES
+  // N2: which file actually GOVERNS the build. `discoverLayouts` reads
+  // cv-content/layouts/ and `resolveDocument` takes `layout ?? LAYOUTS[name]`,
+  // so a workspace file SHADOWS the built-in of the same name — and `cvx init`
+  // scaffolds exactly such a file. Reporting it as `built-in` told the user,
+  // and any agent reading `list --json` or `get_schema`, that their own
+  // two-column.yaml was not in play while it was the only thing in play.
+  const workspace = new Set(
+    existsSync(layoutsDir)
+      ? readdirSync(layoutsDir)
+          .filter((name) => name.endsWith('.yaml'))
+          .map((f) => f.replace(/\.yaml$/, ''))
+      : []
+  )
   const names = new Set(builtIn)
   const layouts = builtIn.map((name) => ({
     name,
     default: name === 'two-column',
-    source: 'built-in'
+    source: workspace.has(name) ? 'cv-content/layouts' : 'built-in'
   }))
-  if (existsSync(layoutsDir)) {
-    for (const f of readdirSync(layoutsDir).filter((name) => name.endsWith('.yaml'))) {
-      const name = f.replace(/\.yaml$/, '')
-      if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
-      names.add(name)
-    }
+  for (const name of workspace) {
+    if (names.has(name)) continue
+    layouts.push({ name, default: false, source: 'cv-content/layouts' })
+    names.add(name)
   }
 
   const result = {
@@ -321,9 +434,24 @@ export async function build(
     plan,
     ats
   })
-  for (const w of physical) {
-    // R-D: a defect reaches stderr in every mode. Facts never do — a normal
-    // page break is not shouted at (the existing page1-ends-early rule).
+  // R-D: a defect reaches stderr in every mode. Facts never do — a normal page
+  // break is not shouted at (the existing page1-ends-early rule).
+  //
+  // This used to iterate `physical` alone, which honoured R-D for exactly one
+  // code. Every OTHER defect — `section-has-no-slot` among them, shipped since
+  // 1.8.0 — was silent on stderr: it appeared in `--json` diagnostics and
+  // nowhere a human would see it, so a plain `cvx build` printed `✅` over a CV
+  // with a section missing from the PDF. Found while adding
+  // `slot-not-renderable`, whose silence was consistent with its siblings
+  // rather than a new hole (maintainer ruling, 2026-08-18: close it for all).
+  //
+  // Deduplicated by message: `attachPhysicalWarnings` merges its findings into
+  // the same diagnostics list it returns separately, so the two sources
+  // overlap and a naive concatenation would print the physical defect twice.
+  const seen = new Set()
+  for (const w of [...(diagnostics?.warnings ?? []), ...physical]) {
+    if (!isStrictGated(w) || seen.has(w.message)) continue
+    seen.add(w.message)
     notices.push(w.message)
     console.error(`⚠ ${w.message}`)
   }
@@ -359,7 +487,14 @@ export async function build(
   // default — calling it a render failure would misstate what happened. Under
   // --strict it must be impossible to ignore, matching `validate`'s precedent
   // (warnings become errors) so a scripted caller can opt into hard failure.
-  if (strict && physical.some((w) => STRICT_GATED_CODES.has(w.code))) {
+  //
+  // RV1: the gate reads the PLAN's warnings as well as the physical ones. It
+  // used to read `physical` alone, which was right while the only gated code
+  // came from `attachPhysicalWarnings` — but `slot-not-renderable` is derived
+  // from the layout's slots, so a gate that only looked at the physical list
+  // would have let the defect it exists for walk straight through.
+  const gated = [...(diagnostics?.warnings ?? []), ...physical].some(isStrictGated)
+  if (strict && gated) {
     process.exit(EXIT.validation)
   }
 }
@@ -457,7 +592,7 @@ export async function buildAll(
     // defects from the child's own envelope and decide once, after both
     // variants are written.
     for (const w of res.diagnostics?.warnings ?? []) {
-      if (STRICT_GATED_CODES.has(w.code)) strictFailures.push(`${label}: ${w.message}`)
+      if (isStrictGated(w)) strictFailures.push(`${label}: ${w.message}`)
     }
     outputs.push({
       filename: res.filename,

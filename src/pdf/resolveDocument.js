@@ -15,31 +15,67 @@ import { applyLayoutSpacing } from './themes/layoutSpacing.js'
 import { monoTheme } from './themes/mono.js'
 import { tealTheme } from './themes/teal.js'
 
-/** Default theme per layout template — the designed layout is teal, the ATS one mono. */
+/**
+ * Default theme NAME per layout template — the designed layout is teal, the
+ * single-column one mono.
+ *
+ * RV7: a name, not an object, and that is the fix. This table used to hold
+ * theme objects and was DEAD on every build: `render.js` computed its own
+ * `config.theme ?? 'teal'` and always passed a concrete theme, so the fallback
+ * never fired there — while `validateContent.js` passed `THEMES[config.theme]`,
+ * which is `undefined` when the user sets no theme, and therefore did reach it.
+ * The two surfaces resolved DIFFERENT THEMES for the same workspace: teal on
+ * build, mono on validate, measured by direct call and by pixel-scanning the
+ * two PDFs.
+ *
+ * §2.6 states as a contract that build and validate "can never disagree" about
+ * the same content. It was false in the theme axis, and inert only because the
+ * three shipped themes are geometrically identical — the precondition §6's
+ * theme-threading gate exists to protect and the roadmap plans to remove.
+ *
+ * Resolving by NAME lets both callers hand in their own registry (`render.js`
+ * discovers themes from disk, `validateContent.js` uses the static map) while
+ * the DEFAULT lives here, once.
+ */
+const DEFAULT_THEME_NAME = /** @type {const} */ ({
+  'two-column': 'teal',
+  'single-column': 'mono'
+})
+
+/** The built-ins this module can fall back to with no registry — the same two. */
 /** @type {Record<string, import('./types.js').Theme>} */
-const LAYOUT_DEFAULT_THEME = {
-  'two-column': tealTheme,
-  'single-column': monoTheme
-}
+const BUILT_IN_THEMES = { teal: tealTheme, mono: monoTheme }
 
 /**
  * @param {object} args
  * @param {import('./types.js').CVConfig} [args.config]
  * @param {import('./types.js').Theme} [args.theme]   already-loaded theme object, if the caller has one
+ * @param {Record<string, import('./types.js').Theme>} [args.themes]  theme registry to resolve `themeName` against (RV7: render.js discovers from disk, validateContent.js uses the static map — one default, two registries)
  * @param {import('./types.js').NormalizedLayout} [args.layout]  already-loaded layout object, if the caller has one
  * @returns {{
  *   layoutName: string,
+ *   themeName: string,
  *   activeLayout: import('./types.js').ResolvedLayout,
  *   activeTheme: import('./types.js').Theme,
  *   isSingleColumn: boolean,
  * }}
  */
-export function resolveDocument({ config, theme, layout } = {}) {
+export function resolveDocument({ config, theme, themes, layout } = {}) {
   const layoutName = config?.layout ?? 'two-column'
   const activeLayout = /** @type {import('./types.js').ResolvedLayout} */ (
     layout ?? LAYOUTS[layoutName] ?? TWO_COLUMN_LAYOUT
   )
-  const baseTheme = theme ?? LAYOUT_DEFAULT_THEME[activeLayout.template ?? layoutName] ?? tealTheme
+  const template = activeLayout.template ?? layoutName
+  // The name the document resolves to, whether or not the caller supplied a
+  // registry — reported back so `build`'s envelope and `validate` cannot
+  // describe different documents (RV7).
+  const themeName =
+    config?.theme ??
+    DEFAULT_THEME_NAME[/** @type {keyof typeof DEFAULT_THEME_NAME} */ (template)] ??
+    'teal'
+  // An explicitly-passed object still wins: CVDocument already holds the theme
+  // it was rendered with, and the spacing tests build one by hand.
+  const baseTheme = theme ?? themes?.[themeName] ?? BUILT_IN_THEMES[themeName] ?? tealTheme
   // D11: the template's `spacing:` groups are applied HERE, to the theme, and
   // nowhere else. This function is already the single chain the planner and the
   // renderer both go through (that is why it exists), so scaling the theme at
@@ -50,9 +86,10 @@ export function resolveDocument({ config, theme, layout } = {}) {
 
   return {
     layoutName,
+    themeName,
     activeLayout,
     activeTheme,
-    isSingleColumn: (activeLayout.template ?? layoutName) === 'single-column'
+    isSingleColumn: template === 'single-column'
     // Normalised to the shape the packer reads: explicit nulls, never undefined,
     // so "unset" is one value rather than two.
     //

@@ -45,12 +45,20 @@ const PUBLIC_API = [
   // `slot-not-renderable` error both derive from — public so a silent
   // content-loss gap cannot open between them.
   'SIDEBAR_SECTION_KEYS',
+  // RV1: the same commitment for MAIN slots. D2 made the sidebar half share a
+  // list and the main half was never written at all, so the identical typo was
+  // a hard error in one column and five deleted bullets in the other.
+  'MAIN_SLOT_KEYS',
   'isContinuedSlice',
   'isIdentityKey',
   'overflowWarnings',
   'planTwoColumn',
   'sectionTitleLabel',
-  'sidebarFlowKeys'
+  'sidebarFlowKeys',
+  // RV4/RV14: the ONE definition of the string a bullet draws. Shipped code
+  // imports it (ATSDocument.jsx) and so does the render-diff harness, which
+  // previously kept a copy that agreed with the bug it exists to catch.
+  'bulletText'
 ]
 
 /**
@@ -177,7 +185,7 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 28 names the module docblock claims', () => {
+  it('exports exactly the 30 names the module docblock claims', () => {
     // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
     // main-column harness the same way deriveMetrics is for the sidebar's.
     // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
@@ -186,8 +194,13 @@ describe('layout.js public API', () => {
     // `entryParts` as the 28th export, @internal: it is the reporting
     // breakdown of `entryH`, callable only with a harness-only Metrics object,
     // and its numbers reach consumers through the plan, not through an import.
-    expect(exported).toHaveLength(28)
-    expect(PUBLIC_API).toHaveLength(10)
+    // RV1 added MAIN_SLOT_KEYS as the 29th export, public: the one list
+    // validateContent's MAIN-slot `slot-not-renderable` check derives from.
+    // RV4 added bulletText as the 30th export, public: the ONE definition of
+    // the string a bullet draws, imported by ATSDocument.jsx and by the
+    // render-diff harness whose copy previously agreed with the bug.
+    expect(exported).toHaveLength(30)
+    expect(PUBLIC_API).toHaveLength(12)
     expect(internal).toHaveLength(18)
   })
 
@@ -224,7 +237,13 @@ describe('layout.js public API', () => {
         'sectionTitleLabel',
         // D2: validateContent.js refuses a sidebar slot key the packer would
         // silently drop, and reads the packer's own registry to do it.
-        'SIDEBAR_SECTION_KEYS'
+        'SIDEBAR_SECTION_KEYS',
+        // RV1: the same, for MAIN slots — the half D2 never wrote, which is why
+        // `- experiance` in first.main deleted five bullets under a clean
+        // `validate --strict`.
+        'MAIN_SLOT_KEYS',
+        // RV14: ATSDocument.jsx draws bullets through it.
+        'bulletText'
       ].sort()
     )
   })

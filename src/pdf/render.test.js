@@ -372,7 +372,11 @@ describe('renderCV — single-column (header-ats section + template)', () => {
       })
       expect(isPdf(buffer)).toBe(true)
       expect(layoutName).toBe('single-column')
-      expect(filename).toBe('bruce-wayne-ats.pdf')
+      // RV8: the `-ats` suffix names the VARIANT, not the layout. This is a
+      // designed build (`ats: false`) that happens to use the single-column
+      // layout, so it keeps the plain filename — previously it claimed the ATS
+      // build's name and `build --all` silently overwrote one with the other.
+      expect(filename).toBe('bruce-wayne.pdf')
     },
     RENDER_TIMEOUT
   )
@@ -401,7 +405,7 @@ describe('renderCV — single-column (header-ats section + template)', () => {
         warn: () => {}
       })
       expect(isPdf(buffer)).toBe(true)
-      expect(filename).toBe('column-person-ats.pdf')
+      expect(filename).toBe('column-person.pdf') // RV8: designed variant, plain name
     },
     RENDER_TIMEOUT
   )
@@ -459,6 +463,132 @@ describe('renderCV — ATS document (ats: true)', () => {
     },
     RENDER_TIMEOUT
   )
+})
+
+// RV7/RV8: the single-column variant's identity — which theme it resolves to,
+// and which filename it claims. Both were wrong in ways that only showed up
+// when the layout was single-column, which is why neither had a build fixture:
+// the one that existed (test/planLayout.test.js) only dry-runs.
+describe('renderCV — single-column resolves one theme and one filename (RV7/RV8)', () => {
+  const singleColumn = (/** @type {Record<string, unknown>} */ config) =>
+    writeContent(
+      { personal: { name: 'Solo Name', title: 'Widget Maker' }, summary: ['A line.'] },
+      { config: { schemaVersion: 1, layout: 'single-column', ...config } }
+    )
+
+  it(
+    'takes its default theme from the layout, not from a hardcoded "teal"',
+    async () => {
+      // §2.6 says build and validate "can never disagree" about the same
+      // content. They did: render.js computed `config.theme ?? 'teal'` and
+      // always passed a concrete theme, so LAYOUT_DEFAULT_THEME was dead here
+      // and live in validateContent — teal on build, mono on validate.
+      const { themeName } = await renderCV({
+        contentDir: singleColumn({}),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(themeName).toBe('mono')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'still honours an explicit theme, and the two-column default is untouched',
+    async () => {
+      const explicit = await renderCV({
+        contentDir: singleColumn({ theme: 'teal' }),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(explicit.themeName).toBe('teal')
+      const twoCol = await renderCV({
+        contentDir: writeContent(
+          { personal: { name: 'Solo Name', title: 'W' }, summary: ['A line.'] },
+          { config: { schemaVersion: 1, layout: 'two-column' } }
+        ),
+        fontsDir: FONTS,
+        env: {},
+        warn: () => {}
+      })
+      expect(twoCol.themeName).toBe('teal')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'gives the designed and ATS variants DIFFERENT filenames (they used to collide)',
+    async () => {
+      // `build --all` renders both from one workspace. Keying the suffix on the
+      // layout name meant both claimed `<name>-ats.pdf`, so the second write
+      // destroyed the first while the envelope reported two artifacts.
+      const dir = singleColumn({})
+      const designed = await renderCV({ contentDir: dir, fontsDir: FONTS, env: {}, warn: () => {} })
+      const ats = await renderCV({
+        contentDir: dir,
+        fontsDir: FONTS,
+        ats: true,
+        env: {},
+        warn: () => {}
+      })
+      expect(designed.filename).toBe('solo-name.pdf')
+      expect(ats.filename).toBe('solo-name-ats.pdf')
+      expect(designed.filename).not.toBe(ats.filename)
+    },
+    RENDER_TIMEOUT
+  )
+})
+
+// RV0: `personal.name` derives the output path, and derived it with no
+// sanitisation at all — `name: "../Documents/Resume"` wrote the PDF over that
+// file, outside the workspace, under a clean `validate --strict` and a `✅`
+// build. INV-12 says CV content is data, never commands; the injection suite
+// proved that for layout NUMBERS and nobody had asked it about PATHS. The
+// threat model is not hypothetical: an assistant writes personal.yaml from a
+// CV or LinkedIn export the user supplies, and CVX runs locally with the
+// user's permissions.
+//
+// The rule: a name is not a path. Strip anything that could traverse or
+// reroot, and keep everything else — including Unicode letters, because
+// mangling `José Álvarez` into `jos-lvarez` to close a traversal would be the
+// tool silently altering a user's own name, which is the opposite of INV-14's
+// posture of warning rather than mangling.
+describe('renderCV — the filename cannot escape the workspace (RV0)', () => {
+  const cases = [
+    { name: '../Documents/Resume', expect: 'documents-resume.pdf' },
+    { name: '../../../etc/passwd', expect: 'etc-passwd.pdf' },
+    { name: 'a/b/c', expect: 'a-b-c.pdf' },
+    { name: 'back\\slash', expect: 'back-slash.pdf' },
+    { name: '..', expect: 'cv.pdf' },
+    { name: '.', expect: 'cv.pdf' },
+    { name: '/absolute', expect: 'absolute.pdf' },
+    // Unicode survives: these are real names, not attacks.
+    { name: 'José Álvarez', expect: 'josé-álvarez.pdf' },
+    { name: "Ada O'Brien-Smith", expect: "ada-o'brien-smith.pdf" }
+  ]
+
+  for (const c of cases) {
+    it(
+      `${JSON.stringify(c.name)} → ${c.expect}`,
+      async () => {
+        const dir = writeContent({ personal: { name: c.name, title: 'Widget Maker' } })
+        const { filename } = await renderCV({
+          contentDir: dir,
+          fontsDir: FONTS,
+          env: {},
+          warn: () => {}
+        })
+        expect(filename).toBe(c.expect)
+        // The property that matters, independent of the exact spelling above:
+        // whatever comes out is a single path segment.
+        expect(filename).not.toMatch(/[/\\]/)
+        expect(filename.split(/[/\\]/)).toHaveLength(1)
+      },
+      RENDER_TIMEOUT
+    )
+  }
 })
 
 describe('renderCV — warnings and errors', () => {

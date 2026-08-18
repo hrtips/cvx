@@ -970,9 +970,15 @@ describe('sidebar plan (packSidebar + planTwoColumn — really packed as of C3a)
         if (!next) return // the flow simply ran out — the G1 residual, not a deferral
         ended++
         // The smallest legal piece of the entry that DID start later: its head
-        // plus one bullet (zero bullets would orphan the head). `entryH` is the
-        // packer's own measurement — the independent term here is the BUDGET,
-        // which comes from the theme arithmetic below.
+        // plus one bullet (zero bullets would orphan the head).
+        //
+        // NOT an independence claim (corrected 2026-08-18, R-block). `entryH` is
+        // the packer's own measurement, so this assertion shares a term with the
+        // code under test and cannot catch an error inside `entryH` itself — only
+        // the BUDGET below is independent. The comment previously implied the
+        // whole comparison was independent, which it is not. What actually covers
+        // `entryH` is the render-diff harness (INV-2) and the mirror test; this
+        // check is about the packer's DECISION given a height, not the height.
         const entry = next.mainBlocks[0]
         const minUnit = entryH(
           {

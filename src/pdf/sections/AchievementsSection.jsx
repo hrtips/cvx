@@ -30,8 +30,9 @@ export default function AchievementsSection({ data, slice }) {
   return (
     <View>
       <SectionTitle variant="sidebar">{sliceTitle('Achievements', slice)}</SectionTitle>
-      {items.map((item) => (
-        <View key={item.year} style={s.item}>
+      {items.map((item, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+        <View key={`${i}-${item.year}`} style={s.item}>
           <Text style={s.year}>{item.year}</Text>
           <Text style={s.text}>{item.text}</Text>
         </View>

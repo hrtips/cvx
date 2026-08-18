@@ -463,6 +463,13 @@ export interface LayoutPlan {
    * as the `main-slot-unmeasured` fact. Retired by I4/I6.
    */
   unmeasuredMainKeys?: string[]
+  /**
+   * R1: main-slot keys the renderer cannot draw at all — a typo, or a
+   * `<section>:continued` form only `experience` implements. Distinct from
+   * `unmeasuredMainKeys`: that ink reaches the page unpriced, this ink never
+   * reaches the page. Drives the `slot-not-renderable` DEFECT.
+   */
+  unrenderableMainKeys?: string[]
   /** Pages the main flow alone needed. */
   mainPageCount: number
   /** Pages the sidebar flow alone needed. */
@@ -683,6 +690,7 @@ export interface LayoutDiagnosticWarning {
     | 'experience-empty'
     | 'main-column-empty'
     | 'section-has-no-slot'
+    | 'slot-not-renderable'
   /**
    * CVX classifying its own message (architecture review 4a): 'defect' =
    * something is wrong, act on it; 'fact' = true and priced, act only if the
@@ -763,7 +771,7 @@ export interface LayoutDiagnostics {
    * The envelope's `schemaVersion: 1` is unchanged — its fields are only
    * added to.
    */
-  version: 4
+  version: 5
   /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything

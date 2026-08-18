@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 28 names. Only ten of them are API. The rest are
+// This module exports 30 names. Only eleven of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -88,7 +88,7 @@
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
 //     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
-//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS, bulletText
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -395,6 +395,34 @@ export function bulletWidth(
 }
 
 /**
+ * The string a bullet actually DRAWS.
+ *
+ * RV4: `BulletList.jsx` renders the object form as one `<Text>` — `text`, then
+ * the `<Link>` label, then `suffix`, back to back — so react-pdf wraps them as
+ * a single run. All four height formulas measured `b.text` alone and dropped
+ * the other two, which under-measured any bullet whose link label or suffix
+ * pushed the combined string past a line boundary: 27.00pt on the shipped
+ * theme, two full body lines, against a 15pt safety margin.
+ *
+ * Unpriced ink, so INV-3 — and invisible to INV-2's diff tables because the
+ * harness's own comparison helper stripped `link`/`suffix` the same way. The
+ * instrument agreed with the bug, which is why this is exported at all rather
+ * than duplicated: one function, every side.
+ *
+ * Public because SHIPPED code imports it: `ATSDocument.jsx` draws bullets with
+ * it, `BulletList.jsx`'s JSX composes the same three parts, the four
+ * measurement call sites price it, and the render-diff harness matches rendered
+ * rows against it. That is the whole point — one definition of "what a bullet
+ * says", so the measurer and both renderers cannot disagree again.
+ * @param {string | { text?: string, link?: { label?: string }, suffix?: string }} b
+ * @returns {string}
+ */
+export function bulletText(b) {
+  if (typeof b === 'string') return b
+  return `${b?.text ?? ''}${b?.link?.label ?? ''}${b?.suffix ?? ''}`
+}
+
+/**
  * Measured height of the whole summary block (title + bullet list).
  *
  * @internal exported for the C0 harness only — not API (see the module docblock).
@@ -413,7 +441,7 @@ export function summaryH(
   if (summary.length === 0) return 0
   let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
-    const txt = typeof b === 'string' ? b : b.text
+    const txt = bulletText(b)
     h +=
       countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
       lh(m.bodySize, m.bodyLeading)
@@ -470,14 +498,8 @@ export function entryParts(
   const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   const bulletsPt = visible.map(
     (b) =>
-      countLines(
-        measure,
-        typeof b === 'string' ? b : b.text,
-        m.bodySize,
-        bulletWidth(m, measure),
-        m.cw,
-        BODY_STYLE
-      ) * lh(m.bodySize, m.bodyLeading)
+      countLines(measure, bulletText(b), m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
+      lh(m.bodySize, m.bodyLeading)
   )
   // A continuation piece drops company/period/location/description/progression
   // entirely and re-renders the role line with its "(cont'd)" suffix.
@@ -549,6 +571,38 @@ export function entryParts(
 }
 
 /**
+ * Height of ONE progression row, at the table's inner width.
+ *
+ * N11: the two branches of `entryH` computed this byte-identically, ~50 lines
+ * apart inside one function, and a change to progression accounting had to
+ * land in both or they drift silently while only one branch is exercised.
+ *
+ * `entryParts` computes the same quantity a third time and is DELIBERATELY not
+ * routed through this. Its accumulator reads `acc + m.progPy * 2 + Math.max(…)`,
+ * which is LEFT-ASSOCIATIVE — `(acc + progPy*2) + max` — while calling a
+ * helper would make it `acc + (progPy*2 + max)`. Float addition is not
+ * associative, and this file already measured what that costs: 240 of 4320
+ * swept entry shapes moved by 0.01pt when two adjacent height functions were
+ * unified, which is a different page decision at a knife edge. The two `+=`
+ * sites below are safe because `+=` evaluates its whole right-hand side first,
+ * so the grouping is unchanged.
+ *
+ * @param {import('./types.js').ProgressionStep} p
+ * @param {Metrics} m
+ * @param {import('./types.js').Measurer | undefined} measure
+ * @param {number} pw  the table's inner width
+ */
+function progRowH(p, m, measure, pw) {
+  return (
+    m.progPy * 2 +
+    Math.max(
+      rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+      rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+    )
+  )
+}
+
+/**
  * Measured height of one experience entry — whole, or the `[startBullet,
  * endBullet)` slice of it a split produced.
  *
@@ -571,20 +625,13 @@ export function entryH(
     if (contProg.length > 0) {
       h += m.progMt + m.progMb
       const pw = m.innerW - m.progPl - m.sectionBorderWidth
-      for (const p of contProg) {
-        h +=
-          m.progPy * 2 +
-          Math.max(
-            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
-            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
-          )
-      }
+      for (const p of contProg) h += progRowH(p, m, measure, pw)
     }
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
     if (visible.length > 0) {
       h += m.descMt
       for (const b of visible) {
-        const txt = typeof b === 'string' ? b : b.text
+        const txt = bulletText(b)
         h +=
           countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
           lh(m.bodySize, m.bodyLeading)
@@ -616,20 +663,13 @@ export function entryH(
   if (headProg.length > 0) {
     h += m.progMt + m.progMb
     const pw = m.innerW - m.progPl - m.sectionBorderWidth
-    for (const p of headProg) {
-      h +=
-        m.progPy * 2 +
-        Math.max(
-          rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
-          rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
-        )
-    }
+    for (const p of headProg) h += progRowH(p, m, measure, pw)
   }
   const visibleBullets = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   if (visibleBullets.length > 0) {
     h += m.descMt
     for (const b of visibleBullets) {
-      const txt = typeof b === 'string' ? b : b.text
+      const txt = bulletText(b)
       h +=
         countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
         lh(m.bodySize, m.bodyLeading)
@@ -963,11 +1003,17 @@ const SPLITTABLE_PAGES_UNKNOWN = 512
 function maxPagesFor(flow) {
   let items = 0
   for (const block of flow) {
-    const b =
-      /** @type {{ itemCount?: number, entry?: { bullets?: unknown[] }, split?: unknown }} */ (
-        block
-      )
-    items += b.itemCount ?? b.entry?.bullets?.length ?? (b.split ? SPLITTABLE_PAGES_UNKNOWN : 0)
+    const b = /** @type {{ itemCount?: number, split?: unknown }} */ (block)
+    // RV6: `b.entry?.bullets?.length` used to sit here — the experience
+    // vocabulary's shape, read by the packing core. It contained no section
+    // NAME, which is why a denylist-shaped genericity guard would have passed
+    // it green, and it went STALE the moment D7 made progression rows atoms
+    // too: the cap was computed from bullets alone while `split` cut on
+    // `nProg + nBullets`, so `packBlocks` could throw its own termination
+    // error on schema-valid content. Measured reachability (title length →
+    // rows needed): 3 words → 120, 20 → 80, 60 → 30, 400 → 3. No real CV, but
+    // the cause was the reach, not the crash.
+    items += b.itemCount ?? (b.split ? SPLITTABLE_PAGES_UNKNOWN : 0)
   }
   return flow.length + items + 1
 }
@@ -996,7 +1042,7 @@ function assertCarryShrinks(before, tail, index) {
 
 /** Best-effort identity of a block for an error message — sidebar slices have a key, experience blocks an entry. */
 function describeBlock(/** @type {any} */ block, /** @type {number} */ index) {
-  const key = block?.key ?? block?.entry?.role ?? block?.id
+  const key = block?.key ?? block?.id
   return `${key == null ? 'block' : `"${key}"`} at flow index ${index} (height ${block?.height})`
 }
 
@@ -1197,6 +1243,8 @@ export function overflowWarnings(plan) {
  *   entry: import('./types.js').ExperienceEntry,
  *   height: number,
  *   gapBefore: number,
+ *   itemCount: number,
+ *   id: string,
  *   split: SplitFn<ExperienceBlock>,
  * }} ExperienceBlock
  */
@@ -1222,10 +1270,27 @@ export function overflowWarnings(plan) {
  */
 function experienceBlock(entry, m, measure, gapBefore) {
   const height = entryH(entry, m, measure)
+  // RV6: the block DECLARES its own atom count, the way a sidebar slice
+  // already does, so the packer never has to know what an experience entry is
+  // shaped like. This is `n` inside `split` below — progression rows then
+  // bullets, D7's cut axis — computed once here.
+  const progAtoms = Math.max(
+    0,
+    (entry.endProg ?? entry.progression?.length ?? 0) - (entry.startProg ?? 0)
+  )
+  const bulletAtoms = Math.max(
+    0,
+    (entry.endBullet ?? entry.bullets?.length ?? 0) - (entry.startBullet ?? 0)
+  )
   return {
     entry,
     height,
     gapBefore,
+    itemCount: progAtoms + bulletAtoms,
+    // A human-readable identity for packer error messages — `describeBlock`
+    // used to reach for `entry.role`, which is vocabulary shape inside the
+    // engine for the sake of one string.
+    id: entry.role,
     split: (room, forceMinimum) => {
       // D7 `prog-split`. The cut axis is the entry's ATOMS in document order:
       // the progression rows this piece holds, then its bullets. Before, only
@@ -2086,8 +2151,43 @@ const slotKey = (slot) => String(slot ?? '').split(':')[0]
 /**
  * Every section key a layout can render, in either column. `contact` is here
  * because a slot draws it, even though its content lives in `personal.yaml`.
+ *
  */
 const RENDERABLE_SECTION_KEYS = Object.freeze([...MEASURED_MAIN_KEYS, ...SIDEBAR_SECTION_KEYS])
+
+/**
+ * Every slot key a `main` slot can actually draw — the accept-list
+ * `validateContent`'s `slot-not-renderable` check derives from (RV1).
+ *
+ * Public for the same reason `SIDEBAR_SECTION_KEYS` is: it is the ONE list,
+ * and a hand-copied second copy is precisely how this gap stayed open. D2 gave
+ * the sidebar half a shared list in 1.8.0; the main half was never written at
+ * all, so `- experiance` in `first.main` deleted five of the scaffold's sixteen
+ * bullets under a clean `validate --strict`.
+ *
+ * Three things sit here that `RENDERABLE_SECTION_KEYS` does not carry, and each
+ * is load-bearing rather than defensive:
+ *
+ * - `header-ats` draws from `personal.yaml` rather than a content section of
+ *   its own, so it is not a "renderable section" — but the SHIPPED
+ *   single-column layout puts it in `first.main` (`defaultLayouts.js`), and an
+ *   accept-list without it would fail the scaffold CVX itself generates.
+ * - `experience:continued` is the one `:continued` form the renderer
+ *   implements (`sections/registry.js`). Every other `<section>:continued`
+ *   draws nothing, which is why main slots match the WHOLE key rather than the
+ *   `split(':')[0]` prefix the sidebar arm uses (RV1).
+ * - the `identity-*` keys are matched by prefix at the call site, as the
+ *   sidebar arm already does.
+ *
+ * Not a permanent surface, for the same reason `MEASURED_MAIN_KEYS` is not:
+ * when I6 gives every section a co-located plugin, the renderer's own registry
+ * becomes the single list and this one goes away with the gap it patches.
+ */
+export const MAIN_SLOT_KEYS = Object.freeze([
+  ...RENDERABLE_SECTION_KEYS,
+  'header-ats',
+  'experience:continued'
+])
 
 /**
  * Content sections that are POPULATED but that no slot in this layout renders —
@@ -2158,6 +2258,43 @@ function unmeasuredMainKeys(layout) {
       // (verified: it produced a 4th sheet against a 3-page plan in silence,
       // while `achievements` in the same slot fired the warning correctly).
       if (key === 'summary' ? kind === 'first' : MEASURED_MAIN_KEYS.includes(key)) continue
+      seen.add(key)
+    }
+  }
+  return [...seen]
+}
+
+/**
+ * Slot keys a `main` slot cannot draw at all — a typo, or a `:continued` form
+ * the renderer does not implement.
+ *
+ * RV1: distinct from {@link unmeasuredMainKeys}, and the difference is the
+ * whole point. "Unmeasured" means the ink reaches the page and the plan's
+ * arithmetic excludes it — a fact. This means the ink NEVER REACHES THE PAGE:
+ * `sections/registry.js` resolves the key to nothing, logs to stderr with no
+ * code, and returns null. `- experiance` in `first.main` deleted five of the
+ * scaffold's sixteen bullets that way, with `notices: []` and exit 0.
+ *
+ * `validate` catches this first and more helpfully (it can offer "did you
+ * mean"), but plain `cvx build` never validates — only `validate` and
+ * `build --all` do — so validation alone would leave the defect shippable.
+ * INV-5 requires every defect state to carry a named code; this is that code.
+ *
+ * @param {{ first?: { main?: unknown[] }, continuation?: { main?: unknown[] }, last?: { main?: unknown[] } }} layout
+ * @returns {string[]} unrenderable keys, deduplicated, in first-seen order
+ */
+function unrenderableMainKeys(layout) {
+  const seen = new Set()
+  for (const kind of /** @type {const} */ (['first', 'continuation', 'last'])) {
+    for (const slot of layout?.[kind]?.main ?? []) {
+      const key = String(slot ?? '')
+      if (key === '') continue
+      if (isIdentityKey(key)) continue
+      // A spacer with a real number is fine; one without is N4's `height: NaN`,
+      // which `validate` rejects. Either way it is not a MISSING section, so it
+      // is not this fact's subject.
+      if (key === 'spacer' || key.startsWith('spacer:')) continue
+      if (MAIN_SLOT_KEYS.includes(key)) continue
       seen.add(key)
     }
   }
@@ -2530,6 +2667,7 @@ export function planTwoColumn({
      * planner starts measuring these and the array is empty by construction.
      */
     unmeasuredMainKeys: unmeasuredMainKeys(layout),
+    unrenderableMainKeys: unrenderableMainKeys(layout),
     /**
      * Populated content sections no slot in this layout renders — present in
      * `cv-content/` and in the ATS variant, absent from this designed PDF.

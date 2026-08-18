@@ -19,7 +19,7 @@
 // fill, no waste objective. Sprint C4 measured what those rank highest (a
 // pagination that leaves page 1's main column EMPTY, and a certifications
 // section fragmented across five pages at fills of 0.15/0.07/0.12/0.07), and
-// design risk R1 forbids publishing one. This file must not smuggle one in
+// design risk RV1 forbids publishing one. This file must not smuggle one in
 // through the back door of a test: the two components are compared in order,
 // never combined, and (2) is only ever consulted to break a tie in (1). A CV's
 // first page is the one a reader looks at, which is the only reason a tiebreak
