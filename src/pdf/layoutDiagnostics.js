@@ -682,7 +682,15 @@ export function layoutDiagnostics(plan) {
     // rebuilding. Bumped rather than slipped in silently because "can I price
     // an edit by subtraction, or must I rebuild to find out?" is exactly the
     // question a version is for.
-    version: 4,
+    //
+    // 5 (RV1) = the `code` union gained `slot-not-renderable`, and `warnings`
+    // is a published field whose set of possible values therefore changed. A
+    // bump rather than a silent addition, for the reason v4 gives: two
+    // meanings never share a version (R-E), and a consumer that enumerates
+    // codes — which the tool descriptions tell it to do — is reading a
+    // different vocabulary than a v4 consumer was. Additive for anyone
+    // matching on `kind`, which is why `kind` exists.
+    version: 5,
     totalPages: plan.totalPages,
     mainPageCount: plan.mainPageCount,
     sidebarPageCount: plan.sidebarPageCount,

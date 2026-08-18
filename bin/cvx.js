@@ -64,16 +64,31 @@ const version = (() => {
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
 
 /**
- * Which build-time defects `--strict` turns into a non-zero exit.
+ * Which build-time findings `--strict` turns into a non-zero exit: every one
+ * the engine itself classifies as `kind: 'defect'`.
  *
- * ONE set, used by `build` and by `build --all`, because they drifted apart
- * the moment they were written separately: `--all` gated every `kind:'defect'`
- * while `build` gated this code alone, so the same CV exited 0 from one
- * command and 2 from the other (gate-7 re-review). Scoped narrowly on purpose
- * — R-D rules on this defect, and `HELP` documents exactly this — so widening
- * it to every defect stays a maintainer ruling that changes this one line.
+ * A PREDICATE, not an allowlist, and that is the point (maintainer ruling,
+ * 2026-08-18). It was `new Set(['physical-pages-exceed-plan'])` — one code —
+ * which meant every new defect code had to be remembered into this line or it
+ * was silently ungated. RV1 added one and demonstrated the failure mode
+ * immediately: the defect existed, `--json` reported it, and `--strict` walked
+ * past it until this line changed. Gating on the classification the engine
+ * already publishes makes the next one gated by construction.
+ *
+ * `kind` is exactly the right axis and exists for this: `defect` means
+ * something is wrong, `fact` means true and priced. Facts stay ungated —
+ * `page1-ends-early` fires on well-packed CVs and gating it would make
+ * `--strict` useless.
+ *
+ * The widening is user-visible and deliberate. `overflow`,
+ * `page1-no-experience` and `section-has-no-slot` now fail `build --strict`
+ * where they exited 0 before. `section-has-no-slot` is the one to watch: it
+ * fires on a legitimate setup (a populated `referees.yaml` the designed layout
+ * has no slot for), so anyone scripting `--strict` around that shape must
+ * either place the section or empty the file. R-D still holds for the default
+ * path — the PDF exists, so a defect is exit 0 unless the caller opts in.
  */
-const STRICT_GATED_CODES = new Set(['physical-pages-exceed-plan', 'slot-not-renderable'])
+const isStrictGated = (/** @type {{ kind?: string }} */ w) => w.kind === 'defect'
 
 const HELP = `cvx ${version} — config-driven CV generator
 
@@ -92,9 +107,10 @@ Options:
   --strict             validate: treat UNKNOWN-KEY warnings as errors (only
                        those — other warnings stay warnings on purpose; see
                        validateContent.js's severity model)
-                       build: exit non-zero on a defect the build can see —
-                       more sheets than planned, or a slot key that renders
-                       nothing (also applies to build --all)
+                       build: exit non-zero on ANY finding the engine marks
+                       kind: "defect" — content missing from the PDF, more
+                       sheets than planned, an over-budget page. Facts (e.g.
+                       page1-ends-early) never gate. Also applies to build --all
   --json               Machine-readable result on stdout; logs on stderr
   -h, --help           Show this help
   -v, --version        Show version
@@ -418,9 +434,24 @@ export async function build(
     plan,
     ats
   })
-  for (const w of physical) {
-    // R-D: a defect reaches stderr in every mode. Facts never do — a normal
-    // page break is not shouted at (the existing page1-ends-early rule).
+  // R-D: a defect reaches stderr in every mode. Facts never do — a normal page
+  // break is not shouted at (the existing page1-ends-early rule).
+  //
+  // This used to iterate `physical` alone, which honoured R-D for exactly one
+  // code. Every OTHER defect — `section-has-no-slot` among them, shipped since
+  // 1.8.0 — was silent on stderr: it appeared in `--json` diagnostics and
+  // nowhere a human would see it, so a plain `cvx build` printed `✅` over a CV
+  // with a section missing from the PDF. Found while adding
+  // `slot-not-renderable`, whose silence was consistent with its siblings
+  // rather than a new hole (maintainer ruling, 2026-08-18: close it for all).
+  //
+  // Deduplicated by message: `attachPhysicalWarnings` merges its findings into
+  // the same diagnostics list it returns separately, so the two sources
+  // overlap and a naive concatenation would print the physical defect twice.
+  const seen = new Set()
+  for (const w of [...(diagnostics?.warnings ?? []), ...physical]) {
+    if (!isStrictGated(w) || seen.has(w.message)) continue
+    seen.add(w.message)
     notices.push(w.message)
     console.error(`⚠ ${w.message}`)
   }
@@ -462,9 +493,7 @@ export async function build(
   // came from `attachPhysicalWarnings` — but `slot-not-renderable` is derived
   // from the layout's slots, so a gate that only looked at the physical list
   // would have let the defect it exists for walk straight through.
-  const gated = [...(diagnostics?.warnings ?? []), ...physical].some((w) =>
-    STRICT_GATED_CODES.has(w.code)
-  )
+  const gated = [...(diagnostics?.warnings ?? []), ...physical].some(isStrictGated)
   if (strict && gated) {
     process.exit(EXIT.validation)
   }
@@ -563,7 +592,7 @@ export async function buildAll(
     // defects from the child's own envelope and decide once, after both
     // variants are written.
     for (const w of res.diagnostics?.warnings ?? []) {
-      if (STRICT_GATED_CODES.has(w.code)) strictFailures.push(`${label}: ${w.message}`)
+      if (isStrictGated(w)) strictFailures.push(`${label}: ${w.message}`)
     }
     outputs.push({
       filename: res.filename,

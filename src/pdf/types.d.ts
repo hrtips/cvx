@@ -771,7 +771,7 @@ export interface LayoutDiagnostics {
    * The envelope's `schemaVersion: 1` is unchanged — its fields are only
    * added to.
    */
-  version: 4
+  version: 5
   /**
    * PLANNED pages — the numbered sheets the packer laid out, and the number
    * printed on the page. It is NOT the sheet count of the PDF when anything

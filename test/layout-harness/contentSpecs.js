@@ -51,7 +51,21 @@ function buildPersonal(spec) {
 function buildSummary(spec) {
   const n =
     spec.summaryBullets ?? { short: 2, typical: 5, long: 4, overflowing: 5 }[spec.textLength] ?? 3
-  return sentencesFor(spec.textLength, 'summary', n)
+  const lines = sentencesFor(spec.textLength, 'summary', n)
+  // RV14, second site: the SUMMARY also accepts the `{ text, link, suffix }`
+  // object form, and it renders through a different component in each variant.
+  // The experience half was fixed while this one stayed broken, because no
+  // fixture had an object-form summary bullet — a real CV found it, not the
+  // suite. Same axis, so the corpus now reaches both.
+  if (spec.linkedBullet && lines.length > 0) {
+    const last = lines.length - 1
+    lines[last] = {
+      text: `${lines[last]} Described in `,
+      link: { href: 'https://example.com/summary-note', label: 'the published design note' },
+      suffix: ', which covers the reasoning in full.'
+    }
+  }
+  return lines
 }
 
 // ── Head-row shapes (S2a) ───────────────────────────────────────────────────

@@ -1268,6 +1268,38 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     the per-entry one was drawn nowhere in that variant, so a CV whose roles
     carry locations shipped two deliverables that differ in content. INV-0 does
     not distinguish between variants.
+  - **RV16 (P0) — LANDED. The ATS variant drew only `bullet.text` in the
+    SUMMARY too.** RV14 fixed the experience half and left this one, because no
+    fixture has an object-form summary bullet and the two variants render
+    summaries through different components. Found by **driving a real CV**
+    after every gate was green — a content-fidelity walk over every string leaf
+    scored the designed PDF 64/64 and the ATS PDF 62/64, the two missing leaves
+    being a link label and a suffix. Exactly the pattern SPRINT.md records:
+    "no dogfood defect has ever been caught by an automated gate." The
+    `linkedBullet` fixture axis now covers summaries as well as bullets, and
+    reverting the fix fails it by name.
+  - **R-D was honoured for exactly one code — LANDED.** "A defect reaches
+    stderr in every mode" iterated the PHYSICAL findings alone, so every other
+    defect — `section-has-no-slot` among them, shipped since 1.8.0 — appeared
+    in `--json` and nowhere a human would see it: a plain `cvx build` printed
+    `✅` over a CV with a section missing from the PDF. Now every
+    `kind: 'defect'` reaches stderr, deduplicated (the physical findings are
+    merged into the same diagnostics list they are also returned beside), and
+    facts still never do.
+  - **`--strict` gates on `kind`, not an allowlist — LANDED (maintainer
+    ruling).** `STRICT_GATED_CODES` held one code, so every new defect had to
+    be remembered into that line or it shipped ungated — RV1 proved the failure
+    mode the same day it was added. Gating on the classification the engine
+    already publishes makes the next one gated by construction. **User-visible:**
+    `overflow`, `page1-no-experience` and `section-has-no-slot` now fail
+    `build --strict` where they exited 0. The last is the one to watch — it
+    fires on a legitimate setup, so a caller scripting `--strict` around a
+    populated `referees.yaml` must place the section or empty the file.
+  - **Diagnostics `version` 4 → 5 (R-E).** The `code` union gained
+    `slot-not-renderable`, so the set of values a published field can take
+    changed. Additive for anyone matching on `kind`, which is why `kind`
+    exists — but §2.6's rule is that two meanings never share a version, and
+    v4 set the precedent for bumping on an addition.
   - **The minor set — LANDED, except one that did not reproduce.**
     `list layouts`/`get_schema` reported `source: "built-in"` for a file the
     workspace shadows, which `cvx init` scaffolds and which WINS at resolution,

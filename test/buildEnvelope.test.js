@@ -83,6 +83,64 @@ describe('build envelope — the designed variant', () => {
     expect(stderr).not.toContain('sheets')
   }, 60000)
 
+  it('--strict gates on kind, so a NEW defect code is gated by construction', async () => {
+    // The gate was `new Set(['physical-pages-exceed-plan'])` — one code — so
+    // every new defect had to be remembered into that line or it was silently
+    // ungated. RV1 added one and proved the failure mode the same day: the
+    // defect existed, --json reported it, and --strict walked past it.
+    //
+    // Gating on the classification the engine already publishes means the
+    // widening is user-visible and deliberate: `section-has-no-slot` fires on
+    // a legitimate setup (populated referees the designed layout has no slot
+    // for), and a caller scripting --strict around it must now place the
+    // section or empty the file.
+    const dir = workspace('strict-kind', {
+      'referees.yaml': '- name: Diana Prince\n  title: Founder\n  company: Themyscira\n'
+    })
+    const plain = await run(dir, { json: true })
+    expect(plain.exited).toBeNull() // exit 0 without --strict (R-D)
+    const strict = await run(dir, { json: true, strict: true })
+    expect(strict.exited, 'a defect must fail --strict whatever its code').toBe(2)
+  }, 60000)
+
+  it('--strict still passes a clean CV, and facts never gate it', async () => {
+    const dir = workspace('strict-clean', {})
+    const { json, exited } = await run(dir, { json: true, strict: true })
+    expect(json.diagnostics.warnings.every((w) => w.kind === 'fact')).toBe(true)
+    expect(exited, 'facts must not gate --strict or it is useless').toBeNull()
+  }, 60000)
+
+  it('speaks EVERY defect on stderr, not just the physical one (R-D)', async () => {
+    // R-D says "a defect reaches stderr in every mode". It was honoured for
+    // exactly one code: the loop iterated the PHYSICAL findings alone, so
+    // `section-has-no-slot` — a defect shipped since 1.8.0 — appeared in
+    // --json and nowhere a human would see it. A plain `cvx build` printed ✅
+    // over a CV with a section missing from the PDF.
+    const dir = workspace('rd-all-defects', {
+      'referees.yaml': '- name: Diana Prince\n  title: Founder\n  company: Themyscira\n'
+    })
+    const { json, stderr, exited } = await run(dir, { json: true })
+    expect(exited).toBeNull() // R-D: the PDF exists, so still exit 0 by default
+    const defect = json.diagnostics.warnings.find((w) => w.code === 'section-has-no-slot')
+    expect(defect, 'fixture must actually produce the defect').toBeTruthy()
+    expect(defect.kind).toBe('defect')
+    expect(stderr, 'a defect must be audible without --json').toContain(defect.message)
+    expect(json.notices.join('\n')).toContain(defect.message)
+  }, 60000)
+
+  it('stays silent about FACTS, and says nothing at all on a clean CV', async () => {
+    // The other half of R-D, and the reason this is a predicate on `kind`
+    // rather than "print every warning": `page1-ends-early` fires on
+    // well-packed CVs, and shouting it would make the channel worthless.
+    const dir = workspace('rd-facts-quiet', {})
+    const { json, stderr } = await run(dir, { json: true })
+    const facts = json.diagnostics.warnings.filter((w) => w.kind === 'fact')
+    for (const f of facts) {
+      expect(stderr, `fact ${f.code} must not be shouted`).not.toContain(f.message)
+    }
+    expect(json.notices).toEqual([])
+  }, 60000)
+
   it('reports the defect first, on stderr, and still exits 0', async () => {
     const dir = workspace('spill', { 'experience.yaml': '[]\n', 'summary.yaml': SPILLING_SUMMARY })
     const { json, stderr, exited } = await run(dir, { json: true })

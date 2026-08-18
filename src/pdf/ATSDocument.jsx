@@ -147,7 +147,11 @@ function ATSContent({
             // biome-ignore lint/suspicious/noArrayIndexKey: bullet text may repeat; index is the stable identity for this single-shot ATS render
             <View key={i} style={s.bulletRow}>
               <Text style={s.bulletDash}>–</Text>
-              <Text style={s.bulletText}>{typeof b === 'string' ? b : b.text}</Text>
+              {/* RV14, second site. The experience bullets were fixed and this
+                  one was not, because no scaffold fixture has an object-form
+                  SUMMARY bullet — found by driving a real CV, which is what
+                  SPRINT.md says finds these. */}
+              <Text style={s.bulletText}>{bulletText(b)}</Text>
             </View>
           ))}
         </View>
