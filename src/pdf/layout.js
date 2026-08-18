@@ -571,6 +571,38 @@ export function entryParts(
 }
 
 /**
+ * Height of ONE progression row, at the table's inner width.
+ *
+ * N11: the two branches of `entryH` computed this byte-identically, ~50 lines
+ * apart inside one function, and a change to progression accounting had to
+ * land in both or they drift silently while only one branch is exercised.
+ *
+ * `entryParts` computes the same quantity a third time and is DELIBERATELY not
+ * routed through this. Its accumulator reads `acc + m.progPy * 2 + Math.max(…)`,
+ * which is LEFT-ASSOCIATIVE — `(acc + progPy*2) + max` — while calling a
+ * helper would make it `acc + (progPy*2 + max)`. Float addition is not
+ * associative, and this file already measured what that costs: 240 of 4320
+ * swept entry shapes moved by 0.01pt when two adjacent height functions were
+ * unified, which is a different page decision at a knife edge. The two `+=`
+ * sites below are safe because `+=` evaluates its whole right-hand side first,
+ * so the grouping is unchanged.
+ *
+ * @param {import('./types.js').ProgressionStep} p
+ * @param {Metrics} m
+ * @param {import('./types.js').Measurer | undefined} measure
+ * @param {number} pw  the table's inner width
+ */
+function progRowH(p, m, measure, pw) {
+  return (
+    m.progPy * 2 +
+    Math.max(
+      rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
+      rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
+    )
+  )
+}
+
+/**
  * Measured height of one experience entry — whole, or the `[startBullet,
  * endBullet)` slice of it a split produced.
  *
@@ -593,14 +625,7 @@ export function entryH(
     if (contProg.length > 0) {
       h += m.progMt + m.progMb
       const pw = m.innerW - m.progPl - m.sectionBorderWidth
-      for (const p of contProg) {
-        h +=
-          m.progPy * 2 +
-          Math.max(
-            rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
-            rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
-          )
-      }
+      for (const p of contProg) h += progRowH(p, m, measure, pw)
     }
     const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
     if (visible.length > 0) {
@@ -638,14 +663,7 @@ export function entryH(
   if (headProg.length > 0) {
     h += m.progMt + m.progMb
     const pw = m.innerW - m.progPl - m.sectionBorderWidth
-    for (const p of headProg) {
-      h +=
-        m.progPy * 2 +
-        Math.max(
-          rowH(measure, p.title ?? '', m.metaSize, pw, m.cw, {}),
-          rowH(measure, p.period ?? '', m.captionSize, pw, m.cw, {})
-        )
-    }
+    for (const p of headProg) h += progRowH(p, m, measure, pw)
   }
   const visibleBullets = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   if (visibleBullets.length > 0) {

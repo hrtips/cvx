@@ -25,7 +25,7 @@ import { attachPhysicalWarnings } from '../pdf/physicalPagesWarning.js'
 import { planCV, renderCV } from '../pdf/render.js'
 import { scaffoldContent } from '../pdf/scaffold.js'
 import { discoverThemes } from '../pdf/themes/index.js'
-import { validateContent } from '../pdf/validateContent.js'
+import { contentSchemaVersion, validateContent } from '../pdf/validateContent.js'
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -105,7 +105,9 @@ export async function getSchema(
   }))
 
   const layoutsDir = join(contentDirOf(dir), 'layouts')
-  const builtIn = ['two-column', 'single-column']
+  // N5: the ONE inventory, from the registry that resolves layouts.
+  const { BUILT_IN_LAYOUT_NAMES } = await import('../pdf/defaultLayouts.js')
+  const builtIn = BUILT_IN_LAYOUT_NAMES
   const names = new Set(builtIn)
   const layouts = builtIn.map((name) => ({
     name,
@@ -113,13 +115,24 @@ export async function getSchema(
     source: 'built-in'
   }))
   if (existsSync(layoutsDir)) {
+    // N2: a workspace file SHADOWS the built-in of the same name (and `init_cv`
+    // scaffolds exactly such a file), so reporting it as `built-in` tells the
+    // agent its own layout is not in play while it is the only thing in play.
     for (const f of readdirSync(layoutsDir).filter((name) => name.endsWith('.yaml'))) {
       const name = basename(f, '.yaml')
-      if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
+      const shadowed = layouts.find((l) => l.name === name)
+      if (shadowed) shadowed.source = 'cv-content/layouts'
+      else layouts.push({ name, default: false, source: 'cv-content/layouts' })
       names.add(name)
     }
   }
-  return { schemaVersion: 1, schema, themes, layouts, guides: packagedGuides(guides) }
+  return {
+    schemaVersion: contentSchemaVersion(),
+    schema,
+    themes,
+    layouts,
+    guides: packagedGuides(guides)
+  }
 }
 
 export async function initCv(/** @type {{ dir?: string }} */ { dir } = {}) {
@@ -157,7 +170,7 @@ export async function validateCv(
   })
   return {
     ok: result.ok,
-    schemaVersion: 1,
+    schemaVersion: contentSchemaVersion(),
     strict,
     errors: result.errors,
     warnings: result.warnings,

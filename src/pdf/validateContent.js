@@ -17,6 +17,7 @@ import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Ajv2020Module from 'ajv/dist/2020.js'
 import { load as loadYaml } from 'js-yaml'
+import { BUILT_IN_LAYOUT_NAMES } from './defaultLayouts.js'
 import { MAIN_SLOT_KEYS, overflowWarnings, planTwoColumn, SIDEBAR_SECTION_KEYS } from './layout.js'
 import { normalizeLayout } from './loadLayout.js'
 import {
@@ -51,7 +52,8 @@ const SCHEMA_PATH = join(
  * appears in a file or on the network.
  */
 const SCHEMA_KEY = 'cvx.schema.json'
-const BUILT_IN_LAYOUTS = ['two-column', 'single-column']
+// N5: derived from the registry that resolves them, never hand-copied.
+const BUILT_IN_LAYOUTS = BUILT_IN_LAYOUT_NAMES
 // Files the default two-column layout cannot render without (the packer
 // crashes on a missing list, and personal.name drives the filename).
 const REQUIRED_FILES = ['personal', 'summary', 'experience']
@@ -78,6 +80,23 @@ function getValidator(/** @type {string} */ def) {
     ajv.getSchema(`${SCHEMA_KEY}#/$defs/${def}`) ??
     ajv.compile({ $ref: `${SCHEMA_KEY}#/$defs/${def}` })
   )
+}
+
+/**
+ * The content-schema major, read from the schema itself (N10).
+ *
+ * Three response envelopes — `cvx validate --json`, MCP `get_schema` and MCP
+ * `validate_cv` — each typed `schemaVersion: 1` by hand. A content-schema
+ * major bump is rare and high-ceremony, which is exactly why three hand-typed
+ * copies would survive it: the envelopes would keep announcing a version the
+ * schema no longer declares, to callers who have no other way to know.
+ *
+ * Lazy, reusing the same cached parse `getValidator` builds — the schema read
+ * stays off the path of callers that never validate.
+ */
+export function contentSchemaVersion() {
+  getValidator('config')
+  return canonicalSchema?.$defs?.config?.properties?.schemaVersion?.const ?? 1
 }
 
 function levenshtein(/** @type {string} */ a, /** @type {string} */ b) {

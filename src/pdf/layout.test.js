@@ -3,6 +3,7 @@
 // sidebar fold is subsumed by sidebarFlowKeys() + packSidebar() (C3a), and its
 // `isSinglePage === false` branch was unreachable in production — keeping tests
 // alive for retired behaviour is how a dead code path survives a review.
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { packExperiences } from './layout.js'
 
@@ -132,5 +133,44 @@ describe('packExperiences — automatic bullet-level splitting', () => {
     const r = packExperiences([one], ['s'], undefined)
     expect(r.page1Experiences).toHaveLength(1)
     expect(r.page1Experiences[0].endBullet ?? 1).toBe(1)
+  })
+})
+
+// N3: `PAGE1_OVERFLOW_WARN_THRESHOLD` and the theme's `spacing.safety` are two
+// literals that must stay equal, and nothing made them.
+//
+// `overflowWarnings()`'s own docblock justifies the threshold BY the margin —
+// "the budgets already subtract `spacing.safety`, so a sub-point overrun is
+// measurement noise eating the margin, not a page break". That is a claim
+// about a RELATIONSHIP, encoded as two unrelated numbers that happen to agree.
+//
+// It cannot be collapsed into one: `overflowWarnings(plan)` takes only the
+// plan, deliberately, because §2.4 pins Diagnostics as a pure function of the
+// Plan — so it has no theme to read. What it can have is a tripwire, and
+// doctrine 13 says why it earns one: the 220pt predecessor of this very
+// constant "sat between the estimator's overshoot and the mildest real defect
+// and silently suppressed a real warning for the product's whole life".
+//
+// Read out of the source rather than imported, because the constant is
+// module-private ON PURPOSE ("overflowWarnings() is the only consumer"), and
+// widening the API to test it would trade a real design property for a
+// convenience. layout.api.test.js already reads this file the same way.
+describe('the overflow threshold tracks the theme safety margin it is justified by (N3)', () => {
+  const source = readFileSync(new URL('./layout.js', import.meta.url), 'utf8')
+
+  it("is the same number as every shipped theme's spacing.safety", async () => {
+    const m = /const PAGE1_OVERFLOW_WARN_THRESHOLD = ([\d.]+)/.exec(source)
+    expect(m, 'PAGE1_OVERFLOW_WARN_THRESHOLD was renamed or removed').toBeTruthy()
+    const threshold = Number(m?.[1])
+
+    const { discoverThemes } = await import('./themes/index.js')
+    const themes = await discoverThemes()
+    expect(Object.keys(themes).length).toBeGreaterThan(1) // not vacuous
+    for (const [name, theme] of Object.entries(themes)) {
+      expect(
+        theme.spacing.safety,
+        `theme "${name}" has spacing.safety ${theme.spacing.safety} but the overflow warning suppresses everything at or below ${threshold}pt — the threshold exists to be exactly the margin, so one moved without the other`
+      ).toBe(threshold)
+    }
   })
 })

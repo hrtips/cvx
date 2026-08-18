@@ -36,8 +36,9 @@ export default function CertificationsSection({ data, slice }) {
   return (
     <View style={s.wrap}>
       <SectionTitle variant="sidebar">{sliceTitle('Certifications', slice)}</SectionTitle>
-      {items.map((c) => (
-        <View key={c.name} style={s.item}>
+      {items.map((c, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+        <View key={`${i}-${c.name}`} style={s.item}>
           <Text style={s.name}>{c.name}</Text>
           {c.issuer && <Text style={s.issuer}>{c.issuer}</Text>}
           {c.year && <Text style={s.year}>{c.year}</Text>}

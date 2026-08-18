@@ -30,10 +30,11 @@ export default function PublicationsSection({ data, slice }) {
   return (
     <View style={s.wrap}>
       <SectionTitle variant="sidebar">{sliceTitle('Publications', slice)}</SectionTitle>
-      {items.map((p) => {
+      {items.map((p, i) => {
         const meta = [p.venue, p.year].filter(Boolean).join('  ·  ')
         return (
-          <View key={p.title} style={s.item}>
+          // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+          <View key={`${i}-${p.title}`} style={s.item}>
             <Text style={s.title}>{p.title}</Text>
             {meta && <Text style={s.meta}>{meta}</Text>}
           </View>

@@ -40,7 +40,26 @@ import { parseArgs } from 'node:util'
  * this is a no-op there. See scripts/build-standalone.js.
  */
 const pkgRoot = process.env.CVX_ASSET_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..')
-const version = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
+
+/**
+ * N9: read defensively, because this runs at MODULE LOAD — outside `main()`'s
+ * try/catch and therefore outside the documented exit-code contract. With
+ * `CVX_ASSET_ROOT` pointing somewhere without a package.json (a caller-supplied
+ * value, and the standalone bundle sets it), the throw escaped as an unhandled
+ * exception: exit code 1 and a raw stack trace, where the header promises
+ * `0 ok · 2 validation · 3 render · 64 usage`.
+ *
+ * The version is banner text. Failing the whole CLI over it — before any
+ * command has been chosen — is the wrong trade; saying "unknown" is honest and
+ * keeps every real command working.
+ */
+const version = (() => {
+  try {
+    return JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf-8')).version
+  } catch {
+    return 'unknown'
+  }
+})()
 
 const EXIT = { ok: 0, validation: 2, render: 3, usage: 64 }
 
@@ -183,7 +202,7 @@ Next steps:
 export async function validate(
   /** @type {{ strict?: boolean, json?: boolean }} */ { strict, json }
 ) {
-  const { validateContent } = await import('../lib/pdf/validateContent.js')
+  const { validateContent, contentSchemaVersion } = await import('../lib/pdf/validateContent.js')
   const result = validateContent(
     /** @type {import('../src/pdf/types.js').ValidateOptions} */ ({
       contentDir: join(process.cwd(), 'cv-content'),
@@ -196,7 +215,7 @@ export async function validate(
     emit({
       command: 'validate',
       ok: result.ok,
-      schemaVersion: 1,
+      schemaVersion: contentSchemaVersion(),
       strict,
       errors: result.errors,
       warnings: result.warnings,
@@ -242,19 +261,32 @@ export async function list(/** @type {{ kind?: string, json?: boolean }} */ { ki
   }))
 
   const layoutsDir = join(process.cwd(), 'cv-content', 'layouts')
-  const builtIn = ['two-column', 'single-column']
+  // N5: the ONE inventory, from the registry that resolves layouts.
+  const { BUILT_IN_LAYOUT_NAMES } = await import('../lib/pdf/defaultLayouts.js')
+  const builtIn = BUILT_IN_LAYOUT_NAMES
+  // N2: which file actually GOVERNS the build. `discoverLayouts` reads
+  // cv-content/layouts/ and `resolveDocument` takes `layout ?? LAYOUTS[name]`,
+  // so a workspace file SHADOWS the built-in of the same name — and `cvx init`
+  // scaffolds exactly such a file. Reporting it as `built-in` told the user,
+  // and any agent reading `list --json` or `get_schema`, that their own
+  // two-column.yaml was not in play while it was the only thing in play.
+  const workspace = new Set(
+    existsSync(layoutsDir)
+      ? readdirSync(layoutsDir)
+          .filter((name) => name.endsWith('.yaml'))
+          .map((f) => f.replace(/\.yaml$/, ''))
+      : []
+  )
   const names = new Set(builtIn)
   const layouts = builtIn.map((name) => ({
     name,
     default: name === 'two-column',
-    source: 'built-in'
+    source: workspace.has(name) ? 'cv-content/layouts' : 'built-in'
   }))
-  if (existsSync(layoutsDir)) {
-    for (const f of readdirSync(layoutsDir).filter((name) => name.endsWith('.yaml'))) {
-      const name = f.replace(/\.yaml$/, '')
-      if (!names.has(name)) layouts.push({ name, default: false, source: 'cv-content/layouts' })
-      names.add(name)
-    }
+  for (const name of workspace) {
+    if (names.has(name)) continue
+    layouts.push({ name, default: false, source: 'cv-content/layouts' })
+    names.add(name)
   }
 
   const result = {

@@ -158,7 +158,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Experience</Text>
           {experience.map((e, i) => (
-            <View key={`${e.role}-${e.company}`}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${e.role}-${e.company}`}>
               {i > 0 && <View style={s.entryGap} />}
               <Text style={s.role}>{e.role}</Text>
               <View style={s.expMeta}>
@@ -181,8 +182,9 @@ function ATSContent({
                   <View style={s.progBlock}>
                     {
                       /** @type {import('./types.js').ProgressionStep[]} */ (e.progression).map(
-                        (p) => (
-                          <View key={p.title} style={s.progRow}>
+                        (p, pi) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+                          <View key={`${pi}-${p.title}`} style={s.progRow}>
                             <Text style={s.progTitle}>{p.title}</Text>
                             <Text style={s.progPeriod}>{p.period}</Text>
                           </View>
@@ -209,7 +211,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Education</Text>
           {education.map((edu, i) => (
-            <View key={edu.degree}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${edu.degree}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{edu.degree}</Text>
               <Text style={s.eduMeta}>
@@ -226,7 +229,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Certifications</Text>
           {certifications.map((c, i) => (
-            <View key={c.name}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${c.name}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{c.name}</Text>
               {(c.issuer || c.year) && (
@@ -242,7 +246,8 @@ function ATSContent({
         <View>
           <Text style={s.section}>Publications</Text>
           {publications.map((p, i) => (
-            <View key={p.title}>
+            // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+            <View key={`${i}-${p.title}`}>
               {i > 0 && <View style={{ height: 5 }} />}
               <Text style={s.degree}>{p.title}</Text>
               {(p.venue || p.year) && (

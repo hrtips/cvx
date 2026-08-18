@@ -1268,16 +1268,36 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     the per-entry one was drawn nowhere in that variant, so a CV whose roles
     carry locations shipped two deliverables that differ in content. INV-0 does
     not distinguish between variants.
-  - **Also parked, one line each:** inverted `emptyColumn` side on the student
-    layout; `list layouts`/`get_schema` reporting `source: "built-in"` over the
-    user's own file; `PAGE1_OVERFLOW_WARN_THRESHOLD` unbound from the theme's
-    `safety` (doctrine 13's shape, not yet its bug); the built-in layout
-    inventory hardcoded in four places while themes correctly share
-    `discoverThemes()` — I8 adds a layout, so this bites then; React keys on
-    non-unique content fields (verified harmless on `renderToBuffer`);
-    `CVX_ASSET_ROOT` throwing outside `main()`'s try/catch; `schemaVersion`
-    hand-typed in three envelope sites; the thrice-copied progression-height
-    loop (extract only with the float-association caveat).
+  - **The minor set — LANDED, except one that did not reproduce.**
+    `list layouts`/`get_schema` reported `source: "built-in"` for a file the
+    workspace shadows, which `cvx init` scaffolds and which WINS at resolution,
+    so the user and any agent were told their own layout was not in play while
+    it was the only thing in play. `PAGE1_OVERFLOW_WARN_THRESHOLD` is now bound
+    by test to the theme `spacing.safety` its docblock justifies it by — it
+    cannot be collapsed into one value because Diagnostics is a pure function of
+    the Plan (§2.4) and has no theme to read, and doctrine 13 records what the
+    220pt predecessor of this constant cost. The built-in layout inventory is
+    derived from the registry that resolves it, ahead of I8 adding a layout.
+    React keys are index-qualified. `CVX_ASSET_ROOT` no longer throws at module
+    load, where the documented exit contract does not reach — it gave exit 1
+    and a stack trace where the header promises 0/2/3/64. `schemaVersion` is
+    read from the schema's own `const` in all three envelopes. The
+    progression-height loop is extracted for `entryH`'s two identical branches
+    only: `entryParts` accumulates as `acc + progPy*2 + max(…)`, which is
+    LEFT-associative, and routing it through a helper would regroup it — the
+    exact float non-associativity this file measured at 240/4320 shapes. The
+    baseline is byte-unchanged, which is the evidence the extraction is inert.
+  - **NOT REPRODUCED — the inverted `emptyColumn` claim.** Reported as the plan
+    publishing `emptyColumn: 'main'` twice on the student layout while the
+    render oracle returned `sidebar`. Driven directly: with sections in a main
+    slot and `experience: []`, page 2 reports `emptyColumn: 'main'` and the
+    render agrees — 137 words in the sidebar band, 3 in the main band, and
+    those 3 are the page badge. Moving every section into `main` reports
+    `sidebar`, and the render agrees again (11 words, the identity block, vs
+    250). What is real and already recorded is the gap §6's render-oracle row
+    documents: the plan's `emptyColumn` means "no PACKED slices" while the
+    oracle means "no ink", and identity blocks are injected rather than packed.
+    Left as-is rather than changed on an unreproduced report (doctrine 1).
   - **CORRECTIONS (doctrine 8 — refuted by name).** *(a)* The orchestrator's
     first read of RV1 claimed the whole experience section was lost; the render
     showed it present. The real loss is 5 of 16 bullets — page 1's block only.

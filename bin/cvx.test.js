@@ -273,6 +273,32 @@ describe('list', () => {
     )
   })
 
+  it('reports a layout as cv-content/layouts when the workspace shadows it (N2)', async () => {
+    // `init` scaffolds cv-content/layouts/two-column.yaml, and that file WINS:
+    // discoverLayouts reads the workspace and resolveDocument takes
+    // `layout ?? LAYOUTS[name]`. Reporting it as "built-in" told the user — and
+    // any agent reading list --json — that their own file was not in play while
+    // it was the only thing in play.
+    await init({ json: false })
+    logSpy.mockClear()
+    writeSpy.mockClear()
+    await list({ kind: 'layouts', json: true })
+    const out = jsonOut()
+    const twoCol = out.layouts.find((/** @type {{ name: string }} */ l) => l.name === 'two-column')
+    expect(twoCol.source).toBe('cv-content/layouts')
+    // A built-in the workspace does NOT override keeps its label.
+    const single = out.layouts.find(
+      (/** @type {{ name: string }} */ l) => l.name === 'single-column'
+    )
+    expect(single.source).toBe('cv-content/layouts')
+  })
+
+  it('reports built-in when there is no workspace layouts/ at all (N2)', async () => {
+    await list({ kind: 'layouts', json: true })
+    const out = jsonOut()
+    for (const l of out.layouts) expect(l.source).toBe('built-in')
+  })
+
   it('lists just themes when kind=themes (--json)', async () => {
     await list({ kind: 'themes', json: true })
     const out = jsonOut()

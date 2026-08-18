@@ -32,8 +32,15 @@ export default function ExperienceSection({ entries, continued = false }) {
   return (
     <View>
       <SectionTitle>{label}</SectionTitle>
+      {/* N6: keys are index-qualified. `role`-`company` alone is the exact
+          collision the harness hardened its OWN block identity against — two
+          stints at the same company in the same role are legal content, and
+          React's duplicate-key message says children "may be duplicated and/or
+          omitted". Harmless on today's single-shot renderToBuffer; the fix costs
+          nothing and stops that being load-bearing. */}
       {entries.map((e, i) => (
-        <View key={`${e.role}-${e.company}`}>
+        // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
+        <View key={`${i}-${e.role}-${e.company}`}>
           <ExpItem {...e} />
           {i < entries.length - 1 && <View style={s.divider} />}
         </View>
