@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 29 names. Only eleven of them are API. The rest are
+// This module exports 30 names. Only eleven of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -103,7 +103,7 @@
 //   carries `@internal` in its own docblock, and `layout.api.test.js` proves
 //   the two lists agree AND that no shipped module imports one of them:
 //     deriveMetrics, deriveSidebarMetrics, lineCount, NATURAL_LINE_HEIGHT,
-//     bulletWidth,
+//     bulletWidth, bulletText,
 //     summaryH, entryH, entryParts, packBlocks, packExperiences, packSidebar,
 //     identityH,
 //     sidebarSliceH, sidebarSectionH, sidebarSectionItems, sidebarItemCount,
@@ -395,6 +395,31 @@ export function bulletWidth(
 }
 
 /**
+ * The string a bullet actually DRAWS.
+ *
+ * RV4: `BulletList.jsx` renders the object form as one `<Text>` — `text`, then
+ * the `<Link>` label, then `suffix`, back to back — so react-pdf wraps them as
+ * a single run. All four height formulas measured `b.text` alone and dropped
+ * the other two, which under-measured any bullet whose link label or suffix
+ * pushed the combined string past a line boundary: 27.00pt on the shipped
+ * theme, two full body lines, against a 15pt safety margin.
+ *
+ * Unpriced ink, so INV-3 — and invisible to INV-2's diff tables because the
+ * harness's own comparison helper stripped `link`/`suffix` the same way. The
+ * instrument agreed with the bug, which is why this is exported (`@internal`)
+ * rather than duplicated: one function, both sides.
+ *
+ * @internal harness-only export — `test/layout-harness/mainMeasureDiff.js`
+ *   matches rendered rows against the same string this prices.
+ * @param {string | { text?: string, link?: { label?: string }, suffix?: string }} b
+ * @returns {string}
+ */
+export function bulletText(b) {
+  if (typeof b === 'string') return b
+  return `${b?.text ?? ''}${b?.link?.label ?? ''}${b?.suffix ?? ''}`
+}
+
+/**
  * Measured height of the whole summary block (title + bullet list).
  *
  * @internal exported for the C0 harness only — not API (see the module docblock).
@@ -413,7 +438,7 @@ export function summaryH(
   if (summary.length === 0) return 0
   let h = calcTitleH(m) + m.descMt // title + bullet list margin-top
   for (const b of summary) {
-    const txt = typeof b === 'string' ? b : b.text
+    const txt = bulletText(b)
     h +=
       countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
       lh(m.bodySize, m.bodyLeading)
@@ -470,14 +495,8 @@ export function entryParts(
   const visible = (e.bullets ?? []).slice(e.startBullet ?? 0, e.endBullet)
   const bulletsPt = visible.map(
     (b) =>
-      countLines(
-        measure,
-        typeof b === 'string' ? b : b.text,
-        m.bodySize,
-        bulletWidth(m, measure),
-        m.cw,
-        BODY_STYLE
-      ) * lh(m.bodySize, m.bodyLeading)
+      countLines(measure, bulletText(b), m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
+      lh(m.bodySize, m.bodyLeading)
   )
   // A continuation piece drops company/period/location/description/progression
   // entirely and re-renders the role line with its "(cont'd)" suffix.
@@ -584,7 +603,7 @@ export function entryH(
     if (visible.length > 0) {
       h += m.descMt
       for (const b of visible) {
-        const txt = typeof b === 'string' ? b : b.text
+        const txt = bulletText(b)
         h +=
           countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
           lh(m.bodySize, m.bodyLeading)
@@ -629,7 +648,7 @@ export function entryH(
   if (visibleBullets.length > 0) {
     h += m.descMt
     for (const b of visibleBullets) {
-      const txt = typeof b === 'string' ? b : b.text
+      const txt = bulletText(b)
       h +=
         countLines(measure, txt, m.bodySize, bulletWidth(m, measure), m.cw, BODY_STYLE) *
         lh(m.bodySize, m.bodyLeading)

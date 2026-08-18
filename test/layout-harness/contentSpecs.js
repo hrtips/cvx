@@ -128,6 +128,25 @@ function buildExperienceEntry(i, spec) {
   if (spec.pageTallBullet && i === 0) {
     bullets[0] = `${bullets[0]} ${'One more clause of the same delivery, spelled out at length. '.repeat(30).trim()}`
   }
+  // RV4: the OBJECT bullet form (`{ text, link, suffix }`), which the schema
+  // documents and no fixture reached. BulletList.jsx draws the three parts as
+  // one continuous run, and every height formula measured `text` alone — a
+  // 27pt under-measure on the shipped theme, against a 15pt safety margin,
+  // invisible because the render-diff harness's own helper stripped the same
+  // two fields. The corpus could not express the shape, so the suite was green
+  // about a document it could not build (doctrine 6).
+  //
+  // Deliberately placed on the LAST bullet and sized to push the combined
+  // string past a wrap boundary — a short label on a short bullet measures the
+  // same either way and would prove nothing.
+  if (spec.linkedBullet) {
+    const i0 = bullets.length - 1
+    bullets[i0] = {
+      text: `${bullets[i0]} Written up in `,
+      link: { href: 'https://example.com/write-up', label: 'the full engineering write-up' },
+      suffix: ', which covers the rollout and what it cost.'
+    }
+  }
   const entry = {
     // The ordinal stays in front of the wrapping tail so every role is still
     // unique — ExperienceSection.jsx keys its rows on `role`-`company`.
@@ -231,6 +250,7 @@ function buildConfig(spec) {
  *   wrappingRole?: boolean,              // no pre-existing fixture's content moves.
  *   wrappingCompany?: boolean,
  *   entryShapes?: { bullets?: number, progression?: number }[],  // per-ENTRY override of the two above
+ *   linkedBullet?: boolean,       // RV4: last bullet uses the { text, link, suffix } object form
 
  *   page1ExperienceCount?, page1SplitBullets?, theme?,
  *   oversizedSection?: keyof ITEM_BUILDERS, oversizedCount?: number,

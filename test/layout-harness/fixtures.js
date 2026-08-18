@@ -177,6 +177,15 @@ function namedEdgeCaseFixtures() {
       extraLink: { href: LONG_URL }
     },
     {
+      id: 'edge-linked-bullet',
+      description:
+        "RV4: an experience bullet in the documented `{ text, link, suffix }` object form, sized so the concatenated string wraps. BulletList.jsx draws the three parts as one run; every height formula measured `text` alone, a 27pt under-measure against a 15pt safety margin. No fixture reached the shape before this one, and the render-diff harness's own helper stripped the same two fields — so INV-2's zeros were a fact about the corpus, not the code.",
+      sections: { certifications: 'one', languages: 'one', achievements: 'one' },
+      textLength: 'typical',
+      volume: 'fits-1-page',
+      linkedBullet: true
+    },
+    {
       id: 'edge-non-latin-name',
       description:
         'non-Latin personal.name (Sinhala) — ties to the fallback-font measurement risk (design doc G-a): Lato has no Sinhala glyphs and no fallback (e.g. Noto) is registered today.',

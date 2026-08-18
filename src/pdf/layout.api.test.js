@@ -181,7 +181,7 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 29 names the module docblock claims', () => {
+  it('exports exactly the 30 names the module docblock claims', () => {
     // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
     // main-column harness the same way deriveMetrics is for the sidebar's.
     // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
@@ -192,9 +192,12 @@ describe('layout.js public API', () => {
     // and its numbers reach consumers through the plan, not through an import.
     // RV1 added MAIN_SLOT_KEYS as the 29th export, public: the one list
     // validateContent's MAIN-slot `slot-not-renderable` check derives from.
-    expect(exported).toHaveLength(29)
+    // RV4 added bulletText as the 30th export, @internal: the ONE definition
+    // of the string a bullet draws, shared with the render-diff harness whose
+    // own copy previously agreed with the bug it was supposed to catch.
+    expect(exported).toHaveLength(30)
     expect(PUBLIC_API).toHaveLength(11)
-    expect(internal).toHaveLength(18)
+    expect(internal).toHaveLength(19)
   })
 
   it("the module docblock's harness roll-call matches the @internal tags", () => {

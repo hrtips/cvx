@@ -69,6 +69,7 @@
 import path from 'node:path'
 import { TWO_COLUMN_LAYOUT } from '../../src/pdf/defaultLayouts.js'
 import {
+  bulletText,
   deriveMetrics,
   deriveSidebarMetrics,
   entryH,
@@ -90,9 +91,11 @@ const round2 = (/** @type {number} */ n) => {
 /** Every rendered row's text arrives with its spaces gone (see `rowsByPage`), so compare like for like. */
 const squash = (/** @type {string} */ s) => s.replace(/\s+/g, '')
 
-/** A bullet is either a plain string or `{ text, link, suffix }` (BulletList.jsx). */
-const bulletText = (/** @type {string | {text?: string}} */ b) =>
-  typeof b === 'string' ? b : (b?.text ?? '')
+// RV4: `bulletText` is imported from layout.js rather than defined here.
+// This copy dropped `link.label` and `suffix` exactly as the four measurement
+// call sites did, so the instrument that asserts |measured − rendered| ≤ 0.01pt
+// agreed with the bug it exists to catch — it could never hand itself a bullet
+// whose link or suffix moved the wrap. Doctrine 6 at the level of the ruler.
 
 /**
  * The entry margin `entryH()` CHARGES, which is not the one `ExpItem.jsx`

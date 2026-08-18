@@ -1194,7 +1194,7 @@ version-pinned scaffolds. Rejected: container image, standalone executables
     `totalPages === 2`. §8's own success criterion is a 1-page student CV, so
     this was dead in the roadmap's target shape. `main-slot-unmeasured` fired
     and said the section "is rendered but not measured" — it was not rendered.
-  - **RV4 (P0) — SCHEDULED (this pass). `{text, link, suffix}` bullets measured by `.text`
+  - **RV4 (P0) — LANDED. `{text, link, suffix}` bullets measured by `.text`
     alone, rendered concatenated.** 27.00pt under-measure against a 15pt safety
     margin; three rendered line boxes priced as one. Unpriced ink (INV-3), and
     invisible because the render-diff harness's own `bulletText` helper stripped
