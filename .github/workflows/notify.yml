@@ -1,0 +1,19 @@
+name: Trigger hrtips-web deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint a scoped, short-lived token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.DEPLOY_APP_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          repositories: hrtips-web
+      - name: Dispatch to hrtips-web
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: gh api -X POST /repos/hrtips/hrtips-web/dispatches -f event_type=cvx-updated
