@@ -28,6 +28,7 @@
     "build": "vite build",
     "build:lib": "node scripts/build-lib.js",
     "build:standalone": "npm run build:lib && node scripts/build-standalone.js",
+    "build:site": "node scripts/build-site.js",
     "prepack": "npm run build:lib",
     "preview": "vite preview",
     "pdf": "npx tsx scripts/export-pdf.js",

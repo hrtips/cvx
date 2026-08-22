@@ -8,12 +8,17 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="CVX — the new way to write a CV" />
 <meta property="og:description" content="Don't format a CV. Have a conversation. Any AI assistant can drive CVX — plain YAML in, pixel-perfect PDF out, fully local." />
-<meta property="og:image" content="https://raw.githubusercontent.com/hrtips/cvx/main/assets/brand/social-preview.png" />
+<meta property="og:url" content="https://hrtips.lk/cvx/" />
+<meta property="og:image" content="https://hrtips.lk/cvx/social-preview.png" />
 <meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://hrtips.lk/cvx/social-preview.png" />
+<link rel="canonical" href="https://hrtips.lk/cvx/" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Sinhala:wght@400;600;800&family=Noto+Sans+Tamil:wght@400;600;800&family=Noto+Sans+Devanagari:wght@400;600;800&display=swap" rel="stylesheet" />
 <link rel="icon" href="./icon.png" />
+<link rel="apple-touch-icon" href="./icon.png" />
+<link rel="manifest" href="./site.webmanifest" />
 <script src="./cvx-i18n.js"></script>
 <style>
 
@@ -145,7 +150,7 @@
           <button type="button" data-copy="hero" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="1">Copy</button>
         </div>
         <div style="padding: 20px 18px; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; line-height: 1.8; color: #232C2D">
-          <div>Create my CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> —</div>
+          <div>Create my CV with <span style="color: #1A6070">hrtips.lk/cvx</span> —</div>
           <div>open that page and follow its instructions</div>
           <div>for AI assistants.</div>
           <div style="margin-top: 10px">Here is my current CV: <span style="color: #A9A399">[attach]</span></div>
@@ -214,7 +219,11 @@ node cvx.bundle.min.js --version</code></pre>
         <p style="margin: 0"><b style="color: #A9D6DE">7 · Deliver both PDFs and the <code>cv-content/</code> folder.</b> The YAML is the durable asset — a sandbox is erased when the conversation ends, and that folder is what lets them update the CV next time. Say so.</p>
       </div>
 
-      <p style="margin: 22px 0 6px; font-size: 14px"><a href="./download/cvx.bundle.min.js.zip" download style="color: #A9D6DE; font-weight: 700">Download the CVX bundle</a> <span style="color: #6E7E7C">— 0.92 MB ZIP, self-contained, Node 20+ · <a href="./download/latest.json" style="color: #A9D6DE">latest.json</a> · <a href="./download/cvx.bundle.min.js.zip.sha256" style="color: #A9D6DE">sha256</a></span></p>
+      <!-- Download links are ABSOLUTE to github.io on purpose. The release bundle is
+           fetched from GitHub Releases by the Pages workflow, so it exists only on that
+           host; a relative ./download/ link would 404 on hrtips.lk. Every other
+           reference on this page stays relative. -->
+      <p style="margin: 22px 0 6px; font-size: 14px"><a href="https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip" download style="color: #A9D6DE; font-weight: 700">Download the CVX bundle</a> <span style="color: #6E7E7C">— 0.92 MB ZIP, self-contained, Node 20+ · <a href="https://hrtips.github.io/cvx/download/latest.json" style="color: #A9D6DE">latest.json</a> · <a href="https://hrtips.github.io/cvx/download/cvx.bundle.min.js.zip.sha256" style="color: #A9D6DE">sha256</a></span></p>
       <p style="margin: 22px 0 0; font-size: 14px; color: #9FB0AE">CVX is the only renderer — never substitute LaTeX, HTML-to-PDF or your own drawing code. Full detail, all on this origin: <a href="./llms.txt" style="color: #A9D6DE">llms.txt</a> · <a href="./ai-guide.md" style="color: #A9D6DE">AI guide</a> · <a href="./cv-schema.md" style="color: #A9D6DE">content schema</a></p>
     </div>
   </section>
@@ -245,7 +254,7 @@ node cvx.bundle.min.js --version</code></pre>
               <button type="button" data-copy="a" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="3">Copy</button>
             </div>
             <div style="background: #F5F2EC; border-radius: 10px; padding: 18px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.85; color: #2C3536; display: flex; flex-direction: column; gap: 12px">
-              <p style="margin: 0">I want to create a new CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> — open that page and follow its instructions for AI assistants.</p>
+              <p style="margin: 0">I want to create a new CV with <span style="color: #1A6070">hrtips.lk/cvx</span> — open that page and follow its instructions for AI assistants.</p>
               <p style="margin: 0">My current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.</p>
               <p style="margin: 0">Then write the <span style="white-space: nowrap">cv-content</span> YAML, validate it, and build the PDF.</p>
             </div>
@@ -275,7 +284,7 @@ node cvx.bundle.min.js --version</code></pre>
               <button type="button" data-copy="b" style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid #DCD7CE; background: #FFFFFF; color: #4A5354; border-radius: 7px; padding: 5px 11px; cursor: pointer" data-hv="4">Copy</button>
             </div>
             <div style="background: #F5F2EC; border-radius: 10px; padding: 18px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.85; color: #2C3536; display: flex; flex-direction: column; gap: 12px">
-              <p style="margin: 0">Create my CV with <span style="color: #1A6070">hrtips.github.io/cvx</span> — open that page and follow its instructions for AI assistants.</p>
+              <p style="margin: 0">Create my CV with <span style="color: #1A6070">hrtips.lk/cvx</span> — open that page and follow its instructions for AI assistants.</p>
               <p style="margin: 0">Attached is my LinkedIn profile export (More → Save to PDF) and a square photo. Use it as the source of truth, ask me about anything thin or missing, and don't invent results I haven't given you.</p>
               <p style="margin: 0">Target role: <span style="color: #8A8579">[paste the job ad]</span></p>
             </div>
@@ -467,10 +476,10 @@ node cvx.bundle.min.js --version</code></pre>
 </div>
 <script>
 (function () {
-  var HEAD = "Create my CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.";
+  var HEAD = "Create my CV with https://hrtips.lk/cvx \u2014 open that page and follow its instructions for AI assistants.";
   var PROMPTS = {
     hero: HEAD + "\nHere is my current CV: [attach]",
-    a: "I want to create a new CV with https://hrtips.github.io/cvx \u2014 open that page and follow its instructions for AI assistants.\n\nMy current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.\n\nThen write the cv-content YAML, validate it, and build the PDF.",
+    a: "I want to create a new CV with https://hrtips.lk/cvx \u2014 open that page and follow its instructions for AI assistants.\n\nMy current CV is attached. Before writing anything, read it and tell me where it is weak: missing results, vague responsibilities, gaps in dates. Ask me the questions you need, one batch at a time. Only use facts I confirm.\n\nThen write the cv-content YAML, validate it, and build the PDF.",
     b: HEAD + "\n\nAttached is my LinkedIn profile export (More \u2192 Save to PDF) and a square photo. Use it as the source of truth, ask me about anything thin or missing, and don't invent results I haven't given you.\n\nTarget role: [paste the job ad]"
   };
   var timer, orig = [], lang = 'en';

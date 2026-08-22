@@ -33,3 +33,6 @@ research/archive/
 
 # npm pack output — a local verification artifact, never committed
 *.tgz
+
+# Assembled landing-page tree — rebuilt by `npm run build:site`, never committed
+_site/

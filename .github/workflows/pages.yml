@@ -1,7 +1,8 @@
 name: Deploy landing page
 
-# Publishes site/index.html to https://hrtips.github.io/cvx/.
-# Images are copied from assets/ at build time so they aren't duplicated in git.
+# Publishes the landing page to https://hrtips.github.io/cvx/.
+# The tree is assembled by scripts/build-site.js — the same script the Cloudflare
+# Pages deploy of https://hrtips.lk/cvx/ runs, so both hosts publish the same bytes.
 
 on:
   push:
@@ -14,6 +15,7 @@ on:
       - assets/hero-two-column.png
       - assets/hero-ats.png
       - assets/brand/**
+      - scripts/build-site.js
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -42,27 +44,11 @@ jobs:
         with:
           enablement: true
 
+      # One copy-list, shared with the Cloudflare Pages deploy of hrtips.lk/cvx/,
+      # so the two hosts publish the same tree instead of drifting apart.
       - name: Assemble _site
         run: |
-          mkdir -p _site
-          cp site/index.html _site/index.html
-          cp site/cvx-i18n.js _site/cvx-i18n.js   # EN/hi/ta/si translations loaded by index.html
-          cp assets/hero-two-column.png _site/hero-two-column.png
-          cp assets/hero-ats.png _site/hero-ats.png
-          cp assets/brand/icons/cvx-icon-256x256.png _site/icon.png
-          cp llms.txt _site/llms.txt   # the redesign's prompts send assistants to this origin
-          # Served from THIS origin so an assistant that was handed the site URL can
-          # follow through in one hop. Fetching raw.githubusercontent.com is a
-          # second host, which some fetchers will not do — and the instruction block
-          # on index.html links to these relative paths.
-          cp docs/ai-guide.md _site/ai-guide.md
-          cp docs/cv-schema.md _site/cv-schema.md
-          # The project privacy statement, at BOTH /privacy and /privacy/ so either
-          # form of the URL resolves.
-          cp site/privacy.html _site/privacy.html
-          mkdir -p _site/privacy
-          cp site/privacy.html _site/privacy/index.html
-
+          npm run build:site
           ls -la _site
 
       # ── Serve the runnable bundle from THIS origin ────────────────────────
