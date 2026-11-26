@@ -175,6 +175,18 @@ Per entry: `name`, `title`, `company`, `email`, `phone` (all strings). An explic
   phone: "+1 (202) 555-0177"
 ```
 
+## File: `headings.yaml` (optional; object)
+
+Your own heading for a sidebar section, keyed by that section's file name. Omit the file, or a key, to keep the built-in heading. Renamable: `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees`. The Summary and Experience headings cannot be renamed yet; `validate` says so if you try.
+
+**Printed exactly as typed**, in both the designed and ATS variants: CVX never changes the case of text you supply. The built-in headings are drawn in capitals, so type yours in capitals to match them. A long heading wraps onto a second line, and the page plan measures that line. The ATS variant has no contact heading (it prints contact details in its header), so `contact` applies to the designed layout only.
+
+```yaml
+publications: OPEN SOURCE CONTRIBUTIONS
+certifications: TRAINING & COURSES
+competencies: SKILLS
+```
+
 ## File: `keywords.yaml` (optional; list of strings, or map of group → list)
 
 Extra ATS/AI-parser keywords embedded in the PDF's `Keywords` metadata field (never printed on the page). Competencies and job titles are auto-derived already, so list only what those don't cover. Groups are flattened; headings are not printed. **Keep every keyword truthful to the CV body.**
@@ -246,6 +258,7 @@ The lists above say where each section is *normally* placed, not where it is *al
 2. `summary.yaml` — 3–6 single-sentence bullets.
 3. `experience.yaml` — every role, most recent first, with quantified truthful bullets.
 4. `education.yaml`, `certifications.yaml`, `publications.yaml`, `languages.yaml`, `competencies.yaml`, `achievements.yaml`, `referees.yaml` — or `[]` / omit to drop.
+   `headings.yaml` (optional) — only to give a sidebar section the user's own heading, e.g. "Training & Courses" instead of "Certifications".
 5. `keywords.yaml` — only truthful terms not already covered by competencies/titles.
 6. `config.yaml` — usually just `theme` + `layout`. Pagination is automatic (the old page-1 keys were removed).
 7. Ask for the photo in your **first** message to the user (it can't be generated) — but never block on it; the CV renders cleanly without one. If you ran `init`, replace or delete the scaffolded example photo at `images/profile.jpg` (it's Bruce Wayne's) before building. Then run `npx @hrtips/cvx build`.

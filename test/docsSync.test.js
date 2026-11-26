@@ -45,6 +45,7 @@ const CONTENT_DEFS = [
   'competencies',
   'achievements',
   'referees',
+  'headings',
   'keywords',
   'config'
 ]
@@ -67,6 +68,7 @@ describe('docs/cv-schema.md restates the schema', () => {
     languages: keysOf('languageEntry'),
     achievements: keysOf('achievementEntry'),
     referees: keysOf('refereeEntry'),
+    headings: keysOf('headings'),
     config: [
       ...keysOf('config').filter((k) => k !== 'atsKeywords'),
       ...Object.keys(schema.$defs.config.properties.atsKeywords.properties).map(
