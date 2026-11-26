@@ -93,6 +93,7 @@ const FIELD_ICON = {
 export default function ContactSection({ data, slice }) {
   const theme = useTheme()
   const s = useStyles(makeStyles)
+  const title = sliceTitle('contact', data, slice)
 
   // The row list comes from the PACKER's own definition (layout.js
   // contactRows), not a copy of it: a slice's [start, end) then indexes exactly
@@ -102,7 +103,9 @@ export default function ContactSection({ data, slice }) {
 
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">{sliceTitle('Contact', slice)}</SectionTitle>
+      <SectionTitle variant="sidebar" verbatim={title.verbatim}>
+        {title.text}
+      </SectionTitle>
       {rows.map(({ field, value, href }) => (
         <View key={value} style={s.row}>
           <Icon name={FIELD_ICON[field]} color={theme.palette.accent} spacing={theme.spacing} />

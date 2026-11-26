@@ -198,6 +198,7 @@ export default function CVDocument({
   languages,
   competencies,
   referees,
+  headings,
   keywords,
   profilePhoto,
   config,
@@ -224,6 +225,11 @@ export default function CVDocument({
     languages,
     competencies,
     referees,
+    // headings.yaml. Must ride in this bag: the plan below (and renderCV's,
+    // computed from the loaded content) measures the user's headings, so a
+    // bag without them would draw built-in labels under a plan priced for
+    // the user's — the exact plan/render mirror drift sectionSlice.js forbids.
+    headings,
     profilePhoto
   }
 

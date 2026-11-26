@@ -25,11 +25,14 @@ const makeStyles = (t) =>
 /** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
 export default function LanguagesSection({ data, slice }) {
   const s = useStyles(makeStyles)
+  const title = sliceTitle('languages', data, slice)
   const items = sliceItems(data.languages, slice)
   if (!items.length) return null
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">{sliceTitle('Languages', slice)}</SectionTitle>
+      <SectionTitle variant="sidebar" verbatim={title.verbatim}>
+        {title.text}
+      </SectionTitle>
       {items.map((l, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
         <View key={`${i}-${l.language}`} style={s.item}>

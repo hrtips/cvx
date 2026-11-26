@@ -415,6 +415,57 @@ function namedEdgeCaseFixtures() {
       entryShapes: [{ bullets: 2 }, { progression: 4 }]
     },
     {
+      id: 'edge-custom-headings',
+      description:
+        'headings.yaml renames all eight sidebar sections (1.11.0): capitals and mixed case, each one line. A user heading is drawn EXACTLY as typed (INV-0: no case transform), so the packer must measure it verbatim where it measures built-in labels uppercased — this is the fixture where the two casings coexist on one page.',
+      sections: {
+        certifications: 'one',
+        publications: 'one',
+        languages: 'one',
+        referees: 'one',
+        achievements: 'one'
+      },
+      textLength: 'typical',
+      volume: 'fits-1-page',
+      headings: {
+        contact: 'GET IN TOUCH',
+        achievements: 'Awards',
+        education: 'STUDIES',
+        certifications: 'Training & Courses',
+        // One line as typed, TWO if uppercased (probed with the harness
+        // measurer at sidebar width): the heading that makes a measurer which
+        // wrongly capitalised user text price a different height. Without one,
+        // every heading here wraps identically either way and that defect is
+        // invisible to the render diff.
+        publications: 'Talks and Conference Presentations',
+        languages: 'Spoken Languages',
+        competencies: 'SKILLS',
+        referees: 'Referees & Recommendations'
+      }
+    },
+    {
+      id: 'edge-custom-heading-wraps',
+      description:
+        'headings.yaml with headings long enough to WRAP to two lines at sidebar width, on a sidebar tall enough that sections split across pages — so a wrapped user heading is measured as two rows, and its "(cont.)" continuation title on the next page is measured too. The shape the single-line built-in labels can never reach.',
+      sections: {
+        certifications: 'many',
+        publications: 'many',
+        languages: 'many',
+        referees: 'many',
+        achievements: 'many'
+      },
+      textLength: 'short',
+      volume: 'fits-1-page',
+      headings: {
+        certifications: 'Certifications and Professional Training Programmes',
+        // Same discriminator as edge-custom-headings, here on a sidebar that
+        // splits: its "(cont.)" title is also one line as typed, two in capitals.
+        publications: 'Talks and Conference Presentations',
+        achievements: 'Awards, Honours and Professional Recognition',
+        referees: 'PROFESSIONAL REFERENCES AVAILABLE TO CONTACT'
+      }
+    },
+    {
       id: 'edge-forced-split-config',
       description:
         'LEGACY config keys page1ExperienceCount + page1SplitBullets present in config.yaml — REMOVED (maintainer ruling, design-layout-fidelity.md Review outcome #1), so the engine must IGNORE them and paginate automatically: this fixture proves a legacy workspace builds, plans and renders identically to one without the keys. (It exercised the config-forced packExperiences() branch until that branch was deleted.)',

@@ -82,10 +82,9 @@ function assertHardInvariants(content, layout = undefined) {
 }
 
 function assertContentComplete(oracle, content) {
-  const sentinels = sentinelsFor(content)
-  for (const variant of ['designed', 'ats']) {
+  for (const variant of /** @type {const} */ (['designed', 'ats'])) {
     const text = extractText(oracle[variant].pdfPath)
-    const { ok, missing } = checkCompleteness(text, sentinels)
+    const { ok, missing } = checkCompleteness(text, sentinelsFor(content, variant))
     expect(
       ok,
       `${variant}: content dropped from the render — missing sentinels: ${JSON.stringify(missing)}`

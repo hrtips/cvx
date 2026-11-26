@@ -37,7 +37,7 @@ for (const [path, mod] of Object.entries(yamlModules)) {
 }
 
 // Named exports for backward compatibility
-const { personal, summary, experience, achievements, education, competencies, referees, keywords } = /** @type {import('../src/pdf/types.js').CVContent} */ (/** @type {unknown} */ (content))
+const { personal, summary, experience, achievements, education, competencies, referees, headings, keywords } = /** @type {import('../src/pdf/types.js').CVContent} */ (/** @type {unknown} */ (content))
 
 // Profile photo — auto-detect the extension, matching the Node export path.
 // Any profile.<ext> in images/ is picked up; highest-precedence one wins.
@@ -53,6 +53,7 @@ export {
   education,
   competencies,
   referees,
+  headings,
   keywords,
   config,
   profilePhoto,

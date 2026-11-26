@@ -60,14 +60,56 @@ export const SECTION_TITLE_TEXT = {
  * marker itself is imported from layout.js, never re-typed, so a continuation
  * whose title the renderer and the packer disagree about fails HERE.
  *
+ * A heading the user supplied in headings.yaml (1.11.0) is read straight off
+ * the content bag — not through layout.js's resolver, so this stays a second
+ * route to the answer — and is expected EXACTLY as typed: INV-0 forbids the
+ * renderer changing its case, so it is not uppercased here either. A renderer
+ * that wrongly capitalised it would draw a string this lookup cannot find.
+ *
  * @param {{ key: string, start: number }} slice
+ * @param {{ headings?: Record<string, string> }} [content]
  */
-export function sliceTitleText(slice) {
-  const base = SECTION_TITLE_TEXT[slice.key]
+export function sliceTitleText(slice, content) {
+  const custom = content?.headings?.[slice.key]
   // Continuation is asked of the slice through layout.js's own predicate (C4),
   // not re-derived here: the packer measured whichever string that predicate
   // chose, so this side must ask the same question of the same field.
-  return isContinuedSlice(slice) ? `${base}${CONTINUED_SUFFIX.toUpperCase()}` : base
+  const continued = isContinuedSlice(slice)
+  if (typeof custom === 'string' && custom.length > 0) {
+    return compact(continued ? `${custom} ${CONTINUED_SUFFIX}` : custom)
+  }
+  const base = SECTION_TITLE_TEXT[slice.key]
+  return continued ? `${base}${CONTINUED_SUFFIX.toUpperCase()}` : base
+}
+
+/**
+ * A title as rows carry it: no whitespace (rows join words with no separator)
+ * and NFKC-folded, so a ligature glyph the PDF maps to U+FB01 still compares
+ * equal to the "fi" that was typed.
+ *
+ * @param {string} text
+ */
+const compact = (text) => text.normalize('NFKC').replace(/\s+/g, '')
+
+/**
+ * The row a title STARTS on, or undefined. A built-in label is one row; a
+ * user's heading may wrap (that is the shape 1.11.0 made reachable), and then
+ * it is the first of several consecutive rows whose joined text is the title.
+ * Its top is that first row's — the same point a one-row title is read at.
+ *
+ * @param {{ yMin: number, text: string }[]} pageRows
+ * @param {string} target  `sliceTitleText`'s output
+ */
+export function findTitleRow(pageRows, target) {
+  for (let i = 0; i < pageRows.length; i++) {
+    let joined = ''
+    for (let j = i; j < pageRows.length; j++) {
+      joined += compact(pageRows[j].text)
+      if (joined === target) return pageRows[i]
+      if (!target.startsWith(joined)) break
+    }
+  }
+  return undefined
 }
 
 /**
@@ -227,7 +269,7 @@ export function runSidebarDiff(fixtureDir, content, layout = undefined) {
     // on each of them and its continuation title is looked up by the marked
     // text the renderer actually emits.
     const titleTops = planPage.sidebarSlices.map((slice) => {
-      const hit = pageRows.find((r) => r.text === sliceTitleText(slice))
+      const hit = findTitleRow(pageRows, sliceTitleText(slice, content))
       return { slice, key: slice.key, top: hit?.yMin }
     })
     const notFound = titleTops.filter((t) => t.top === undefined).map((t) => t.key)

@@ -28,11 +28,14 @@ const makeStyles = (t) =>
 /** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
 export default function CompetenciesSection({ data, slice }) {
   const s = useStyles(makeStyles)
+  const title = sliceTitle('competencies', data, slice)
   const items = sliceItems(data.competencies, slice)
   if (!items.length) return null
   return (
     <View>
-      <SectionTitle variant="sidebar">{sliceTitle('Core Competencies', slice)}</SectionTitle>
+      <SectionTitle variant="sidebar" verbatim={title.verbatim}>
+        {title.text}
+      </SectionTitle>
       <View style={s.wrap}>
         {items.map((tag) => (
           <View key={tag} style={s.tag}>

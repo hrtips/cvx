@@ -10,6 +10,7 @@ import {
   config,
   education,
   experience,
+  headings,
   keywords,
   personal,
   profilePhoto,
@@ -35,6 +36,7 @@ function App() {
         education={education}
         competencies={competencies}
         referees={referees}
+        headings={headings}
         keywords={keywords}
         profilePhoto={profilePhoto}
         config={config}

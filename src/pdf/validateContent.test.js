@@ -837,3 +837,92 @@ describe('validateContent — template spacing is bounded, and out of range is a
     expect(fa?.suggestion).toMatch(/above the bound/)
   })
 })
+
+// ── headings.yaml (1.11.0) ──────────────────────────────────────────────────
+describe('validateContent — headings.yaml', () => {
+  const run = (/** @type {string} */ headings, strict = false) =>
+    validateContent({
+      contentDir: makeDir({ ...BASE, 'headings.yaml': headings }),
+      strict,
+      fontsDir: FONTS
+    })
+
+  it('accepts a heading for any sidebar section, in any case, under --strict', () => {
+    const res = run(
+      'publications: OPEN SOURCE CONTRIBUTIONS\ncertifications: Training & Courses\ncontact: Get in touch\n',
+      true
+    )
+    expect(res.ok).toBe(true)
+    expect(res.errors).toEqual([])
+    expect(res.warnings).toEqual([])
+    expect(res.checked).toContain('headings.yaml')
+  })
+
+  it('offers the nearest section for a misspelt key (a warning; an error under --strict)', () => {
+    const lenient = run('publicatons: Talks\n')
+    expect(lenient.ok).toBe(true)
+    expect(lenient.warnings).toEqual([
+      expect.objectContaining({
+        file: 'headings.yaml',
+        code: 'unknown-key',
+        message: 'unknown key "publicatons"',
+        suggestion: 'did you mean "publications"?'
+      })
+    ])
+    expect(run('publicatons: Talks\n', true).ok).toBe(false)
+  })
+
+  it('rejects an empty heading', () => {
+    const res = run('publications: ""\n')
+    expect(res.ok).toBe(false)
+    expect(res.errors).toEqual([
+      expect.objectContaining({ file: 'headings.yaml', code: 'schema', path: '/publications' })
+    ])
+  })
+
+  // The one tailored message: Summary and Experience are real sections, so a
+  // generic "unknown key" with a did-you-mean would offer "education" for
+  // "experience" — a different section. The message says what is true instead.
+  for (const [key, name] of [
+    ['experience', 'Experience'],
+    ['summary', 'Summary']
+  ]) {
+    it(`says the ${name} heading cannot be renamed yet, rather than guessing a near-miss`, () => {
+      const res = run(`${key}: My Story\n`)
+      expect(res.warnings).toEqual([
+        expect.objectContaining({
+          file: 'headings.yaml',
+          code: 'unknown-key',
+          message: `the ${name} heading can't be renamed yet — only the sidebar sections' headings can`,
+          suggestion:
+            'delete the key; renamable: contact, achievements, education, certifications, publications, languages, competencies, referees'
+        })
+      ])
+      expect(run(`${key}: My Story\n`, true).ok).toBe(false)
+    })
+  }
+
+  it('keeps the plain did-you-mean for the same key names in OTHER files', () => {
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'personal.yaml': 'name: Test Person\nexperience: x\n' }),
+      fontsDir: FONTS
+    })
+    expect(res.warnings).toEqual([
+      expect.objectContaining({ file: 'personal.yaml', message: 'unknown key "experience"' })
+    ])
+  })
+
+  it('suggests headings.yaml for a near-miss file name', () => {
+    const res = validateContent({
+      contentDir: makeDir({ ...BASE, 'heading.yaml': 'publications: Talks\n' }),
+      fontsDir: FONTS
+    })
+    expect(res.warnings).toEqual([
+      expect.objectContaining({
+        file: 'heading.yaml',
+        code: 'unknown-file',
+        suggestion: 'did you mean "headings.yaml"?'
+      })
+    ])
+  })
+})

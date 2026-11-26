@@ -64,10 +64,13 @@ function Referee({ r, s }) {
 /** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
 export default function RefereesSection({ data, slice }) {
   const s = useStyles(makeStyles)
+  const title = sliceTitle('referees', data, slice)
   const referees = sliceItems(data.referees, slice)
   return (
     <View>
-      <SectionTitle variant="sidebar">{sliceTitle('Referees', slice)}</SectionTitle>
+      <SectionTitle variant="sidebar" verbatim={title.verbatim}>
+        {title.text}
+      </SectionTitle>
       {referees.length > 0 ? (
         referees.map((r, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity

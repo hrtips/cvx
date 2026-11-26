@@ -18,7 +18,7 @@
 // path and the browser preview, neither of which slices anything.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { isContinuedSlice, sectionTitleLabel } from '../layout.js'
+import { isContinuedSlice, sidebarSectionTitle } from '../layout.js'
 
 /**
  * The items one slice renders. `undefined` slice (or `undefined` items) is the
@@ -52,17 +52,21 @@ export function sliceItems(items, slice) {
 }
 
 /**
- * The title one slice renders: the section's label, plus the continuation
- * marker when an earlier page already showed part of this section.
+ * The title one slice renders: the section's heading — the user's own from
+ * `headings.yaml`, or CVX's built-in label — plus the continuation marker when
+ * an earlier page already showed part of this section.
  *
- * Both the predicate (`isContinuedSlice`) and the composer
- * (`sectionTitleLabel`) come from layout.js, so the string drawn here is
- * assembled by the same two functions that measured it. Nothing about
- * "continued" is decided on this side of the boundary.
+ * Both the predicate (`isContinuedSlice`) and the resolver
+ * (`sidebarSectionTitle`) come from layout.js, so the string drawn here is
+ * assembled by the same two functions that measured it — including whether
+ * the theme's uppercase transform applies (`verbatim`). Nothing about the
+ * title is decided on this side of the boundary.
  *
- * @param {string} label
+ * @param {string} key  the section's own key, e.g. `publications`
+ * @param {import('../types.js').CVContent} data
  * @param {import('../types.js').SidebarSlice} [slice]
+ * @returns {{ text: string, verbatim: boolean }}
  */
-export function sliceTitle(label, slice) {
-  return sectionTitleLabel(label, isContinuedSlice(slice))
+export function sliceTitle(key, data, slice) {
+  return sidebarSectionTitle(key, data, isContinuedSlice(slice))
 }

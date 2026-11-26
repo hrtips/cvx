@@ -178,14 +178,23 @@ const MIN_SENTINEL_WORDS = 2
  * The ATS variant is the worst case and the reason this matters most: it has
  * no height instrument at all (there is no measure-diff for single column), so
  * these sentinels are its ONLY content check.
+ *
+ * @param {object} content
+ * @param {'designed' | 'ats'} [variant]  which PDF the sentinels are for (only headings.contact differs)
  */
-export function sentinelsFor(content) {
+export function sentinelsFor(content, variant = 'designed') {
   const sentinels = []
 
   const walk = (value, section, key) => {
     if (value == null) return
     if (typeof value === 'string') {
       if (key && NOT_A_SENTINEL.has(`${section}.${key}`)) return
+      // headings.yaml's `contact` names the designed sidebar's contact block.
+      // The ATS variant prints contact details in its header and has no
+      // contact heading at all (the schema's description says so), so that
+      // one heading is expected in the designed PDF only. Every other heading
+      // is drawn by both variants and checked in both.
+      if (variant === 'ats' && section === 'headings' && key === 'contact') return
       const tail = tailSentinel(value)
       // Keep single-word tails only when the whole value is that word — an
       // atomic field like a competency or a language name is a legitimate
@@ -234,7 +243,21 @@ export function checkCompleteness(text, sentinels) {
   // that without weakening the check against genuine content loss: a truly
   // dropped sentinel is still entirely absent either way.
   const normalized = text.replace(/\s+/g, ' ')
-  const missing = sentinels.filter((s) => !containsAsWhole(normalized, s.text))
+  // headings.yaml (1.11.0): a user's heading is drawn in the SIDEBAR title
+  // style, which is letter-spaced, and pdftotext reads a letter-spaced run as
+  // one glyph per word — "Open Source" comes back as "O p e n S o u r c e".
+  // So headings are compared with ALL whitespace removed on both sides (and
+  // NFKC-folded, for a ligature glyph mapped to U+FB01) — the same
+  // normalisation the sidebar render diff applies to every title it reads.
+  // Still exact on the characters: a heading drawn in different case, or not
+  // at all, is missing.
+  const compactText = (/** @type {string} */ t) => t.normalize('NFKC').replace(/\s+/g, '')
+  const compacted = compactText(text)
+  const missing = sentinels.filter((s) =>
+    s.section === 'headings'
+      ? !compacted.includes(compactText(s.text))
+      : !containsAsWhole(normalized, s.text)
+  )
   return { ok: missing.length === 0, missing }
 }
 

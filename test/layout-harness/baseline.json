@@ -2,10 +2,10 @@
   "schemaVersion": 2,
   "note": "Recorded 2026-07-28, POST-C2 (real fontkit measurement — src/pdf/measure.js) and its round-2 review fixes: per-bullet/per-sidebar-item content-completeness sentinels (contentOracle.js), the shipped scaffold's forced page-1 split removed (template/cv-content/config.yaml + the root cv-content/config.yaml demo — automatic pagination fits this content without a wasted page), a broadened measure-vs-render corpus (bold role, italic description, sidebar row, bold name — at real layout.js widths, not an arbitrary 200pt), and quantized page-budget comparisons (layout.js). This note previously (incorrectly) claimed \"the CURRENT (pre-C1/C2/C3) engine\" — false as of C2; corrected here rather than left stale. Regenerate with `node test/layout-harness/generateBaseline.js` after a real fix lands, and review the diff — that diff IS the evidence the fix worked (or, if unexpected, evidence of a regression to stop and investigate, not launder in). See research/archive/c0-baseline.md for the narrative. Hard invariants (invariant0/placedExactlyOnce/orderPreserved/noOrphanHeading) and content-completeness are NOT recorded here — they are asserted directly in layoutRenderOracle.test.js and this script refuses to write a baseline if any of them fail.",
   "fixturePlan": {
-    "totalFixtures": 38,
+    "totalFixtures": 40,
     "pairwiseRows": 18,
     "riskScenarios": 3,
-    "namedEdgeCases": 17,
+    "namedEdgeCases": 19,
     "totalCartesianCombinations": 1944,
     "droppedCombinations": 1926
   },
@@ -662,6 +662,42 @@
         }
       },
       "logicalTotalPages": 3
+    },
+    "edge-custom-headings": {
+      "description": "headings.yaml renames all eight sidebar sections (1.11.0): capitals and mixed case, each one line. A user heading is drawn EXACTLY as typed (INV-0: no case transform), so the packer must measure it verbatim where it measures built-in labels uppercased — this is the fixture where the two casings coexist on one page.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 2,
+          "blankPages": [],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 2
+    },
+    "edge-custom-heading-wraps": {
+      "description": "headings.yaml with headings long enough to WRAP to two lines at sidebar width, on a sidebar tall enough that sections split across pages — so a wrapped user heading is measured as two rows, and its \"(cont.)\" continuation title on the next page is measured too. The shape the single-line built-in labels can never reach.",
+      "oracle": {
+        "ok": true,
+        "designed": {
+          "pageCount": 4,
+          "blankPages": [],
+          "emptyColumns": []
+        },
+        "ats": {
+          "pageCount": 3,
+          "blankPages": [
+            2
+          ],
+          "emptyColumns": null
+        }
+      },
+      "logicalTotalPages": 4
     },
     "edge-forced-split-config": {
       "description": "LEGACY config keys page1ExperienceCount + page1SplitBullets present in config.yaml — REMOVED (maintainer ruling, design-layout-fidelity.md Review outcome #1), so the engine must IGNORE them and paginate automatically: this fixture proves a legacy workspace builds, plans and renders identically to one without the keys. (It exercised the config-forced packExperiences() branch until that branch was deleted.)",
