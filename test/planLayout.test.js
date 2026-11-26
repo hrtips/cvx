@@ -808,8 +808,8 @@ describe('a dry run cannot perturb the build that follows it', () => {
   it('build → plan → build is byte-identical under SOURCE_DATE_EPOCH', async () => {
     // Byte-reproducibility is a gate on every chunk of this sprint, and
     // `plan_layout` is called BETWEEN builds by design. planCV deliberately
-    // skips registerFonts and setupReproducibility (which seed Math.random and
-    // swap zlib.createDeflate process-wide) — this is what says so.
+    // skips registerFonts and setupReproducibility (which seeds Math.random
+    // process-wide) — this is what says so.
     const previous = process.env.SOURCE_DATE_EPOCH
     process.env.SOURCE_DATE_EPOCH = '1700000000'
     try {

@@ -237,11 +237,10 @@ async function resolveAndPlan({ contentDir, config, content, profilePhoto, measu
  * here before.
  *
  * NO GLOBAL STATE IS TOUCHED, deliberately: no `registerFonts`, no
- * `setupReproducibility` (which seeds `Math.random` and swaps
- * `zlib.createDeflate` process-wide). A dry run must not be able to perturb the
- * bytes of a build that follows it in the same process — the byte-repro promise
- * is a gate on every chunk of this sprint, and `plan_layout` is called BETWEEN
- * builds by design.
+ * `setupReproducibility` (which seeds `Math.random` process-wide). A dry run
+ * must not be able to perturb the bytes of a build that follows it in the same
+ * process — the byte-repro promise is a gate on every chunk of this sprint, and
+ * `plan_layout` is called BETWEEN builds by design.
  *
  * @param {object} opts
  * @param {string} opts.contentDir  absolute path to the cv-content directory

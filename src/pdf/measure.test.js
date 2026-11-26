@@ -1,7 +1,7 @@
 // C2 — real font metrics: canary + determinism (design doc §5's "canary
 // test pins lineCount(knownString) === 3 so a fontkit/font bump that shifts
 // metrics fails loudly", extended here with a width tolerance too, mirroring
-// reproducible.test.js's verifyPatchPoints() spirit — a tripwire on an
+// reproducible.test.js's verifyPdfkitDeterminism() spirit — a tripwire on an
 // external dependency's behavior, not just our own code).
 
 import path from 'node:path'

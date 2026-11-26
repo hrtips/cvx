@@ -1,33 +1,38 @@
 // ── Reproducible builds ─────────────────────────────────────────────────────
 // Honors the reproducible-builds convention: when SOURCE_DATE_EPOCH is set
 // (integer seconds since the Unix epoch), PDF output becomes byte-identical
-// across runs. Two sources of nondeterminism are pinned:
+// across runs.
 //
-//   1. CreationDate — @react-pdf/renderer defaults it to `new Date()`; pdfkit
-//      also derives the PDF trailer file ID by hashing the info dictionary,
-//      so pinning CreationDate pins the file ID too.
-//   2. Font subset tags — @react-pdf/pdfkit names embedded font subsets with
-//      six Math.random() letters (e.g. "EEPPPK+Lato"), which also scramble
-//      the compressed font streams. Seeding Math.random pins them.
-//   3. Object write order — pdfkit compresses each PDF object through an
-//      async zlib.createDeflate() stream and writes it whenever that stream
-//      happens to finish, so large and small objects race for file position.
-//      Swapping in a synchronous deflate (identical bytes — same zlib, same
-//      defaults) makes objects land in finalize-call order every time.
+// What makes a render nondeterministic, and who handles it, as of
+// @react-pdf/renderer 4.9 (which renders through upstream pdfkit 0.21 rather
+// than the @react-pdf/pdfkit fork earlier versions used):
+//
+//   1. CreationDate — @react-pdf/renderer defaults it to `new Date()`, and
+//      pdfkit derives the trailer file ID by hashing the info dictionary, so
+//      pinning CreationDate pins the file ID too. PINNED HERE.
+//   2. Stray Math.random() — pdfkit itself draws none (checked below), but
+//      fontkit's CFF charstring interpreter answers the `random` operator with
+//      it. Lato is TrueType so that path is cold, and seeding is one line, so
+//      the RNG is SEEDED HERE as defence in depth.
+//   3. Font subset tags and object write order — handled UPSTREAM. pdfkit 0.21
+//      derives each subset tag from the font's id, and compresses every object
+//      with zlib.deflateSync. The fork drew six Math.random() letters per tag
+//      and raced async createDeflate() streams for file position, which is why
+//      this module used to seed the RNG for tags and swap deflate for a
+//      synchronous shim. That shim is gone: nothing calls createDeflate now.
+//
+// Because (3) is an upstream property rather than something this module
+// enforces, `verifyPdfkitDeterminism` re-checks it against the installed
+// pdfkit and `setupReproducibility` warns loudly if a bump ever undoes it.
 //
 // See https://reproducible-builds.org/docs/source-date-epoch/
 // ────────────────────────────────────────────────────────────────────────────
 
-import { EventEmitter } from 'node:events'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 
-// The real mutable module object — ESM namespace imports of builtins are
-// frozen under some loaders (e.g. Vitest), and pdfkit's own `import zlib`
-// resolves to this same object in Node, so patching here is visible there.
 const require_ = createRequire(import.meta.url)
-const zlib = require_('zlib')
 
 /**
  * Resolve the PDF creation date from the environment.
@@ -67,82 +72,69 @@ export function seedMathRandom(seed) {
 }
 
 /**
- * Replace zlib.createDeflate with a synchronous drop-in. pdfkit only uses the
- * subset of the stream API shimmed here (write/end/on), and deflateSync over
- * the concatenated chunks yields byte-identical output to the streaming form.
- * Process-global — intended for one-shot export scripts.
- */
-export function makeDeflateSynchronous() {
-  // Node ≥25 marks builtin exports writable:false (configurable:true), so
-  // plain assignment is rejected — defineProperty is the supported override.
-  Object.defineProperty(zlib, 'createDeflate', {
-    configurable: true,
-    value: function createDeflateSync() {
-      /** @type {Buffer[]} */
-      const chunks = []
-      const shim =
-        /** @type {import('node:events').EventEmitter & { write: (chunk: Buffer | string) => boolean, end: (chunk?: Buffer | string) => void }} */ (
-          new EventEmitter()
-        )
-      shim.write = (chunk) => {
-        chunks.push(Buffer.from(chunk))
-        return true
-      }
-      shim.end = (chunk) => {
-        if (chunk) chunks.push(Buffer.from(chunk))
-        shim.emit('data', zlib.deflateSync(Buffer.concat(chunks)))
-        shim.emit('end')
-      }
-      return shim
-    }
-  })
-}
-
-/**
  * One-stop setup for export scripts: resolve the pinned date and, when
- * reproducible mode is active, seed the global RNG from it and serialise
- * PDF object writes.
+ * reproducible mode is active, seed the global RNG from it.
  *
  * @param {Record<string, string|undefined>} env  typically process.env
+ * @param {{ verify?: () => boolean | null }} [deps]  injectable for tests
  * @returns {{ creationDate: Date|undefined }}
  */
-export function setupReproducibility(env = {}) {
+export function setupReproducibility(env = {}, { verify = verifyPdfkitDeterminism } = {}) {
   const creationDate = resolveCreationDate(env)
   if (creationDate) {
-    if (verifyPatchPoints() === false) {
+    if (verify() === false) {
       console.warn(
-        '⚠ SOURCE_DATE_EPOCH is set, but @react-pdf/pdfkit internals have changed since this\n' +
-          '  version of cvx was tested — output may NOT be byte-identical across runs.\n' +
-          '  Please report this: https://github.com/hrtips/cvx/issues'
+        '⚠ SOURCE_DATE_EPOCH is set, but the installed pdfkit no longer has the properties\n' +
+          '  this version of cvx relies on for repeatable output — it may NOT be byte-identical\n' +
+          '  across runs. Please report this: https://github.com/hrtips/cvx/issues'
       )
     }
     seedMathRandom(creationDate.getTime() / 1000)
-    makeDeflateSynchronous()
   }
   return { creationDate }
 }
 
 /**
- * Verify the pdfkit internals our patches target still exist. The whole
- * byte-identical guarantee rests on two upstream implementation details:
- * subset tags drawn from Math.random() and per-object zlib.createDeflate()
- * streams. If a dependency bump rewrites either, reproducible mode would
- * silently stop pinning — so we check the bundled source once and warn loudly.
+ * The upstream properties item (3) of the module header rests on, checked
+ * against pdfkit's own source text:
  *
- * @returns {boolean|null}  true = patch points present, false = internals
- *   changed, null = could not inspect (e.g. isolated module layouts)
+ *   - no `createDeflate` — every object is compressed synchronously, so objects
+ *     land in finalize order;
+ *   - subset tags built from the font id (`this.id.charCodeAt(i)`), not drawn
+ *     at random;
+ *   - no `Math.random` anywhere in pdfkit.
+ *
+ * Pure, so each way it can fail is testable without a different pdfkit.
+ *
+ * @param {string} src  pdfkit's node build, as text
+ * @returns {boolean}
  */
-export function verifyPatchPoints() {
+export function pdfkitIsDeterministic(src) {
+  return (
+    !src.includes('createDeflate') &&
+    src.includes('this.id.charCodeAt(i)') &&
+    !src.includes('Math.random')
+  )
+}
+
+/**
+ * Check the pdfkit that @react-pdf/renderer actually loads: resolved from the
+ * renderer's own directory, and the node ESM entry its `exports` map names
+ * (that is the build an `import 'pdfkit'` gets in Node).
+ *
+ * @returns {boolean|null}  true = properties hold, false = internals changed,
+ *   null = could not inspect (e.g. an isolated module layout)
+ */
+export function verifyPdfkitDeterminism() {
   try {
-    let pdfkitPath
-    try {
-      const rendererDir = dirname(require_.resolve('@react-pdf/renderer'))
-      pdfkitPath = require_.resolve('@react-pdf/pdfkit', { paths: [rendererDir] })
-    } catch {
-      pdfkitPath = require_.resolve('@react-pdf/pdfkit')
-    }
-    const src = readFileSync(pdfkitPath, 'utf8')
-    return src.includes('Math.random() * 26 + 65') && src.includes('zlib.createDeflate()')
+    const rendererDir = dirname(require_.resolve('@react-pdf/renderer'))
+    // pdfkit's `exports` map does not expose package.json, so resolve its entry
+    // and walk up to the directory that owns it.
+    let dir = dirname(require_.resolve('pdfkit', { paths: [rendererDir] }))
+    while (!existsSync(join(dir, 'package.json'))) dir = dirname(dir)
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+    const entry = pkg.exports?.['.']?.node?.import ?? pkg.main
+    return pdfkitIsDeterministic(readFileSync(join(dir, entry), 'utf8'))
   } catch {
     return null
   }

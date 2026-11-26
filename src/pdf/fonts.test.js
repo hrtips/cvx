@@ -67,29 +67,35 @@ describe('registerFonts', () => {
     }
   })
 
-  it('pins the upstream behaviour that makes stale font state dangerous', async () => {
-    // The leak this fix defends against: fontkit memoizes Glyph objects on the
-    // font keyed by glyph id ALONE, and each keeps the code points of the FIRST
-    // lookup — so a lookup with no code points (what subset embedding does at
-    // the end of every render) poisons that glyph for every later render
-    // sharing the font. @react-pdf/textkit then drops zero-code-point glyphs
-    // when it slices lines, which is how letters vanish from the page.
+  it('pins the upstream glyph-cache behaviour the fix was built against, as it is now', async () => {
+    // The leak this fix was built against (fontkit 2, @react-pdf/renderer
+    // <= 4.5): fontkit memoizes Glyph objects keyed by glyph id ALONE, a lookup
+    // with no code points (what subset embedding does at the end of every
+    // render) cached that glyph with `codePoints: []`, and every later layout
+    // got that same object back. @react-pdf/textkit then dropped the glyph when
+    // slicing lines, which is how letters vanished from the page.
     //
-    // If this assertion fails, upstream has changed the model the fix was built
-    // against: re-read src/pdf/fonts.js before touching anything.
+    // fontkit 3 (via @react-pdf/font 4.2, @react-pdf/renderer 4.9) still caches
+    // the code-point-less lookup that way, but layout now returns a glyph of its
+    // own carrying the real code points, so the poison no longer reaches text
+    // layout. The reset in registerFonts stays: it is one line, it keeps a
+    // long-lived MCP server's registry from growing, and it guards against this
+    // regressing. test/renderIsolation.test.js still guards rendered content.
+    //
+    // If this assertion fails, upstream has changed the model again: re-read
+    // src/pdf/fonts.js before touching anything.
     registerFonts(FONTS_DIR)
     const font = await loadFace(700)
     const gid = font.layout('F').glyphs[0].id
     expect(font.getGlyph(gid).codePoints).toEqual([70]) // 'F', looked up WITH characters
-    expect(font.layout('F').glyphs[0].codePoints).toEqual([70])
 
-    // The same glyph id on a font that has not seen the character yet, looked
-    // up the way fontkit's subset encoder does it: cached with no code points,
-    // and every later layout gets that same object back.
     registerFonts(FONTS_DIR)
     const fresh = await loadFace(700)
     expect(fresh).not.toBe(font) // the replacement really is a different instance
-    fresh.getGlyph(gid)
-    expect(fresh.layout('F').glyphs[0].codePoints).toEqual([])
+    const bare = fresh.getGlyph(gid) // looked up the way the subset encoder does it
+    expect(bare.codePoints).toEqual([])
+    const laidOut = fresh.layout('F').glyphs[0]
+    expect(laidOut).not.toBe(bare) // layout no longer hands the cached object back…
+    expect(laidOut.codePoints).toEqual([70]) // …so the letter keeps its code point
   })
 })

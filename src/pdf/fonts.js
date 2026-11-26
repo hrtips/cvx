@@ -45,8 +45,16 @@ const FAMILY = 'Lato'
  * each caller has to remember. It also stops `sources` from growing by eight
  * entries per build in a long-lived MCP server.
  *
- * Guarded by `src/pdf/fonts.test.js` (the registry assumption, which fails
- * loudly if an upstream bump makes this a no-op) and by
+ * ## Status since @react-pdf/renderer 4.9 (fontkit 3)
+ *
+ * The poisoning above no longer reaches text layout: fontkit 3 still caches a
+ * code-point-less lookup with `codePoints: []`, but `layout()` returns a glyph
+ * of its own carrying the real code points. The reset is kept anyway — it is
+ * one line, it keeps a long-lived MCP server's registry from growing, and it
+ * means a regression upstream cannot silently bring the content loss back.
+ *
+ * Guarded by `src/pdf/fonts.test.js` (the registry assumption, plus a pin of
+ * the upstream glyph-cache behaviour that fails if it changes again) and by
  * `test/renderIsolation.test.js` (the rendered content itself).
  */
 function dropPreviousRegistration() {
