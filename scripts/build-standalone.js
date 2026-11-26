@@ -33,6 +33,17 @@
  *      to serve a command that is useless in this sandbox anyway (an MCP
  *      client would have to spawn it over stdio). It is replaced with a stub
  *      that fails with an actionable message.
+ *   4. Dependency data files read beside their own module. unicode-properties 2
+ *      (pulled in by @react-pdf/renderer 4.9) loads its Unicode trie with
+ *      `readFileSync(new URL('./data.trie', import.meta.url))`. Bundled, that
+ *      URL points beside cvx.bundle.js, where no data.trie exists, and every
+ *      build fails with ENOENT. Such reads are inlined as Buffer literals at
+ *      build time, and any module-relative URL left behind must be listed in
+ *      UNREACHABLE_RELATIVE_URLS with the reason it can never run, or the build
+ *      fails. The same goes for a `require` bound to the module's own location
+ *      (`createRequire(import.meta.url)`): pdfkit 0.21 loads its 14 standard
+ *      fonts that way, and every document opens with Helvetica as its default
+ *      font, so it has to be bundled.
  */
 
 import { createHash } from 'node:crypto'
@@ -46,7 +57,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { basename, dirname, join, relative, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateRawSync, gzipSync, inflateRawSync } from 'node:zlib'
 import { build } from 'esbuild'
 
@@ -246,6 +257,73 @@ export const FILES = ${JSON.stringify(packed)}
   }
 }
 
+/**
+ * A dependency reading a data file beside its own module:
+ * `readFileSync(new URL('./x', import.meta.url))`, with or without an `fs.`
+ * qualifier. Replaced by the file's bytes as a Buffer literal — see header
+ * note 4. Same bytes, same Buffer, so the bundle renders exactly what the npm
+ * package renders (test/standalone.test.js holds it to byte identity).
+ */
+const RELATIVE_READ =
+  /\b(?:[\w$]+\.)?readFileSync\(\s*new URL\(\s*(['"])(\.{1,2}\/[^'"]+)\1\s*,\s*import\.meta\.url\s*\)\s*\)/g
+
+/** Any module-relative URL at all — what is left after inlining is checked below. */
+const RELATIVE_URL = /new URL\(\s*(['"])(\.{1,2}\/[^'"]+)\1\s*,\s*import\.meta\.url\s*\)/g
+
+/**
+ * Module-relative URLs deliberately left in the bundle, keyed by the target's
+ * path under node_modules, each with the reason no CVX code path can reach it.
+ * Anything else left behind fails the build (section 3): it would be a file the
+ * bundle looks for beside itself, in a sandbox where it does not exist.
+ */
+const UNREACHABLE_RELATIVE_URLS = {
+  'pdfkit/js/data/sRGB_IEC61966_2_1.icc':
+    'pdfkit reads its sRGB ICC profile only for PDF/A output (PDFA.endSubset → _addColorOutputIntent); CVX never requests a PDF/A subset'
+}
+
+/**
+ * `const req = createRequire(import.meta.url)` — a require bound to the module's
+ * own location. Its relative calls are rewritten to plain `require(...)`, which
+ * esbuild resolves against the module and bundles (header note 4).
+ */
+const LOCAL_CREATE_REQUIRE = /\bconst ([\w$]+) = createRequire\(\s*import\.meta\.url[^)]*\)/g
+
+/** A relative call through one such binding. */
+const relativeCallTo = (/** @type {string} */ binding) =>
+  new RegExp(`(?<![\\w$.])${binding.replace(/\$/g, '\\$')}\\((['"])(\\.{1,2}\\/[^'"]+)\\1\\)`, 'g')
+
+/** Every module-relative URL or require the build saw and did NOT inline, by target. */
+const leftRelativeUrls = new Set()
+
+/** Inlines dependency data reads — see header note 4 and RELATIVE_READ. */
+const inlineRelativeReadsPlugin = {
+  name: 'cvx-inline-relative-reads',
+  /** @param {import('esbuild').PluginBuild} b */
+  setup(b) {
+    b.onLoad({ filter: /[\\/]node_modules[\\/].*\.m?js$/ }, (args) => {
+      const src = readFileSync(args.path, 'utf8')
+      if (!src.includes('import.meta.url')) return undefined
+      const here = pathToFileURL(args.path)
+      let inlined = src.replace(RELATIVE_READ, (_call, _quote, rel) => {
+        const bytes = readFileSync(new URL(rel, here))
+        return `Buffer.from(${JSON.stringify(bytes.toString('base64'))}, 'base64')`
+      })
+      for (const [, binding] of src.matchAll(LOCAL_CREATE_REQUIRE)) {
+        inlined = inlined.replace(
+          relativeCallTo(binding),
+          (_call, q, rel) => `require(${q}${rel}${q})`
+        )
+      }
+      const nodeModules = join(root, 'node_modules')
+      for (const m of inlined.matchAll(RELATIVE_URL)) {
+        const target = fileURLToPath(new URL(m[2], here))
+        leftRelativeUrls.add(relative(nodeModules, target).split(sep).join('/'))
+      }
+      return inlined === src ? undefined : { contents: inlined, loader: 'js' }
+    })
+  }
+}
+
 /** Replaces the MCP server with a stub — see header note 3. */
 const mcpStubPlugin = {
   name: 'cvx-mcp-stub',
@@ -316,7 +394,7 @@ import { createRequire as __cvxCreateRequire } from 'node:module'
 const require = __cvxCreateRequire(import.meta.url)
 `
     },
-    plugins: [assetsPlugin, mcpStubPlugin],
+    plugins: [assetsPlugin, mcpStubPlugin, inlineRelativeReadsPlugin],
     logOverride: { 'require-resolve-not-external': 'silent' },
     metafile: true,
     legalComments: 'none',
@@ -359,6 +437,18 @@ if (escaped.size > 0) {
   throw new Error(
     `bundle still imports ${escaped.size} package(s) at runtime — they would be missing in a ` +
       `sandbox with no node_modules:\n  ${lines.join('\n  ')}`
+  )
+}
+
+// A data file a dependency would look for beside cvx.bundle.js (header note 4).
+// Checked at the source the plugin saw, not by grepping the output, for the
+// same reason as the metafile check above.
+const unexpectedRelative = [...leftRelativeUrls].filter((t) => !(t in UNREACHABLE_RELATIVE_URLS))
+if (unexpectedRelative.length > 0) {
+  throw new Error(
+    `bundle would read ${unexpectedRelative.length} file(s) beside itself at runtime, where ` +
+      `they do not exist — inline the read, or list it in UNREACHABLE_RELATIVE_URLS with the ` +
+      `reason no code path reaches it:\n  ${unexpectedRelative.sort().join('\n  ')}`
   )
 }
 
