@@ -1,24 +1,17 @@
-import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  makeDeflateSynchronous,
+  pdfkitIsDeterministic,
   resolveCreationDate,
   seedMathRandom,
   setupReproducibility,
-  verifyPatchPoints
+  verifyPdfkitDeterminism
 } from './reproducible.js'
 
-// Same mutable module object the implementation patches (ESM namespace
-// imports of builtins are frozen under Vitest).
-const zlib = createRequire(import.meta.url)('zlib')
-
 const realRandom = Math.random
-const realCreateDeflate = zlib.createDeflate
 
 afterEach(() => {
   Math.random = realRandom
-  // Builtin exports are writable:false on Node ≥25 — restore via defineProperty.
-  Object.defineProperty(zlib, 'createDeflate', { configurable: true, value: realCreateDeflate })
+  vi.restoreAllMocks()
 })
 
 describe('resolveCreationDate (SOURCE_DATE_EPOCH)', () => {
@@ -70,35 +63,34 @@ describe('seedMathRandom', () => {
   })
 })
 
-describe('makeDeflateSynchronous', () => {
-  it('emits bytes identical to streaming deflate, synchronously', () => {
-    const input = Buffer.from('cvx reproducible '.repeat(200))
-    const expected = zlib.deflateSync(input)
+// The upstream properties byte-identical mode rests on since @react-pdf/renderer
+// 4.9 moved to upstream pdfkit (see the module header, item 3). A tripwire: if
+// a pdfkit bump reintroduces async deflate streams or random subset tags, the
+// installed-pdfkit test goes red before the dependency update lands.
+describe('pdfkitIsDeterministic', () => {
+  const GOOD =
+    'const tag = [1, 2, 3, 4, 5, 6].map(i => String.fromCharCode((this.id.charCodeAt(i) || 73) + 17))'
 
-    makeDeflateSynchronous()
-    const shim = zlib.createDeflate()
-    /** @type {Buffer[]} */
-    const out = []
-    let ended = false
-    shim.on('data', (/** @type {Buffer} */ c) => out.push(c))
-    shim.on('end', () => {
-      ended = true
-    })
-    shim.write(input.subarray(0, 100))
-    shim.end(input.subarray(100))
+  it('accepts synchronous deflate with id-derived subset tags', () => {
+    expect(pdfkitIsDeterministic(`${GOOD}; this.buffer = zlib.deflateSync(this.buffer)`)).toBe(true)
+  })
 
-    expect(ended).toBe(true) // no event-loop turn — write order stays deterministic
-    expect(Buffer.concat(out).equals(expected)).toBe(true)
+  it('rejects async deflate streams (objects race for file position)', () => {
+    expect(pdfkitIsDeterministic(`${GOOD}; const d = zlib.createDeflate()`)).toBe(false)
+  })
+
+  it('rejects subset tags that are no longer derived from the font id', () => {
+    expect(pdfkitIsDeterministic('const tag = randomTag(); zlib.deflateSync(b)')).toBe(false)
+  })
+
+  it('rejects any Math.random in pdfkit', () => {
+    expect(pdfkitIsDeterministic(`${GOOD}; Math.random() * 26 + 65`)).toBe(false)
   })
 })
 
-describe('verifyPatchPoints', () => {
-  // Tripwire: fails when a @react-pdf/pdfkit bump rewrites the internals our
-  // reproducibility patches target (Math.random subset tags, createDeflate
-  // streams). If this test goes red, byte-identical mode needs re-verifying
-  // against the new internals before the dependency update lands.
-  it('finds both patch points in the installed pdfkit', () => {
-    expect(verifyPatchPoints()).toBe(true)
+describe('verifyPdfkitDeterminism', () => {
+  it('holds for the pdfkit @react-pdf/renderer actually loads', () => {
+    expect(verifyPdfkitDeterminism()).toBe(true)
   })
 })
 
@@ -106,13 +98,27 @@ describe('setupReproducibility', () => {
   it('pins nothing when SOURCE_DATE_EPOCH is unset', () => {
     setupReproducibility({})
     expect(Math.random).toBe(realRandom)
-    expect(zlib.createDeflate).toBe(realCreateDeflate)
   })
 
-  it('seeds the RNG and swaps deflate when SOURCE_DATE_EPOCH is set', () => {
+  it('pins the date and seeds the RNG when SOURCE_DATE_EPOCH is set', () => {
     const { creationDate } = setupReproducibility({ SOURCE_DATE_EPOCH: '1700000000' })
     expect(/** @type {Date} */ (creationDate).getTime()).toBe(1700000000 * 1000)
     expect(Math.random).not.toBe(realRandom)
-    expect(zlib.createDeflate).not.toBe(realCreateDeflate)
+  })
+
+  it('warns, and still pins, when the installed pdfkit has lost those properties', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { creationDate } = setupReproducibility(
+      { SOURCE_DATE_EPOCH: '1700000000' },
+      { verify: () => false }
+    )
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('may NOT be byte-identical'))
+    expect(creationDate).toBeInstanceOf(Date)
+  })
+
+  it('stays quiet when pdfkit cannot be inspected (null is not a failure)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    setupReproducibility({ SOURCE_DATE_EPOCH: '1700000000' }, { verify: () => null })
+    expect(warn).not.toHaveBeenCalled()
   })
 })

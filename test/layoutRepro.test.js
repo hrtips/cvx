@@ -71,7 +71,7 @@ describe('C0 reproducibility — same-architecture byte-determinism', () => {
     // coincidentally collide with "now" rounded to the second, and that's
     // not the property under test here. The real determinism guarantee is
     // covered by src/pdf/reproducible.test.js (resolveCreationDate,
-    // seedMathRandom, makeDeflateSynchronous individually) — this file only
+    // seedMathRandom, verifyPdfkitDeterminism individually) — this file only
     // adds the end-to-end "two full CLI builds, same bytes" integration leg.
     const dir = mkFixtureDir('repro-unpinned')
     cpSync(TEMPLATE, path.join(dir, 'cv-content'), { recursive: true })
