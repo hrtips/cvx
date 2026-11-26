@@ -742,9 +742,10 @@ written down).
 | R-D | 2026-08-14 | Exit codes: physical≠plan is exit 0 + defect warning; non-zero under `--strict`. Defects reach stderr in all modes; facts never do. |
 | R-E | 2026-08-14 | Diagnostics version discipline: semantic change to a published field ⇒ version bump (student-CV fixes ship as v3). |
 | R-F | 2026-08-14 | Message policy: **facts name conditions only** — prices yes, instructions never; advice lives in the skill. |
-| R-G | 2026-08-14 | Vocabulary features wait for the engine work (I7 after I6) so every new section is born measured. |
+| R-G | 2026-08-14 | Vocabulary features wait for the engine work (I7 after I6) so every new section is born measured. *Amended once, by R-N: custom headings for the eight sidebar sections shipped early.* |
 | R-H | 2026-08-14 | **Full placement generality**: the engine never assumes any section's column or order; templates carry geometry + conventions only; summary/identity/experience special cases are scheduled removals (I9). |
 | R-I | 2026-08-14 | **Engine knows shapes, never identities**: no section-name literals in the core; the vocabulary layer owns names; enforced by guard. |
+| R-N | 2026-11-26 | **Special sprint (one time): custom headings for the eight SIDEBAR sections ship ahead of I6**, as a scoped exception to R-G. R-G's purpose holds: no new section is created, and the sidebar title was already measured from its string (`sidebarTitleH` wraps the label at column width), so every custom heading is born measured — proven by the sidebar render diff at 0.01pt, including a heading that wraps and one that is one line as typed but two if uppercased. I7's INV-0 condition is resolved by drawing a user heading **verbatim**: no case transform, and the measurer prices that exact string (`sidebarSectionTitle` → `titleInk`); CVX's own labels keep the theme's capitals. Content lives in `headings.yaml`, so every loader, the planner, both renderers and `validate` see it with no new plumbing. Out of scope, unchanged: Summary and Experience headings (their height is a one-line constant, not measured — they wait for I7 proper), and every other I7 item. Accepted cost: one I7 item shipped before the engine work, and a mixed-case heading reads differently from the capitalised built-ins (the docs tell users to type capitals to match). Shipped in 1.11.0. |
 
 ### 7.2 Decisions overturned by later rulings (do not follow archived docs on these)
 
@@ -1469,7 +1470,7 @@ I6, then I7 ∥ I9, then I8.*
 | I4 | Main-slot fixed-content pricing (`deriveColumnMetrics`; width-parameterized vocabulary measurement; empty-section-in-slot prices as exactly 0) | INV-3 (first half) |
 | I5 | Column-aware section-title variants (render + mirror in one commit; ATS parity decided explicitly) | INV-2 across columns |
 | I6 | Heterogeneous packed main flow (`packMain` written against anonymous blocks; layout main lists become ORDER; duplicate-section validation; genericity guard on the packer; per-section formulas migrate to the vocabulary) | INV-3 (full), INV-8 (packer), INV-1 duplicate rule |
-| I7 | Vocabulary: projects → custom headings → education details → grouped skills → paragraph summary (each deletes its disclosure from the skill; custom headings must resolve the uppercase-transform interaction with INV-0) | student-segment gaps |
+| I7 | Vocabulary: projects → custom headings → education details → grouped skills → paragraph summary (each deletes its disclosure from the skill; custom headings must resolve the uppercase-transform interaction with INV-0). *Custom headings for the sidebar sections shipped early in 1.11.0 (R-N: verbatim, measured); Summary/Experience headings remain here.* | student-segment gaps |
 | I8 | Education-first template layout; skill post-build checklist; dogfood-shapes-become-fixtures process rule; dual-column pricing reconsidered (facts only, if at all) | process closure |
 | I9 | Full generality: summary as a block; identity as declared repeatable sections; width-parameterized experience; genericity guard on the coordinator | R-H, R-I, INV-8 (full) |
 
