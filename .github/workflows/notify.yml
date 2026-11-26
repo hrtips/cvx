@@ -2,17 +2,28 @@ name: Trigger hrtips-web deploy
 on:
   push:
     branches: [main]
+
+# The job never uses GITHUB_TOKEN: its one API call is made with the app token
+# minted below. Withholding every default permission is what zizmor's
+# excessive-permissions audit asks for, and it is true of this job.
+permissions: {}
+
 jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
       - name: Mint a scoped, short-lived token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
           app-id: ${{ vars.DEPLOY_APP_ID }}
           private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
           repositories: hrtips-web
+          # Scope the token to the one permission the call below needs:
+          # POST /repos/{owner}/{repo}/dispatches requires Contents: write.
+          # Without this the token inherits every permission the app's
+          # installation holds (zizmor: github-app).
+          permission-contents: write
       - name: Dispatch to hrtips-web
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
