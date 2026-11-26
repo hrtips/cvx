@@ -391,6 +391,46 @@
         "$ref": "#/$defs/refereeEntry"
       }
     },
+    "headings": {
+      "title": "headings.yaml",
+      "description": "Optional. Your own heading for a sidebar section, keyed by the section's file name. Printed EXACTLY as typed in both the designed and ATS variants: CVX never changes the case of text you supply, so to match the built-in headings (drawn in capitals) type yours in capitals. A section you leave out keeps its built-in heading. The Summary and Experience headings cannot be renamed yet.",
+      "type": "object",
+      "properties": {
+        "contact": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for the contact block (built-in: \"Contact\"). The designed layout only: the ATS variant prints contact details in its header, with no heading."
+        },
+        "achievements": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for achievements.yaml (built-in: \"Achievements\")."
+        },
+        "education": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for education.yaml (built-in: \"Education\")."
+        },
+        "certifications": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for certifications.yaml (built-in: \"Certifications\"), e.g. \"Training & Courses\"."
+        },
+        "publications": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for publications.yaml (built-in: \"Publications\"), e.g. \"Open Source Contributions\"."
+        },
+        "languages": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for languages.yaml (built-in: \"Languages\")."
+        },
+        "competencies": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for competencies.yaml (built-in: \"Core Competencies\"), e.g. \"Skills\"."
+        },
+        "referees": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Heading for referees.yaml (built-in: \"Referees\" in the designed layout, \"References\" in the ATS variant)."
+        }
+      },
+      "additionalProperties": false
+    },
     "keywordGroup": {
       "type": "object",
       "description": "Named group of keywords. Group names are for your organisation only — they are flattened and discarded in the PDF metadata.",

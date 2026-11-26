@@ -62,12 +62,46 @@ describe('sliceItems', () => {
 })
 
 describe('sliceTitle', () => {
+  /** Only `headings` matters to a title; the rest of the bag is irrelevant here. */
+  const bag = (/** @type {import('../types.js').Headings | undefined} */ headings) =>
+    /** @type {import('../types.js').CVContent} */ ({
+      personal: { name: 'X' },
+      summary: [],
+      experience: [],
+      headings
+    })
+
   it('marks a continuation and leaves a first slice alone', () => {
-    expect(sliceTitle('Certifications', slice(0, 2))).toBe('Certifications')
-    expect(sliceTitle('Certifications', slice(2, 4))).toBe('Certifications (cont.)')
+    expect(sliceTitle('certifications', bag(undefined), slice(0, 2))).toEqual({
+      text: 'Certifications',
+      verbatim: false
+    })
+    expect(sliceTitle('certifications', bag(undefined), slice(2, 4))).toEqual({
+      text: 'Certifications (cont.)',
+      verbatim: false
+    })
   })
 
   it('leaves an unsliced section alone', () => {
-    expect(sliceTitle('Referees', undefined)).toBe('Referees')
+    expect(sliceTitle('referees', bag(undefined), undefined)).toEqual({
+      text: 'Referees',
+      verbatim: false
+    })
+  })
+
+  // headings.yaml: the user's heading is drawn exactly as typed (INV-0 — no
+  // case transform of supplied text), continuation marker included.
+  it("uses the user's heading verbatim, first slice and continuation alike", () => {
+    const data = bag({ publications: 'Open Source Contributions' })
+    expect(sliceTitle('publications', data, slice(0, 2))).toEqual({
+      text: 'Open Source Contributions',
+      verbatim: true
+    })
+    expect(sliceTitle('publications', data, slice(2, 4))).toEqual({
+      text: 'Open Source Contributions (cont.)',
+      verbatim: true
+    })
+    // A heading for ANOTHER section does not leak into this one.
+    expect(sliceTitle('education', data, undefined)).toEqual({ text: 'Education', verbatim: false })
   })
 })

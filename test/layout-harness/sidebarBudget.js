@@ -386,6 +386,22 @@ export function singleLineRowsFor(content) {
     rows.push({ text: x.title, size: TY.degree.size, width: INNER_W, weight: TY.degree.weight })
   for (const l of content.languages ?? [])
     rows.push({ text: l.language, size: TY.degree.size, width: INNER_W, weight: TY.degree.weight })
+  // headings.yaml (1.11.0): a user's heading replaces the built-in label this
+  // file's SIDEBAR_TITLE_H charges as ONE line, and it is drawn exactly as
+  // typed (no uppercase — INV-0). So it, and its "(cont.)" form (any section
+  // can split), joins the single-line assumption: a heading that wraps makes
+  // this oracle stand aside for that fixture rather than vouch for a height
+  // its arithmetic cannot describe. The render diff measures it either way.
+  for (const heading of Object.values(content.headings ?? {})) {
+    for (const text of [heading, `${heading} ${CONTINUED_SUFFIX}`])
+      rows.push({
+        text,
+        size: TY.sidebarSection.size,
+        width: INNER_W,
+        weight: TY.sidebarSection.weight,
+        letterSpacing: TY.sidebarSection.spacing
+      })
+  }
   return rows
 }
 

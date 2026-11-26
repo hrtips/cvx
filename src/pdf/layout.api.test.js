@@ -58,7 +58,13 @@ const PUBLIC_API = [
   // RV4/RV14: the ONE definition of the string a bullet draws. Shipped code
   // imports it (ATSDocument.jsx) and so does the render-diff harness, which
   // previously kept a copy that agreed with the bug it exists to catch.
-  'bulletText'
+  'bulletText',
+  // 1.11.0 (headings.yaml): the ONE answer to "which heading does this
+  // section draw, and may its case change?". sectionSlice.js renders it and
+  // the packer measures it, so the title priced is the title drawn;
+  // ATSDocument.jsx asks `customHeading` so both variants agree.
+  'customHeading',
+  'sidebarSectionTitle'
 ]
 
 /**
@@ -185,7 +191,7 @@ describe('layout.js public API', () => {
     expect(exported).toEqual(classified)
   })
 
-  it('exports exactly the 30 names the module docblock claims', () => {
+  it('exports exactly the 32 names the module docblock claims', () => {
     // 26th is bulletWidth (S3): the real bullet wrap width, @internal for the
     // main-column harness the same way deriveMetrics is for the sidebar's.
     // 27th is MEASURED_MAIN_KEYS (I1), public — see PUBLIC_API above.
@@ -199,8 +205,11 @@ describe('layout.js public API', () => {
     // RV4 added bulletText as the 30th export, public: the ONE definition of
     // the string a bullet draws, imported by ATSDocument.jsx and by the
     // render-diff harness whose copy previously agreed with the bug.
-    expect(exported).toHaveLength(30)
-    expect(PUBLIC_API).toHaveLength(12)
+    // 1.11.0 added customHeading and sidebarSectionTitle as the 31st and 32nd,
+    // both public: headings.yaml's one resolver, imported by sectionSlice.js
+    // and ATSDocument.jsx.
+    expect(exported).toHaveLength(32)
+    expect(PUBLIC_API).toHaveLength(14)
     expect(internal).toHaveLength(18)
   })
 
@@ -230,11 +239,15 @@ describe('layout.js public API', () => {
       [
         'bodyHeight',
         'contactRows',
+        // 1.11.0: ATSDocument.jsx asks whether a heading was renamed;
+        // sectionSlice.js renders the resolved title (it used to compose it
+        // from `sectionTitleLabel`, which the resolver now does for it).
+        'customHeading',
+        'sidebarSectionTitle',
         'isContinuedSlice',
         'isIdentityKey',
         'overflowWarnings',
         'planTwoColumn',
-        'sectionTitleLabel',
         // D2: validateContent.js refuses a sidebar slot key the packer would
         // silently drop, and reads the packer's own registry to do it.
         'SIDEBAR_SECTION_KEYS',
@@ -265,9 +278,17 @@ describe('layout.js public API', () => {
     // that is the point: one list, no copies (ARCHITECTURE §4's mirror rule
     // applied to a constant). It is frozen and made of plain strings, so a
     // caller reading it needs no unpromised type either.
+    //
+    // `sectionTitleLabel` joined them in 1.11.0, and it is the one that MOVED
+    // here rather than arriving: sectionSlice.js imported it until headings.yaml
+    // put `sidebarSectionTitle` in front of it. It stays public because it is
+    // still the one composition of the "(cont.)" marker — the resolver, the
+    // render-diff harness and the docs all describe a continued title through
+    // it — and it takes and returns plain strings, so it needs no unpromised type.
     const imported = new Set(shippedImportersOfLayout().flatMap((i) => i.names))
     expect(PUBLIC_API.filter((n) => !imported.has(n))).toEqual([
       'MEASURED_MAIN_KEYS',
+      'sectionTitleLabel',
       'sidebarFlowKeys'
     ])
     expect(typeof layout.sidebarFlowKeys).toBe('function')

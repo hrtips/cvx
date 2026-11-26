@@ -25,11 +25,14 @@ const makeStyles = (t) =>
 /** @param {{ data: import('../types.js').CVContent, slice?: import('../types.js').SidebarSlice }} props */
 export default function PublicationsSection({ data, slice }) {
   const s = useStyles(makeStyles)
+  const title = sliceTitle('publications', data, slice)
   const items = sliceItems(data.publications, slice)
   if (!items.length) return null
   return (
     <View style={s.wrap}>
-      <SectionTitle variant="sidebar">{sliceTitle('Publications', slice)}</SectionTitle>
+      <SectionTitle variant="sidebar" verbatim={title.verbatim}>
+        {title.text}
+      </SectionTitle>
       {items.map((p, i) => {
         const meta = [p.venue, p.year].filter(Boolean).join('  ·  ')
         return (

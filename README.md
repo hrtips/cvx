@@ -164,6 +164,12 @@ linkedinHref: "https://www.linkedin.com/in/brucewayne"
   phone: "+1 (202) 555-0177"
 ```
 
+**headings.yaml** (optional) gives a sidebar section your own heading. It's printed exactly as you type it, so use capitals to match the built-in headings:
+```yaml
+publications: OPEN SOURCE CONTRIBUTIONS
+certifications: TRAINING & COURSES
+```
+
 Delete what you don't need — an empty file (or `[]`) simply drops that section from the CV. Any new `.yaml` file you drop into `cv-content/` is auto-discovered as a content key.
 
 The complete field-by-field schema for every file lives in [docs/cv-schema.md](docs/cv-schema.md).

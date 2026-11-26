@@ -64,10 +64,9 @@ function factsForContent(id, content) {
   const structural = structuralFactsFor(content)
   for (const v of hardInvariantViolations(structural)) fatalViolations.push(`${id}: ${v}`)
 
-  const sentinels = sentinelsFor(content)
-  for (const variant of ['designed', 'ats']) {
+  for (const variant of /** @type {const} */ (['designed', 'ats'])) {
     const text = extractText(oracle[variant].pdfPath)
-    const { ok, missing } = checkCompleteness(text, sentinels)
+    const { ok, missing } = checkCompleteness(text, sentinelsFor(content, variant))
     if (!ok)
       fatalViolations.push(
         `${id}: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`
@@ -163,10 +162,9 @@ function main() {
     )
     for (const v of hardInvariantViolations(structural))
       fatalViolations.push(`scaffold-default: ${v}`)
-    const sentinels = sentinelsFor(scaffoldContent)
-    for (const variant of ['designed', 'ats']) {
+    for (const variant of /** @type {const} */ (['designed', 'ats'])) {
       const text = extractText(scaffoldOracle[variant].pdfPath)
-      const { ok, missing } = checkCompleteness(text, sentinels)
+      const { ok, missing } = checkCompleteness(text, sentinelsFor(scaffoldContent, variant))
       if (!ok)
         fatalViolations.push(
           `scaffold-default: content-completeness (${variant}) — missing ${JSON.stringify(missing)}`

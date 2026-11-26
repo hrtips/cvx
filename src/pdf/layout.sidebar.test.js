@@ -19,6 +19,7 @@ import {
   assertShrinks,
   bodyHeight,
   CONTINUED_SUFFIX,
+  customHeading,
   deriveMetrics,
   deriveSidebarMetrics,
   identityH,
@@ -30,6 +31,7 @@ import {
   sidebarFlowKeys,
   sidebarItemCount,
   sidebarSectionH,
+  sidebarSectionTitle,
   sidebarSliceH,
   summaryH
 } from './layout.js'
@@ -1026,5 +1028,104 @@ describe('main-column budget accounts for the page-number badge', () => {
     expect(contBudget).toBe(Math.round((withoutBadge - tealTheme.chrome.cornerHeight) * 100) / 100)
     // and the badge really is 34pt of it, so this cannot pass with cornerH = 0
     expect(withoutBadge - contBudget).toBe(tealTheme.chrome.cornerHeight)
+  })
+})
+
+// ── headings.yaml (1.11.0): the user's heading, measured as drawn ───────────
+
+describe('customHeading / sidebarSectionTitle — which heading, and may its case change', () => {
+  const content = (/** @type {Record<string, unknown> | undefined} */ headings) =>
+    /** @type {import('./types.js').CVContent} */ (
+      /** @type {unknown} */ ({ personal: { name: 'X' }, summary: [], experience: [], headings })
+    )
+
+  it('returns the user heading for its own key only, and undefined otherwise', () => {
+    const data = content({ publications: 'OPEN SOURCE CONTRIBUTIONS' })
+    expect(customHeading(data, 'publications')).toBe('OPEN SOURCE CONTRIBUTIONS')
+    expect(customHeading(data, 'education')).toBeUndefined()
+    expect(customHeading(content(undefined), 'publications')).toBeUndefined()
+    expect(customHeading(undefined, 'publications')).toBeUndefined()
+  })
+
+  it('ignores a value the schema would reject rather than drawing it (empty, not a string)', () => {
+    expect(customHeading(content({ publications: '' }), 'publications')).toBeUndefined()
+    expect(customHeading(content({ publications: 42 }), 'publications')).toBeUndefined()
+  })
+
+  it('keeps the built-in label (case-transformable) when no heading is supplied', () => {
+    expect(sidebarSectionTitle('competencies', content(undefined), false)).toEqual({
+      text: 'Core Competencies',
+      verbatim: false
+    })
+    expect(sidebarSectionTitle('competencies', content(undefined), true)).toEqual({
+      text: `Core Competencies ${CONTINUED_SUFFIX}`,
+      verbatim: false
+    })
+  })
+
+  it('marks a user heading verbatim (INV-0: no case transform), continuation included', () => {
+    const data = content({ certifications: 'Training & Courses' })
+    expect(sidebarSectionTitle('certifications', data, false)).toEqual({
+      text: 'Training & Courses',
+      verbatim: true
+    })
+    expect(sidebarSectionTitle('certifications', data, true)).toEqual({
+      text: `Training & Courses ${CONTINUED_SUFFIX}`,
+      verbatim: true
+    })
+  })
+
+  it('falls back to the key for a section the vocabulary does not know', () => {
+    expect(sidebarSectionTitle('not-a-section', content(undefined), false)).toEqual({
+      text: 'not-a-section',
+      verbatim: false
+    })
+  })
+})
+
+describe('sidebarSliceH — a user heading is priced as drawn, not uppercased', () => {
+  const base = /** @type {import('./types.js').CVContent} */ (
+    /** @type {unknown} */ ({
+      personal: { name: 'X' },
+      summary: [],
+      experience: [],
+      publications: [{ title: 'A paper', venue: 'A venue', year: '2024' }]
+    })
+  )
+  // Probed at sidebar width: one line as typed, two once uppercased. A
+  // measurer that capitalised user text would charge an extra row here.
+  const HEADING = 'Talks and Conference Presentations'
+  const rowH = tealTheme.typography.sidebarSection.size * 1.2
+
+  it('the probe heading really is casing-sensitive at this width (else the next test proves nothing)', () => {
+    const ty = tealTheme.typography.sidebarSection
+    const lines = (/** @type {string} */ t) =>
+      measure.lineCount(t, ty.size, sm.innerW, { weight: ty.weight, letterSpacing: ty.spacing })
+    expect(lines(HEADING)).toBe(1)
+    expect(lines(HEADING.toUpperCase())).toBe(2)
+  })
+
+  it('costs exactly what the built-in one-line label costs, because it draws one line', () => {
+    const builtIn = sidebarSliceH('publications', base, sm, measure)
+    const renamed = sidebarSliceH(
+      'publications',
+      { ...base, headings: { publications: HEADING } },
+      sm,
+      measure
+    )
+    expect(renamed).toBe(builtIn)
+  })
+
+  it('costs one more row when the heading itself wraps — the case built-in labels never reach', () => {
+    const builtIn = /** @type {number} */ (sidebarSliceH('publications', base, sm, measure))
+    const wrapping = /** @type {number} */ (
+      sidebarSliceH(
+        'publications',
+        { ...base, headings: { publications: 'Open Source Contributions and Community Projects' } },
+        sm,
+        measure
+      )
+    )
+    expect(Math.round((wrapping - builtIn) * 100) / 100).toBe(Math.round(rowH * 100) / 100)
   })
 })

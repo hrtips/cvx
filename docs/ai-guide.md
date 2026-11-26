@@ -217,6 +217,11 @@ The files and their exact fields:
   (bold headline) and text is the attribution like "— 2024, Organisation".
 - referees.yaml: list of {name, title, company, email, phone},
   or [] for "available upon request".
+- headings.yaml (optional): my own heading for a sidebar section, e.g.
+  publications: OPEN SOURCE CONTRIBUTIONS. Keys: contact, achievements,
+  education, certifications, publications, languages, competencies,
+  referees. Printed exactly as typed, so use capitals to match the
+  built-in headings. Summary and Experience can't be renamed.
 - keywords.yaml (optional): flat list of extra ATS keywords that are
   truthful but not already in my competencies or job titles.
 - config.yaml: schemaVersion: 1, theme: teal | coral | mono,

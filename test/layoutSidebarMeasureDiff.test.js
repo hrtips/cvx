@@ -178,7 +178,12 @@ describe.skipIf(!hasPdftoppm())(
       { id: 'pw-12', identityObservable: true },
       { id: 'edge-one-entry-sections', identityObservable: true },
       { id: 'edge-explicit-empty-referees', identityObservable: true },
-      { id: 'edge-labelless-long-url', identityObservable: true }
+      { id: 'edge-labelless-long-url', identityObservable: true },
+      // 1.11.0 headings.yaml: user headings measured verbatim beside built-in
+      // labels measured uppercased, then headings that wrap to two rows on a
+      // sidebar tall enough to split — so a wrapped "(cont.)" title is priced too.
+      { id: 'edge-custom-headings', identityObservable: true },
+      { id: 'edge-custom-heading-wraps', identityObservable: true }
     ]) {
       it(`${id}: every section height matches the render exactly`, () => {
         const spec = buildFixturePlan().fixtures.find((f) => f.id === id)

@@ -213,6 +213,22 @@ function mapAjvErrors(/** @type {any[]} */ errors, /** @type {any} */ doc) {
           }
           break
         }
+        // headings.yaml: Summary and Experience are real sections whose
+        // headings are not renamable yet (their height is a fixed one-line
+        // constant in the packer, not a measured row). A "did you mean" here
+        // would offer "education" for "experience" — a different section.
+        if (
+          err.parentSchema?.title === 'headings.yaml' &&
+          (key === 'summary' || key === 'experience')
+        ) {
+          finding = {
+            path: err.instancePath || '(root)',
+            message: `the ${key === 'summary' ? 'Summary' : 'Experience'} heading can't be renamed yet — only the sidebar sections' headings can`,
+            suggestion: `delete the key; renamable: ${Object.keys(err.parentSchema?.properties ?? {}).join(', ')}`,
+            unknownKey: true
+          }
+          break
+        }
         const guess = didYouMean(key, Object.keys(err.parentSchema?.properties ?? {}))
         finding = {
           path: err.instancePath || '(root)',

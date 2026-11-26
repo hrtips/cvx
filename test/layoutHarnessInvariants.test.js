@@ -90,7 +90,14 @@ const quantized = (/** @type {number} */ n) => Math.round(n * 100) / 100
  * skipped. Their heights are still verified — by render, in
  * layoutSidebarMeasureDiff.test.js, and by the render oracle's page counts.
  */
-const NOT_TOKEN_DERIVABLE_FIXTURES = new Set(['edge-tall-identity', 'edge-page-tall-item'])
+const NOT_TOKEN_DERIVABLE_FIXTURES = new Set([
+  'edge-tall-identity',
+  'edge-page-tall-item',
+  // 1.11.0: user headings that wrap to two rows, which this oracle's one-line
+  // SIDEBAR_TITLE_H cannot describe. Measured instead by the render diff,
+  // including a heading that is one line as typed and two if uppercased.
+  'edge-custom-heading-wraps'
+])
 
 /** Every curated fixture, paired with its content bag and whether the token oracle applies. */
 function fixtureContents() {

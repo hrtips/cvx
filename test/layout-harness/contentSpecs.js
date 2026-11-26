@@ -266,6 +266,7 @@ function buildConfig(spec) {
  *   entryShapes?: { bullets?: number, progression?: number }[],  // per-ENTRY override of the two above
  *   linkedBullet?: boolean,       // RV4: last bullet uses the { text, link, suffix } object form
 
+ *   headings?: Record<string, string>,  // 1.11.0: written as headings.yaml when present
  *   page1ExperienceCount?, page1SplitBullets?, theme?,
  *   oversizedSection?: keyof ITEM_BUILDERS, oversizedCount?: number,
  * }
@@ -316,6 +317,10 @@ export function buildContent(spec) {
   // explicit-empty-list form for a section (distinct from "absent" = no
   // file at all) — used by the dedicated emptyReferees named edge case.
   for (const key of spec.explicitEmptySections ?? []) files[key] = []
+
+  // headings.yaml (1.11.0) — written only when a fixture asks for it, so no
+  // pre-existing fixture's content (and so no baseline row) moves.
+  if (spec.headings) files.headings = spec.headings
 
   return files
 }

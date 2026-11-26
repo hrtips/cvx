@@ -185,6 +185,23 @@ export interface AtsKeywords {
 }
 
 /** Build configuration (schema: config). */
+/**
+ * headings.yaml — the user's own heading for a sidebar section, drawn exactly as
+ * typed (INV-0: no case transform). An absent key keeps CVX's built-in label.
+ * Summary and Experience are not renamable: their heading height is a fixed
+ * one-line constant in the packer, not a measured row.
+ */
+export interface Headings {
+  contact?: string
+  achievements?: string
+  education?: string
+  certifications?: string
+  publications?: string
+  languages?: string
+  competencies?: string
+  referees?: string
+}
+
 export interface CVConfig {
   schemaVersion?: number
   theme?: string
@@ -209,6 +226,7 @@ export interface CVContent {
   competencies?: string[]
   achievements?: AchievementEntry[]
   referees?: RefereeEntry[]
+  headings?: Headings
   keywords?: Keywords
   profilePhoto?: string | null
 }
@@ -232,6 +250,7 @@ export interface RenderContent {
   competencies: string[]
   achievements: AchievementEntry[]
   referees: RefereeEntry[]
+  headings?: Headings
   keywords?: Keywords
   profilePhoto?: string | null
 }

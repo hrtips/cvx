@@ -8,11 +8,42 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { useMemo } from 'react'
 import { buildKeywords } from './keywords.js'
-import { bulletText } from './layout.js'
+import { bulletText, customHeading } from './layout.js'
 import { ThemeContext, useTheme } from './ThemeContext.jsx'
 import { monoTheme } from './themes/mono.js'
 
 const M = 42 // page margin ≈ 14.8mm
+
+/**
+ * The ATS section heading's box and type, without its case rule — shared by the
+ * capitalised built-in style and the as-typed one, so the two cannot drift.
+ *
+ * @param {import('./types.js').Theme} t
+ */
+const atsSectionHeading = (t) => ({
+  fontSize: 9.5,
+  fontWeight: 700,
+  color: t.palette.textDark,
+  letterSpacing: 0.5,
+  borderBottomWidth: 0.75,
+  borderBottomColor: t.palette.textDark,
+  paddingBottom: 2,
+  marginTop: 14,
+  marginBottom: 8
+})
+
+/**
+ * One ATS section heading: the user's own from headings.yaml, drawn as typed,
+ * or CVX's built-in `label` in the theme's capitals. The same question the
+ * designed sidebar asks (layout.js `customHeading`), so both variants carry the
+ * same heading.
+ *
+ * @param {{ headings?: import('./types.js').Headings, sectionKey: string, label: string, s: ReturnType<typeof makeStyles> }} props
+ */
+function SectionHeading({ headings, sectionKey, label, s }) {
+  const custom = customHeading({ headings }, sectionKey)
+  return <Text style={custom === undefined ? s.section : s.sectionVerbatim}>{custom ?? label}</Text>
+}
 
 /** @param {import('./types.js').Theme} t */
 const makeStyles = (t) =>
@@ -38,19 +69,10 @@ const makeStyles = (t) =>
     contactLine: { fontSize: 8.5, color: t.palette.textMuted },
     photo: { width: 72, height: 72, objectFit: 'cover', borderRadius: 3 },
 
-    // Section heading
-    section: {
-      fontSize: 9.5,
-      fontWeight: 700,
-      color: t.palette.textDark,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      borderBottomWidth: 0.75,
-      borderBottomColor: t.palette.textDark,
-      paddingBottom: 2,
-      marginTop: 14,
-      marginBottom: 8
-    },
+    // Section heading — CVX's own labels in capitals; a user's heading from
+    // headings.yaml exactly as typed (INV-0: no case transform of supplied text).
+    section: { ...atsSectionHeading(t), textTransform: 'uppercase' },
+    sectionVerbatim: atsSectionHeading(t),
 
     // Experience
     role: { fontSize: 10, fontWeight: 700, color: t.palette.textDark },
@@ -110,6 +132,7 @@ function ATSContent({
   languages,
   competencies,
   referees,
+  headings,
   profilePhoto
 }) {
   const theme = useTheme()
@@ -213,7 +236,7 @@ function ATSContent({
       {/* Education */}
       {education?.length > 0 && (
         <View>
-          <Text style={s.section}>Education</Text>
+          <SectionHeading headings={headings} sectionKey="education" label="Education" s={s} />
           {education.map((edu, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
             <View key={`${i}-${edu.degree}`}>
@@ -231,7 +254,12 @@ function ATSContent({
       {/* Certifications */}
       {certifications?.length > 0 && (
         <View>
-          <Text style={s.section}>Certifications</Text>
+          <SectionHeading
+            headings={headings}
+            sectionKey="certifications"
+            label="Certifications"
+            s={s}
+          />
           {certifications.map((c, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
             <View key={`${i}-${c.name}`}>
@@ -248,7 +276,12 @@ function ATSContent({
       {/* Publications */}
       {publications?.length > 0 && (
         <View>
-          <Text style={s.section}>Publications</Text>
+          <SectionHeading
+            headings={headings}
+            sectionKey="publications"
+            label="Publications"
+            s={s}
+          />
           {publications.map((p, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: N6 — the content field alone is not unique by schema (two stints at one company, two awards in one year); this is a single-shot renderToBuffer with no reconciliation, so position is the stable identity
             <View key={`${i}-${p.title}`}>
@@ -265,7 +298,12 @@ function ATSContent({
       {/* Core Competencies */}
       {competencies?.length > 0 && (
         <View>
-          <Text style={s.section}>Core Competencies</Text>
+          <SectionHeading
+            headings={headings}
+            sectionKey="competencies"
+            label="Core Competencies"
+            s={s}
+          />
           <Text style={s.compText}>{competencies.join('  ·  ')}</Text>
         </View>
       )}
@@ -273,7 +311,7 @@ function ATSContent({
       {/* Languages */}
       {languages?.length > 0 && (
         <View>
-          <Text style={s.section}>Languages</Text>
+          <SectionHeading headings={headings} sectionKey="languages" label="Languages" s={s} />
           <Text style={s.compText}>
             {languages
               .map((l) => (l.proficiency ? `${l.language} (${l.proficiency})` : l.language))
@@ -285,7 +323,12 @@ function ATSContent({
       {/* Achievements */}
       {achievements?.length > 0 && (
         <View>
-          <Text style={s.section}>Achievements</Text>
+          <SectionHeading
+            headings={headings}
+            sectionKey="achievements"
+            label="Achievements"
+            s={s}
+          />
           {achievements.map((a, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: achievement text may repeat; index is the stable identity for this single-shot ATS render
             <View key={i} style={s.achieveRow}>
@@ -306,7 +349,7 @@ function ATSContent({
           flag. Only a genuinely absent `referees` key renders nothing. */}
       {referees && (
         <View>
-          <Text style={s.section}>References</Text>
+          <SectionHeading headings={headings} sectionKey="referees" label="References" s={s} />
           {referees.length === 0 && (
             <Text style={s.refDetail}>References available upon request.</Text>
           )}
@@ -348,6 +391,7 @@ export default function ATSDocument({
   languages,
   competencies,
   referees,
+  headings,
   keywords,
   profilePhoto,
   theme,
@@ -382,6 +426,7 @@ export default function ATSDocument({
           languages={languages}
           competencies={competencies}
           referees={referees}
+          headings={headings}
           profilePhoto={profilePhoto}
         />
       </Document>

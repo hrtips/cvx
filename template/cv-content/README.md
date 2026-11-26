@@ -14,6 +14,7 @@ Everything in this folder is Bruce Wayne's CV — working starter content for yo
 | `competencies.yaml` | Skill pills in the sidebar |
 | `achievements.yaml` | Awards and recognitions (sidebar) |
 | `referees.yaml` | Referee contacts — set to `[]` to print "available upon request" |
+| `headings.yaml` | Optional: your own heading for a sidebar section, e.g. `publications: OPEN SOURCE CONTRIBUTIONS` (printed exactly as typed) |
 | `keywords.yaml` | Extra ATS/AI-parser keywords embedded in PDF metadata (optional; keep them truthful) |
 | `config.yaml` | Theme (`teal` / `coral` / `mono`), layout, and page-1 pagination |
 | `images/profile.jpg` | Your photo — square, 400×400px+; `jpg`, `jpeg`, `png`, or `webp` all work |
@@ -48,6 +49,7 @@ If you are an AI assistant replacing this example content with the user's real C
 - **competencies.yaml**: list of short strings (1–3 words; rendered as pills).
 - **achievements.yaml**: list of `{year, text}` — `year` is the bold headline (usually the award name), `text` the attribution, e.g. `"— 2024, Gotham Gazette"`.
 - **referees.yaml**: list of `{name, title, company, email, phone}`, or `[]` for "available upon request".
+- **headings.yaml** (optional): map of sidebar section → your heading — keys `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees`. Printed exactly as typed (CVX never changes the case of supplied text; built-in headings are capitals, so type capitals to match). Summary and Experience headings are not renamable yet.
 - **keywords.yaml** (optional): flat list, or map of group → list (groups are flattened). PDF-metadata only; competencies and job titles are auto-derived, so list only what those miss — truthful terms only.
 - **config.yaml**: `theme` (`teal`|`coral`|`mono`), `layout` (`two-column`|`single-column`|custom layout filename), `atsKeywords: {enabled, autoDerive, max}`.
 - **layouts/*.yaml** (optional): `template` + `pages: {first, continuation, last}`, each with `sidebar`/`main` lists of section keys (`identity-photo`, `identity-compact`, `contact`, `achievements`, `education`, `certifications`, `publications`, `languages`, `competencies`, `referees`, `summary`, `experience`, `experience:continued`, `header-ats`, `spacer: N`). The three **sidebar** lists are concatenated into one ordered flow and paginated by measurement — `last.sidebar: [referees]` means "referees comes last in the sidebar", not "referees renders on the last page". The **main** lists stay per-page-kind.

@@ -77,7 +77,7 @@
 //
 // ── WHAT IS PUBLIC, AND WHAT IS MERELY EXPORTED (C4) ───────────────────────
 //
-// This module exports 30 names. Only eleven of them are API. The rest are
+// This module exports 32 names. Only fourteen of them are API. The rest are
 // exported so the C0 harness can measure the engine with the engine's own
 // formulas instead of a hand-copied second implementation (C0's mirror-drift
 // finding) — a testing affordance, not a commitment, and C7 must not document
@@ -88,7 +88,8 @@
 //   breaking change:
 //     planTwoColumn, overflowWarnings, bodyHeight, contactRows,
 //     sidebarFlowKeys, isIdentityKey, isContinuedSlice, sectionTitleLabel,
-//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS, bulletText
+//     MEASURED_MAIN_KEYS, SIDEBAR_SECTION_KEYS, MAIN_SLOT_KEYS, bulletText,
+//     customHeading, sidebarSectionTitle
 //
 //   A name is only public if the public surface is ENOUGH TO CALL IT. C4's
 //   first cut listed `identityH` here and review caught it: its `sm` parameter
@@ -1572,16 +1573,25 @@ export function deriveSidebarMetrics(/** @type {import('./types.js').Theme | und
   }
 }
 
-/** SectionTitle variant="sidebar": uppercase, letter-spaced, bottom-ruled. */
+/**
+ * SectionTitle variant="sidebar": letter-spaced, bottom-ruled.
+ *
+ * `ink` is the title EXACTLY as the PDF carries it — already uppercased for a
+ * built-in label, untouched for a user's own heading (see `sidebarSectionTitle`
+ * and `titleInk`). This function used to uppercase its argument itself, which
+ * was right only while every title was CVX's own vocabulary: a heading from
+ * headings.yaml is supplied text, INV-0 forbids changing its case, and a
+ * measurer that uppercased it anyway would price a string the page never draws.
+ */
 function sidebarTitleH(
-  /** @type {string} */ label,
+  /** @type {string} */ ink,
   /** @type {SidebarMetrics} */ sm,
   /** @type {import('./types.js').Measurer | undefined} */ measure
 ) {
   const { t } = sm
   const ty = t.typography.sidebarSection
   return (
-    rowH(measure, label.toUpperCase(), ty.size, sm.innerW, sm.cw, {
+    rowH(measure, ink, ty.size, sm.innerW, sm.cw, {
       weight: ty.weight,
       letterSpacing: ty.spacing
     }) +
@@ -1974,7 +1984,7 @@ function contactItems(/** @type {import('./types.js').CVContent} */ data) {
  *   label: string,
  *   always?: true,
  *   items: (data: import('./types.js').CVContent) => unknown[],
- *   height: (items: never[], sm: SidebarMetrics, measure: import('./types.js').Measurer | undefined, label: string) => number,
+ *   height: (items: never[], sm: SidebarMetrics, measure: import('./types.js').Measurer | undefined, ink: string) => number,
  * }>}
  */
 const SIDEBAR_SECTIONS = {
@@ -2071,6 +2081,59 @@ export function isContinuedSlice(slice) {
 export function sectionTitleLabel(/** @type {string} */ label, /** @type {boolean} */ continued) {
   return continued ? `${label} ${CONTINUED_SUFFIX}` : label
 }
+
+/**
+ * The heading the user supplied for a section in `headings.yaml`, or
+ * `undefined` when the section keeps CVX's built-in label.
+ *
+ * Shared by the designed sidebar (through `sidebarSectionTitle`) and the ATS
+ * document, so both variants answer "was this heading renamed?" the same way.
+ * The schema only accepts the sidebar sections' keys and a non-empty string;
+ * the type check here is the renderer's own guard, not a second validator.
+ *
+ * @param {{ headings?: import('./types.js').Headings } | undefined} data  the content bag, or anything carrying its `headings`
+ * @param {string} key  section key, e.g. `publications`
+ * @returns {string | undefined}
+ */
+export function customHeading(data, key) {
+  const heading = /** @type {Record<string, unknown> | undefined} */ (data?.headings)?.[key]
+  return typeof heading === 'string' && heading.length > 0 ? heading : undefined
+}
+
+/**
+ * The title one slice of a sidebar section draws, and whether CVX may change
+ * its case. The ONE place either question is answered: the packer measures
+ * `titleInk()` of this, and `sections/sectionSlice.js` renders this, so the
+ * string measured is the string drawn.
+ *
+ * `verbatim: true` marks a heading from `headings.yaml`. INV-0 forbids any
+ * case-transform of supplied text, so it is drawn exactly as typed and the
+ * SectionTitle component skips its uppercase transform for it. CVX's own
+ * labels are vocabulary, not supplied text, and keep the theme's capitals.
+ * The "(cont.)" marker is CVX's own word in both cases.
+ *
+ * @param {string} key  sidebar section key
+ * @param {import('./types.js').CVContent} data
+ * @param {boolean} continued  an earlier page already showed part of this section
+ * @returns {{ text: string, verbatim: boolean }}
+ */
+export function sidebarSectionTitle(key, data, continued) {
+  const custom = customHeading(data, key)
+  if (custom !== undefined) return { text: sectionTitleLabel(custom, continued), verbatim: true }
+  return {
+    text: sectionTitleLabel(SIDEBAR_SECTIONS[key]?.label ?? key, continued),
+    verbatim: false
+  }
+}
+
+/**
+ * The characters a title puts in the PDF: a built-in label after the
+ * SectionTitle component's uppercase transform, a user's heading untouched.
+ * This is what the measurer must price.
+ *
+ * @param {{ text: string, verbatim: boolean }} title
+ */
+const titleInk = (title) => (title.verbatim ? title.text : title.text.toUpperCase())
 
 /**
  * The ordered ITEM LIST one sidebar section renders — the engine's own view of
@@ -2329,7 +2392,12 @@ export function sidebarSliceH(key, data, sm, measure = undefined, start = 0, end
   if (!def.always && all.length === 0) return null
   const items = /** @type {never[]} */ (all.slice(start, end ?? all.length))
   return quantize(
-    def.height(items, sm, measure, sectionTitleLabel(def.label, isContinuedStart(start)))
+    def.height(
+      items,
+      sm,
+      measure,
+      titleInk(sidebarSectionTitle(key, data, isContinuedStart(start)))
+    )
   )
 }
 

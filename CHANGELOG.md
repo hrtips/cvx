@@ -9,6 +9,47 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
+## 1.11.0 — 2026-11-26
+
+**Give a sidebar section your own heading.** A new optional file,
+`headings.yaml`, renames the heading of any of the eight sidebar sections —
+contact, achievements, education, certifications, publications, languages,
+competencies and referees:
+
+```yaml
+publications: OPEN SOURCE CONTRIBUTIONS
+certifications: TRAINING & COURSES
+```
+
+CVX used to hold an opinion here: a "Training / Courses" list had to print as
+"Certifications", and the skill told assistants to warn you about the rename.
+That warning is gone, because the rename is yours to choose now.
+
+**Printed exactly as you type it.** CVX never changes the case of text you
+supply, so a heading from `headings.yaml` is drawn as written — in the designed
+CV and the ATS variant alike. The built-in headings are capitals; type yours in
+capitals to match them. The ATS variant has no contact heading (it prints
+contact details in its header), so `contact` applies to the designed CV only.
+
+**Measured like everything else on the page.** A long heading wraps onto a
+second line, and the page plan prices that line, so page breaks stay exact. The
+sidebar render diff proves it at 0.01pt, including a heading that fits on one
+line as typed but would need two in capitals — the case a measurer that
+silently capitalised your text would get wrong.
+
+**Nothing changes if you don't use it.** A CV without `headings.yaml` renders
+byte-for-byte as it did in 1.10.0 (checked on the scaffold and on a real CV,
+both variants, same dependencies).
+
+**Not yet: Summary and Experience.** Their heading height is a fixed one-line
+constant rather than a measured row, so renaming them waits for the engine
+work. `validate` says so in plain words if you try, instead of suggesting a
+near-miss key — "experience" would otherwise have been offered "education".
+
+This is one item from roadmap I7, brought forward in a one-time special sprint
+under ruling R-N (ARCHITECTURE §7.1). Content schema stays at version 1:
+`headings.yaml` is a new optional file.
+
 ## 1.10.0 — 2026-08-18
 
 **Five ways a CV could lose content silently, all closed — and one of them

@@ -7,6 +7,7 @@
 // optional-field, single-page, continuation, and error branches the template
 // does not reach.
 
+import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -710,4 +711,82 @@ describe('discoverLayouts', () => {
     expect(layouts.custom.template).toBe('two-column')
     expect(layouts.custom.first?.main).toEqual(['summary'])
   })
+})
+
+// ── headings.yaml (1.11.0): what reaches the page, in every variant ─────────
+//
+// Text checks need poppler's `pdftotext`, which only some CI legs install, so
+// this block is skipped where it is absent (the same gate as the layout
+// harness). Sidebar titles are letter-spaced and come back one glyph per word,
+// so both sides are compared with whitespace removed.
+const HAS_PDFTOTEXT = (() => {
+  try {
+    execFileSync('pdftotext', ['-v'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+})()
+
+describe.skipIf(!HAS_PDFTOTEXT)('renderCV — headings.yaml reaches the page as typed', () => {
+  const HEADINGS = {
+    publications: 'Talks and Conference Presentations',
+    certifications: 'TRAINING & COURSES',
+    contact: 'Get in touch'
+  }
+  const compact = (/** @type {string} */ t) => t.normalize('NFKC').replace(/\s+/g, '')
+
+  async function pageText(/** @type {Record<string, unknown>} */ opts, config = RICH_CONFIG) {
+    const dir = writeContent({ ...RICH, headings: HEADINGS }, { config })
+    const { buffer } = await renderCV({
+      contentDir: dir,
+      fontsDir: FONTS,
+      env: {},
+      warn: () => {},
+      ...opts
+    })
+    const pdf = join(tmp, 'out.pdf')
+    writeFileSync(pdf, buffer)
+    return compact(execFileSync('pdftotext', [pdf, '-'], { encoding: 'utf8' }))
+  }
+
+  it(
+    'designed: user headings verbatim (no capitals forced), untouched sections keep their capitalised label',
+    async () => {
+      const text = await pageText({})
+      expect(text).toContain(compact('Talks and Conference Presentations'))
+      expect(text).not.toContain(compact('TALKS AND CONFERENCE PRESENTATIONS'))
+      expect(text).toContain(compact('TRAINING & COURSES'))
+      expect(text).toContain(compact('Get in touch'))
+      expect(text).not.toContain('PUBLICATIONS')
+      expect(text).not.toContain('CERTIFICATIONS')
+      expect(text).toContain('EDUCATION')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'single-column template: the same sidebar-registry components carry the same headings',
+    async () => {
+      const text = await pageText({}, { ...RICH_CONFIG, layout: 'single-column' })
+      expect(text).toContain(compact('Talks and Conference Presentations'))
+      expect(text).toContain(compact('TRAINING & COURSES'))
+      expect(text).not.toContain('PUBLICATIONS')
+    },
+    RENDER_TIMEOUT
+  )
+
+  it(
+    'ATS: the same headings, and no contact heading (ATS prints contact details in its header)',
+    async () => {
+      const text = await pageText({ ats: true })
+      expect(text).toContain(compact('Talks and Conference Presentations'))
+      expect(text).not.toContain(compact('TALKS AND CONFERENCE PRESENTATIONS'))
+      expect(text).toContain(compact('TRAINING & COURSES'))
+      expect(text).not.toContain(compact('Get in touch'))
+      expect(text).not.toContain('PUBLICATIONS')
+      expect(text).toContain('EDUCATION')
+    },
+    RENDER_TIMEOUT
+  )
 })
