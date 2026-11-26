@@ -9,6 +9,35 @@ Content files are versioned separately by `schemaVersion` in `config.yaml`
 measured to do nothing can also be removed, and the entry that removes it says
 what happens to a file that still sets it.
 
+## 1.11.1 — 2026-11-26
+
+**The engine CI tests is now the engine you run.** CVX allowed
+`@react-pdf/renderer ^4.5.1`, so `npx @hrtips/cvx` had been installing 4.9,
+which renders through upstream pdfkit, while CI, the lockfile and the
+standalone bundle stayed on 4.5.1. Nothing on the page differed. But PDFs from
+npx were not byte-identical to PDFs from the standalone bundle, and the tests
+were exercising an engine nobody installed. Everything now runs 4.9.2.
+
+**Your CV looks the same.** Measured on real CVs, designed and ATS, two to four
+pages each: the same page counts, identical extracted text, and zero pixels
+different at 100 dpi between the old engine and the new one. Every layout
+harness test passed unchanged.
+
+**npx, npm and the standalone bundle agree again.** Built from the same folder
+with `SOURCE_DATE_EPOCH`, all three produce byte-identical PDFs. The bundle
+needed two fixes to run on the new engine: a Unicode data file and pdfkit's
+standard fonts are now built into it, and the build fails if a dependency ever
+reaches for a file beside the bundle again.
+
+**Reproducible mode, re-grounded.** Upstream pdfkit is deterministic on its own
+(subset tags from font ids, synchronous compression), so CVX's compression shim
+is gone. CVX now checks those properties on the installed pdfkit and warns if an
+update ever undoes them.
+
+**Security.** 52 dependency advisories are cleared, including js-yaml and the
+MCP server's HTTP stack. The workflow that notifies the website of a release now
+pins its action and requests only the one permission it needs.
+
 ## 1.11.0 — 2026-11-26
 
 **Give a sidebar section your own heading.** A new optional file,
